@@ -214,3 +214,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 **Alternatives:** Always restarting Ollama on exit (previous behaviour).
 
+
+## D-027 · 2026-11-20 · Watchdog in the night script
+
+**Decision:** `scripts/night-studio.sh` runs `et run-window` in the background with a watchdog. At 06:05 the watchdog sends TERM to the run (pattern `et run-window --condition`), then KILL after 30 s; the EXIT trap restarts Ollama. Test hooks: `ET_WATCHDOG_SECONDS`, `ET_WATCHDOG_GRACE`, `ET_HANG_RUN` (dry run only).
+
+**Reason:** The first night (2026-11-19) hung for ~50 min in `open()` on a macOS privacy prompt (external volumes, new Python binary). `--until 06:00` is only checked between tokens, so a run blocked elsewhere would have kept Ollama stopped indefinitely. Requested by Robert.
+
+**Alternatives:** Full Disk Access for the Python binary only (does not cover a future new binary); `timeout` (not on macOS by default).

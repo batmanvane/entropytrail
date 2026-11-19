@@ -71,7 +71,52 @@ if [ -n "${ET_PROMPT_IDS:-}" ]; then
   ids=(--prompt-ids ${ET_PROMPT_IDS})
 fi
 
-x sudo -u robert -H env HF_HOME=/Volumes/Models/huggingface \
-  /opt/homebrew/bin/uv --directory "$REPO" run --frozen --offline et run-window \
-  --condition "$ET_CONDITION" --prompts "$ET_PROMPTS" \
-  --samples "${ET_SAMPLES:-20}" ${ids[@]+"${ids[@]}"} --until 06:00
+run_step() {
+  if [ "${ET_DRY_RUN:-0}" = "1" ] && [ "${ET_HANG_RUN:-0}" = "1" ]; then
+    echo "DRY: simulated hanging run-window"
+    exec sleep 600 </dev/null >/dev/null 2>&1
+  fi
+  x sudo -u robert -H env HF_HOME=/Volumes/Models/huggingface \
+    /opt/homebrew/bin/uv --directory "$REPO" run --frozen --offline et run-window \
+    --condition "$ET_CONDITION" --prompts "$ET_PROMPTS" \
+    --samples "${ET_SAMPLES:-20}" ${ids[@]+"${ids[@]}"} --until 06:00
+}
+
+# Watchdog: `--until 06:00` is only checked between tokens. A run blocked elsewhere
+# (e.g. a macOS privacy prompt on open(), 2026-11-19) would never reach it and Ollama
+# would stay stopped. At 06:05 the watchdog terminates the run (TERM, then KILL after a
+# grace period); the EXIT trap then restarts Ollama. An interrupted unit leaves only a
+# .partial directory, which the next run cleans up.
+if [ -n "${ET_WATCHDOG_SECONDS:-}" ]; then
+  limit="$ET_WATCHDOG_SECONDS"
+else
+  now=$(date +%s)
+  target=$(date -j -v6H -v5M -v0S +%s)
+  if [ "$target" -le "$now" ]; then target=$((target + 86400)); fi
+  limit=$((target - now))
+  log "watchdog armed until $(date -j -r "$target" '+%Y-%m-%d 06:05')"
+fi
+grace="${ET_WATCHDOG_GRACE:-30}"
+
+run_step &
+run_pid=$!
+# The sleeps run detached from stdout and are killed with the watchdog, so a finished
+# run never leaves a sleeping child behind (it would hold the log pipe open).
+(
+  sp=""
+  trap '[ -n "$sp" ] && kill "$sp" 2>/dev/null; exit 0' TERM
+  sleep "$limit" </dev/null >/dev/null 2>&1 & sp=$!; wait "$sp"
+  log "watchdog: run still active after ${limit}s, terminating"
+  x pkill -TERM -f "et run-window --condition" || true
+  kill -TERM "$run_pid" 2>/dev/null || true
+  sleep "$grace" </dev/null >/dev/null 2>&1 & sp=$!; wait "$sp"
+  x pkill -KILL -f "et run-window --condition" || true
+  kill -KILL "$run_pid" 2>/dev/null || true
+) &
+watchdog_pid=$!
+
+run_rc=0
+wait "$run_pid" || run_rc=$?
+kill "$watchdog_pid" 2>/dev/null || true
+wait "$watchdog_pid" 2>/dev/null || true
+exit "$run_rc"

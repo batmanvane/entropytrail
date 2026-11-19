@@ -38,3 +38,11 @@ space-separated). It is read at every start; no launchd reload needed.
 
 Manual start for a test: `sudo launchctl kickstart system/de.entropytrail.night`.
 Dry run (no side effects): `ET_DRY_RUN=1 bash scripts/night-studio.sh`.
+
+## Watchdog
+
+`--until 06:00` is only checked between tokens. If the run blocks elsewhere (first night:
+a macOS privacy prompt for the external volumes), the watchdog terminates it at 06:05
+(TERM, KILL after 30 s) and Ollama is restarted. If the log shows a long gap after
+"night start", check the Studio screen for a permission dialog; diagnose a hanging
+process with `sample <pid>` (main thread in `__open` = blocked file access).

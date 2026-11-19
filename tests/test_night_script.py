@@ -80,3 +80,27 @@ def test_inside_window_hours_run(tmp_path):
     r = _run(tmp_path, ET_NOW_HOUR="06")
     assert r.returncode == 0 and "outside" in r.stdout
     assert "run-window" not in r.stdout and "bootstrap" not in r.stdout
+
+
+def test_watchdog_kills_hanging_run_and_restarts_ollama(tmp_path):
+    import time
+
+    t0 = time.monotonic()
+    r = _run(tmp_path, ET_HANG_RUN="1", ET_WATCHDOG_SECONDS="1", ET_WATCHDOG_GRACE="1")
+    assert time.monotonic() - t0 < 15
+    assert r.returncode != 0
+    assert "watchdog" in r.stdout
+    lines = _cmd_lines(r.stdout)
+    assert "bootstrap system" in lines[-1] and "com.robert.ollama.plist" in lines[-1]
+
+
+def test_watchdog_does_not_fire_on_normal_run(tmp_path):
+    r = _run(tmp_path, ET_WATCHDOG_SECONDS="5")
+    assert r.returncode == 0, r.stderr
+    assert "watchdog" not in r.stdout
+
+
+def test_watchdog_deadline_is_0605_next_morning(tmp_path):
+    r = _run(tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert "watchdog armed until" in r.stdout and "06:05" in r.stdout

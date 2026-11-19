@@ -36,3 +36,7 @@ Final review fixes of plan 1 (D-022 to D-026): condition manifest `condition.jso
 ## 2026-11-19 (clean re-run at 82adefd)
 
 Re-ran on the 9B at a clean tree (git_dirty false, commit 82adefd). `et validate --tokens 1500`: exit 0; chunk=1 max dH/dS 0.0, same_tokens true; chunked_noise (chunk 512) p99 dH 0.0439, p99 dS 0.0829 bits — identical to the earlier run; generate 14.9 tok/s. `condition.json` created for `qwen35-9b-bf16-mlx-1195d88b` (weights_fingerprint f03e7e8f…, mlx 0.32.4, mlx-lm 0.32.2). Smoke unit `smoke-tool-01/000` regenerated: 4176 tokens, eos, 17.0 tok/s, html_extracted true — same length as the earlier dirty-tree run with the same seed, i.e. reproducible across the code changes. The earlier unit was moved to `smoke-tool-01/000.superseded-dirty-6df192d` (not deleted). Visual check of app.html: done by Robert, looks OK.
+
+## 2026-11-20 (first night run)
+
+First night of `de.entropytrail.night` (queue: smoke-tool-01, 20 samples). Started 23:00; the Python process blocked ~50 min in `open()` on a macOS privacy prompt for access to the external volumes (launchd-started processes do not inherit the interactive grant). Robert clicked Allow on the Studio; the run continued 23:49–00:30: 19 units done, 1 skipped (000), 0 aborted, no error, commit a30ba4c, Ollama restarted (0.40.14). Sample 001: 2743 tokens, 15.6 tok/s. Consequence: watchdog added to the night script (D-027).
