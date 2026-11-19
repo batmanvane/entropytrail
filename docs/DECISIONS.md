@@ -4,11 +4,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 ## D-001 · 2026-11-19 · Approach C
 
-**Decision:** Own measurement pipeline on a local model, generation and token-level recording in one pass, followed by fork experiments.
+**Decision:** Approach C: A first, then B on the same recording core. A is one-shot generation with many samples per prompt, full distributions logged and fork rollouts; B is a crafting loop (draft, render/feedback, revise) with all rounds logged.
 
-**Reason:** Gives full control over the distribution at each step and keeps the study reproducible.
+**Reason:** Find out whether a pattern exists before building the loop; one shared logger.
 
-**Alternatives:** A: hosted API with logprobs only; B: post-hoc scoring of existing apps.
+**Alternatives:** A alone (cleanest view of the landscape and reachability, but no iterative crafting); B alone (real crafting process, but much more machinery and feedback noise mixes into the model's own decisions); the original plan, observer-only measurement of externally produced apps, rejected as core because it cannot show the generator's landscape.
 
 ## D-002 · 2026-11-19 · Primary model Qwen3.5-9B in bf16
 
