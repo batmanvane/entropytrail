@@ -129,3 +129,27 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Native Apple Silicon speed; pinning keeps conditions reproducible (decided in the foundation plan).
 
 **Alternatives:** PyTorch MPS; llama.cpp.
+
+## D-017 · 2026-11-19 · Validation tolerance exceeded on the 9B model; thresholds unchanged
+
+**Decision:** The validation run on the real model (smoke-tool-01, 1500 tokens) gave p99 |dH| 0.0823 bits, p99 |dS| 0.1803 bits, max |dH| 0.2912, max |dS| 0.3607, same_tokens true, i.e. above the 0.01-bit threshold. The threshold and the code were not changed; the result is reported to Robert for a decision (likely cause to investigate: bf16 numerical differences between incremental decoding with cache and chunked full-sequence teacher forcing).
+
+**Reason:** A tolerance is not loosened silently; the cause needs analysis first.
+
+**Alternatives:** Loosening the threshold to fit the data; recomputing in float32 for scoring.
+
+## D-018 · 2026-11-19 · Validation ran with Ollama idle, not stopped
+
+**Decision:** Stopping Ollama needs sudo, so validation and benchmark ran with Ollama running but idle (`/api/ps` empty, checked before each heavy command, ~86% memory free).
+
+**Reason:** No model was loaded, so memory and speed were not affected.
+
+**Alternatives:** `sudo launchctl bootout system/com.robert.ollama` before the run.
+
+## D-019 · 2026-11-19 · Batched generation is evaluated in the WP3 plan
+
+**Decision:** Batched generation (throughput gain for fork experiments) is not implemented now; it is evaluated in the WP3 plan. The spec section 8 estimate assumes no batching.
+
+**Reason:** Single-sequence throughput (~20 tok/s) already gives a feasible schedule for the main grid.
+
+**Alternatives:** Implementing batching in the foundation plan.
