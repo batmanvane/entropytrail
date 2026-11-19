@@ -185,13 +185,13 @@ Rules:
 - Jobs are **resumable**: the unit of work is one app (or one fork rollout). A unit that is interrupted at 06:00 is discarded and redone in the next window; finished units are never recomputed. A run may span many nights without affecting consistency.
 - Throughput is measured in WP1 (single sequence and batched); the time table below is replaced by measured values in `JOURNAL.md`.
 
-Estimate from measured throughput (assumes 20 tok/s single-sequence decode as measured in generation, 2,731 tokens per app as in the smoke app, forks at 32 rollout-equivalents per app as in the earlier estimate, no batching; real prompts with open scope may yield longer apps):
+Estimate from measured throughput (assumes 17.3 tok/s single-sequence decode as measured in generation with the float32 logits head, 4,176 tokens per app as in the smoke app, forks at 32 rollout-equivalents per app as in the earlier estimate, no batching; real prompts with open scope may yield longer apps):
 
 | Task | Compute | Nights (7 h) |
 |---|---|---|
-| Main grid, 420 apps | ~16 h | ~3 |
-| Fork experiments, 2 apps per prompt (42 apps, with baseline) | ~51 h | ~8 |
-| Fork experiments, all 420 apps | ~510 h | not planned; subset only (D2) |
+| Main grid, 420 apps | ~28 h | ~4 |
+| Fork experiments, 2 apps per prompt (42 apps, with baseline) | ~90 h | ~13 |
+| Fork experiments, all 420 apps | ~900 h | not planned; subset only (D2) |
 
 ## 9. Project website (GitHub Pages)
 

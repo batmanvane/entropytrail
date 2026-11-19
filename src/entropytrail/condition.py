@@ -23,6 +23,7 @@ class Condition:
     thinking: bool
     system_prompt_version: str
     machine: str
+    logits_precision: str = "native"
 
     @property
     def condition_id(self) -> str:

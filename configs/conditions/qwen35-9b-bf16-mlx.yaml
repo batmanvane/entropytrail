@@ -8,3 +8,4 @@ max_tokens: 16000
 thinking: false
 system_prompt_version: sys-v1
 machine: mac-studio-m2max
+logits_precision: float32

@@ -134,6 +134,8 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 **Decision:** The validation run on the real model (smoke-tool-01, 1500 tokens) gave p99 |dH| 0.0823 bits, p99 |dS| 0.1803 bits, max |dH| 0.2912, max |dS| 0.3607, same_tokens true, i.e. above the 0.01-bit threshold. The threshold and the code were not changed; the result is reported to Robert for a decision (likely cause to investigate: bf16 numerical differences between incremental decoding with cache and chunked full-sequence teacher forcing).
 
+**Outcome (fix round 1):** Probe showed chunk=1 teacher forcing reproduces the recording exactly, so bookkeeping is correct; chunk>1 differences are bf16 rounding. A float32 lm_head (D-020) reduced but did not remove the gap: chunk=512 p99 dH 0.0439, p99 dS 0.0829, max dH 0.0947, max dS 0.2543 bits, still above 0.01; chunk=1 check is exactly 0.0. Threshold unchanged; open for Robert's decision (remaining source: bf16 hidden states of the transformer body differ between chunked and single-token kernels).
+
 **Reason:** A tolerance is not loosened silently; the cause needs analysis first.
 
 **Alternatives:** Loosening the threshold to fit the data; recomputing in float32 for scoring.
@@ -153,3 +155,13 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Single-sequence throughput (~20 tok/s) already gives a feasible schedule for the main grid.
 
 **Alternatives:** Implementing batching in the foundation plan.
+
+## D-020 · 2026-11-19 · Float32 lm_head (logits_precision: float32)
+
+**Decision:** The condition has a field `logits_precision`; with `float32` the language model's `lm_head` is replaced by a float32 copy and the hidden state is cast to float32 before the matmul, so logits and log-softmax are float32. This changes the condition_id (no study data existed yet). `et validate` now reports two blocks: chunk=1 vs recorder (max <= 1e-5 bits, bookkeeping) and chunk=512 vs recorder (p99 <= 0.01 bits, unchanged).
+
+**Reason:** bf16 logits quantize log-probs by one bf16 ulp (0.18-0.36 bits of surprisal for rare tokens at |logp| 8-32 nats), which would contaminate fork and originality measures.
+
+**Cost:** about 4 GB more memory and decode speed about 20 to 17 tok/s.
+
+**Alternatives:** keeping bf16 logits; float32 for the whole model.

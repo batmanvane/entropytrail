@@ -38,7 +38,34 @@ def load_model(cond: Condition):
         emb = dict(mlx.utils.tree_flatten(model.parameters()))
         key = next(k for k in emb if k.endswith("embed_tokens.weight"))
         assert emb[key].dtype == mx.bfloat16, f"expected bf16 weights, got {emb[key].dtype}"
+    if cond.logits_precision == "float32":
+        _use_float32_head(model)
+    elif cond.logits_precision != "native":
+        raise ValueError(f"unknown logits_precision: {cond.logits_precision!r}")
     return model, tokenizer
+
+
+def _use_float32_head(model) -> None:
+    """Replace lm_head by a float32 copy so logits and log-softmax are float32."""
+    import mlx.nn as nn
+
+    lm = model.language_model
+    if not hasattr(lm, "lm_head"):
+        raise ValueError("model has tied embeddings / no lm_head; float32 head unsupported")
+
+    class Float32Head(nn.Module):
+        def __init__(self, weight: mx.array):
+            super().__init__()
+            self.weight = weight
+
+        def __call__(self, x: mx.array) -> mx.array:
+            return x.astype(mx.float32) @ self.weight.T
+
+    lm.lm_head = Float32Head(lm.lm_head.weight.astype(mx.float32))
+    mx.eval(lm.lm_head.weight)
+    assert lm.lm_head.weight.dtype == mx.float32
+    out = model(mx.array([[1]]))
+    assert out.dtype == mx.float32, f"expected float32 logits, got {out.dtype}"
 
 
 def weights_fingerprint(repo: str) -> str:

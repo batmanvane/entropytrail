@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 from entropytrail.model import generate_recorded
-from entropytrail.teacher_forcing import compare, score_tokens
+from entropytrail.teacher_forcing import compare, score_tokens, validate_recording
 
 
 def test_matches_recorder(tiny_model, fake_io):
@@ -31,3 +31,16 @@ def test_long_sequence_bounded(tiny_model):
     out = [rnd.randrange(1000) for _ in range(3000)]
     s = score_tokens(tiny_model, [1, 2, 3], out, chunk=256)
     assert len(s["H"]) == 3000
+
+
+def test_validate_recording_two_blocks(tiny_model, fake_io):
+    rec = generate_recorded(
+        tiny_model, [1, 2, 3], seed=3, temperature=1.0, max_tokens=60,
+        eos_ids=set(), token_texts=fake_io["token_texts"],
+    )
+    res = validate_recording(tiny_model, rec, chunk=16)
+    assert set(res) == {"bookkeeping_chunk1", "chunked", "ok"}
+    assert res["chunked"]["chunk"] == 16
+    for block in ("bookkeeping_chunk1", "chunked"):
+        assert {"p99_abs_dH", "p99_abs_dS", "max_abs_dH", "max_abs_dS", "ok"} <= set(res[block])
+    assert res["ok"] is True

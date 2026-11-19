@@ -40,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     v = sub.add_parser("validate", help="teacher-forcing validation of the recorder")
     common(v)
     v.add_argument("--tokens", type=int, default=1500)
+    v.add_argument("--chunk", type=int, default=512, help="teacher-forcing chunk size")
 
     b = sub.add_parser("bench", help="single-sequence throughput")
     common(b, prompts=False)
@@ -95,7 +96,7 @@ def cmd_validate(args) -> int:
     from entropytrail.condition import derive_seed
     from entropytrail.model import build_prompt_ids, generate_recorded, tokenizer_io
     from entropytrail.storage import data_root
-    from entropytrail.teacher_forcing import compare, score_tokens
+    from entropytrail.teacher_forcing import validate_recording
 
     cond, ps, model, tok, _ = _load(args)
     prompt = ps.prompts[0]
@@ -107,16 +108,15 @@ def cmd_validate(args) -> int:
               eos_ids=eos_ids, token_texts=texts)
     rec = generate_recorded(model, ids, **kw)
     t0 = time.monotonic()
-    scored = score_tokens(model, ids, [t.token_id for t in rec.tokens])
+    res = validate_recording(model, rec, chunk=args.chunk)
     score_s = time.monotonic() - t0
-    res = compare(rec, scored)
     rec2 = generate_recorded(model, ids, **kw)
     res["same_tokens"] = [t.token_id for t in rec.tokens] == [t.token_id for t in rec2.tokens]
     n = len(rec.tokens)
     res.update(
         condition_id=cond.condition_id, prompt_id=prompt.id, seed=seed, n_tokens=n,
         generate_tokens_per_s=(n / rec.seconds) if rec.seconds else 0.0,
-        score_tokens_per_s=(n / score_s) if score_s else 0.0,
+        score_tokens_per_s=(2 * n / score_s) if score_s else 0.0,
     )
     out = data_root() / "_validation" / cond.condition_id / _stamp()
     out.mkdir(parents=True)

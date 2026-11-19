@@ -19,6 +19,8 @@ Present only if extraction succeeded (`meta.json: html_extracted == true`).
 
 ## tokens.parquet
 
+Logits and log-softmax are computed in float32 from a float32 copy of `lm_head` (condition field `logits_precision`).
+
 One row per generated token, in generation order.
 
 | column | type | unit | definition |

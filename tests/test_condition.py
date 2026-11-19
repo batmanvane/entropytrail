@@ -35,3 +35,19 @@ def test_seed_deterministic_and_distinct():
     assert derive_seed("c", "p", 0) == derive_seed("c", "p", 0)
     assert len({derive_seed("c", "p", i) for i in range(100)}) == 100
     assert 0 <= derive_seed("c", "p", 0) < 2**32
+
+
+def test_logits_precision_in_condition_id():
+    c = load_condition(COND)
+    assert c.logits_precision == "float32"
+    assert dataclasses.replace(c, logits_precision="native").condition_id != c.condition_id
+
+
+def test_load_model_rejects_unknown_logits_precision(monkeypatch):
+    import entropytrail.model as m
+    import mlx_lm
+
+    monkeypatch.setattr(mlx_lm, "load", lambda repo: (object(), object()))
+    c = dataclasses.replace(load_condition(COND), precision="other", logits_precision="fp8")
+    with pytest.raises(ValueError):
+        m.load_model(c)

@@ -43,14 +43,31 @@ def score_tokens(model, prompt_ids: list[int], output_ids: list[int],
     return {k: np.concatenate([p[k] for p in pieces]) for k in pieces[0]}
 
 
-def compare(rec: Recording, scored: dict) -> dict:
+def compare(rec: Recording, scored: dict, *, stat: str = "p99", tol: float = 0.01) -> dict:
     h = np.array([t.stats.H for t in rec.tokens], dtype=np.float64)
     s = np.array([t.stats.S for t in rec.tokens], dtype=np.float64)
     dh = np.abs(h - scored["H"].astype(np.float64))
     ds = np.abs(s - scored["S"].astype(np.float64))
     p99h, p99s = float(np.percentile(dh, 99)), float(np.percentile(ds, 99))
+    mxh, mxs = float(dh.max()), float(ds.max())
+    if stat == "max":
+        ok = mxh <= tol and mxs <= tol
+    else:
+        ok = p99h <= tol and p99s <= tol
     return {
         "p99_abs_dH": p99h, "p99_abs_dS": p99s,
-        "max_abs_dH": float(dh.max()), "max_abs_dS": float(ds.max()),
-        "ok": bool(p99h <= 0.01 and p99s <= 0.01),
+        "max_abs_dH": mxh, "max_abs_dS": mxs,
+        "ok": bool(ok),
     }
+
+
+def validate_recording(model, rec: Recording, chunk: int = 512) -> dict:
+    """Two blocks: chunk=1 bookkeeping check (max <= 1e-5 bits) and chunk=N p99 <= 0.01 bits."""
+    ids = [t.token_id for t in rec.tokens]
+    bookkeeping = compare(rec, score_tokens(model, rec.prompt_ids, ids, chunk=1),
+                          stat="max", tol=1e-5)
+    chunked = compare(rec, score_tokens(model, rec.prompt_ids, ids, chunk=chunk),
+                      stat="p99", tol=0.01)
+    chunked["chunk"] = chunk
+    return {"bookkeeping_chunk1": bookkeeping, "chunked": chunked,
+            "ok": bool(bookkeeping["ok"] and chunked["ok"])}
