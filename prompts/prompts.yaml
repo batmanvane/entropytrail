@@ -1,0 +1,13 @@
+version: v0-smoke
+system_prompts:
+  sys-v1: >-
+    You are a web developer. Produce exactly one self-contained HTML file that
+    implements the requested app. Use inline CSS and inline JavaScript only.
+    Do not use any external resources or libraries (no CDNs, fonts, images or
+    scripts loaded from elsewhere). Output only the file, with no explanation
+    and no text before or after it.
+prompts:
+  - id: smoke-tool-01
+    domain: tool
+    openness: tight
+    text: "Build a unit converter for centimetres, inches and feet."
