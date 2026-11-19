@@ -7,7 +7,15 @@ SCRIPT = ROOT / "scripts" / "night-studio.sh"
 
 
 def _run(tmp_path, **extra):
-    env = {**os.environ, "ET_DRY_RUN": "1", **extra}
+    env = {
+        **os.environ,
+        "ET_DRY_RUN": "1",
+        "ET_REPO": str(ROOT),
+        "ET_MODELS_DIR": str(tmp_path),
+        "ET_DATA_DIR": str(tmp_path),
+        "ET_NOW_HOUR": "23",
+        **extra,
+    }
     return subprocess.run(
         ["/bin/bash", str(SCRIPT)], capture_output=True, text=True, env=env, cwd=tmp_path
     )
@@ -45,3 +53,20 @@ def test_missing_mount_exits_but_restarts_ollama(tmp_path):
 def test_logs_start_and_end(tmp_path):
     r = _run(tmp_path)
     assert "night start" in r.stdout and "night end" in r.stdout
+
+
+def test_outside_window_does_nothing(tmp_path):
+    r = _run(tmp_path, ET_NOW_HOUR="08")
+    assert r.returncode == 0
+    assert "outside" in r.stdout
+    assert "bootout" not in r.stdout and "run-window" not in r.stdout
+
+
+def test_inside_window_hours_run(tmp_path):
+    for h in ("23", "00", "02", "05"):
+        r = _run(tmp_path, ET_NOW_HOUR=h)
+        assert r.returncode == 0, h
+        assert "bootout system/com.robert.ollama" in r.stdout, h
+        assert "et run-window" in r.stdout, h
+    r = _run(tmp_path, ET_NOW_HOUR="06")
+    assert "run-window" not in r.stdout

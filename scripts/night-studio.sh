@@ -41,6 +41,13 @@ for d in "$MODELS_DIR" "$DATA_DIR"; do
   fi
 done
 
+# Window guard: launchd fires missed intervals after wake; only run 23:00-05:59.
+hour=$((10#${ET_NOW_HOUR:-$(date +%H)}))
+if [ "$hour" -lt 23 ] && [ "$hour" -ge 6 ]; then
+  log "hour $hour is outside the 23-06 window, skipping"
+  exit 0
+fi
+
 x launchctl bootout "system/$OLLAMA_LABEL" \
   || log "bootout returned non-zero (not loaded?), ignored"
 
