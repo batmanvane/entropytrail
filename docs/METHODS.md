@@ -15,3 +15,7 @@ All information quantities are in bits (log base 2). Let p be the full next-toke
 - Surprisal S uses the log-prob of the token actually emitted (or, in teacher forcing, the forced token).
 - Margin uses the two largest log2 probabilities (top-1 minus top-2); 0 if the vocabulary has a single entry.
 - Top-k: k = min(20, V), found with `argpartition` and then sorted descending; stored as token ids (int32) and log2 probabilities (float32).
+
+## Precision
+
+Recorded values are the exact sampling distribution: the transformer body runs in bf16, the head (float32 copy of `lm_head`) and the log-softmax in float32. A chunked teacher-forced recomputation (chunk > 1) differs from the recorded values because the bf16 body kernels round differently for different chunk sizes; measured on 1500 tokens of the smoke app (chunk 512): p99 |dH| 0.044, p99 |dS| 0.083, max |dH| 0.095, max |dS| 0.254 bits. Compare against recorded values only by recomputing token by token (chunk = 1), which reproduces them exactly (decision D-021).

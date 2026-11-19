@@ -22,7 +22,7 @@
 - Raw data root: `/Volumes/Data/entropytrail/` (configurable via env `ENTROPYTRAIL_DATA`); layout `<condition_id>/<prompt_id>/<sample:03d>/` with `app.html`, `tokens.parquet`, `meta.json`.
 - **One condition = one machine + runtime + precision**; any change of model, precision, sampling, system prompt version or thinking creates a new `condition_id`.
 - Run window **23:00–06:00**; a unit interrupted by the deadline is discarded, finished units are never recomputed.
-- Validation: logged H and S equal a teacher-forced recomputation with **99th-percentile absolute difference ≤ 0.01 bits**; same seed ⇒ same token sequence on the same runtime (bit-exact logits not required).
+- Validation (decision D-021): logged H and S equal a **token-by-token (chunk=1) teacher-forced recomputation, max absolute difference ≤ 1e-5 bits**; chunked recomputation is reported as informational noise only; same seed ⇒ same token sequence on the same runtime (bit-exact logits not required).
 - Repo is public: no `Claude-Session:` trailers, no claude.ai links; commit trailer only `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Every choice the builder makes is recorded in `docs/DECISIONS.md`.
 
@@ -275,7 +275,7 @@ Ollama must be stopped first (it may hold a model in memory): this needs Robert'
 
 - [ ] **Step 1:** `uv run pytest -m slow -v` → PASS.
 - [ ] **Step 2:** `uv run et bench --condition configs/conditions/qwen35-9b-bf16-mlx.yaml --tokens 1000` → record prefill and decode tokens/s. Expected order of magnitude: 15–25 tok/s decode.
-- [ ] **Step 3:** `uv run et validate --condition … --prompts prompts/prompts.yaml --tokens 1500` → exit 0, `ok: true`, `same_tokens: true`. If p99 exceeds 0.01 bits, do not loosen silently: report the numbers to Robert and record the outcome in DECISIONS.
+- [ ] **Step 3:** `uv run et validate --condition … --prompts prompts/prompts.yaml --tokens 1500` → exit 0, `ok: true`, `same_tokens: true` (criterion per D-021; the chunked p99 is informational).
 - [ ] **Step 4:** `uv run et generate … --prompt-id smoke-tool-01 --sample 0` → full app; open `app.html` in a browser and check it renders; check `meta.json` and `tokens.parquet` against `docs/DATA.md`.
 - [ ] **Step 5:** JOURNAL entry with bench numbers, validation numbers, smoke app result. Replace the rough §8 time table in the spec with estimates from the measured throughput and the smoke app's token count. DECISIONS entry for the tolerance outcome and for "batched generation evaluated in the WP3 plan".
 - [ ] **Step 6:** Commit `docs: validation and benchmark of the 9B recorder`.

@@ -24,3 +24,7 @@ First run of the recorder on the real Qwen3.5-9B (bf16, MLX, mlx-lm 0.32.2) on t
 - Smoke app under the new condition: 4,176 tokens, eos, 241 s (17.3 tok/s), html_extracted true, static check OK, no external resources.
 - Spec section 8 table updated (main grid ~28 h / ~4 nights, forks ~90 h / ~13 nights).
 - The data of the old condition `qwen35-9b-bf16-mlx-6466454b` under /Volumes/Data/entropytrail is superseded and left in place.
+
+## 2026-11-19 (fix round 2: validation criterion)
+
+Robert decided the criterion (D-021): validation passes iff chunk=1 teacher forcing reproduces recorded H and S within 1e-5 bits max and same_tokens; chunked recomputation is informational (`chunked_noise`). Re-run on the 9B, 1500 tokens, exit 0: chunk=1 max dH/dS 0.0, ok true, same_tokens true; chunked_noise (chunk 512) p99 dH 0.0439, p99 dS 0.0829, max dH 0.0947, max dS 0.2543 bits; generate 15.6 tok/s. Slow tests pass after the head swap.

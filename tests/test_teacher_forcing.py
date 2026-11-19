@@ -39,8 +39,9 @@ def test_validate_recording_two_blocks(tiny_model, fake_io):
         eos_ids=set(), token_texts=fake_io["token_texts"],
     )
     res = validate_recording(tiny_model, rec, chunk=16)
-    assert set(res) == {"bookkeeping_chunk1", "chunked", "ok"}
-    assert res["chunked"]["chunk"] == 16
-    for block in ("bookkeeping_chunk1", "chunked"):
-        assert {"p99_abs_dH", "p99_abs_dS", "max_abs_dH", "max_abs_dS", "ok"} <= set(res[block])
+    assert set(res) == {"bookkeeping_chunk1", "chunked_noise", "ok"}
+    assert res["chunked_noise"]["chunk"] == 16 and "ok" not in res["chunked_noise"]
+    keys = {"p99_abs_dH", "p99_abs_dS", "max_abs_dH", "max_abs_dS"}
+    assert keys <= set(res["chunked_noise"])
+    assert keys | {"ok"} <= set(res["bookkeeping_chunk1"])
     assert res["ok"] is True

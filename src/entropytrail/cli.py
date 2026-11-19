@@ -116,6 +116,7 @@ def cmd_validate(args) -> int:
     res.update(
         condition_id=cond.condition_id, prompt_id=prompt.id, seed=seed, n_tokens=n,
         generate_tokens_per_s=(n / rec.seconds) if rec.seconds else 0.0,
+        # validate_recording scores the sequence twice (chunk=1 and chunk=N)
         score_tokens_per_s=(2 * n / score_s) if score_s else 0.0,
     )
     out = data_root() / "_validation" / cond.condition_id / _stamp()

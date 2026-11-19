@@ -10,7 +10,8 @@ PREFILL_STEP = 2048
 
 
 def _logprobs(logits: mx.array) -> mx.array:
-    # Same op and dtype as mlx_lm generate_step (model dtype, no float32 cast).
+    # Same op as mlx_lm generate_step, in the dtype of the logits (float32 when the
+    # condition uses the float32 head, otherwise the model dtype).
     return logits - mx.logsumexp(logits, axis=-1, keepdims=True)
 
 
@@ -62,12 +63,12 @@ def compare(rec: Recording, scored: dict, *, stat: str = "p99", tol: float = 0.0
 
 
 def validate_recording(model, rec: Recording, chunk: int = 512) -> dict:
-    """Two blocks: chunk=1 bookkeeping check (max <= 1e-5 bits) and chunk=N p99 <= 0.01 bits."""
+    """Chunk=1 bookkeeping check (max <= 1e-5 bits, decides ``ok``) plus informational chunk=N noise."""
     ids = [t.token_id for t in rec.tokens]
     bookkeeping = compare(rec, score_tokens(model, rec.prompt_ids, ids, chunk=1),
                           stat="max", tol=1e-5)
-    chunked = compare(rec, score_tokens(model, rec.prompt_ids, ids, chunk=chunk),
-                      stat="p99", tol=0.01)
-    chunked["chunk"] = chunk
-    return {"bookkeeping_chunk1": bookkeeping, "chunked": chunked,
-            "ok": bool(bookkeeping["ok"] and chunked["ok"])}
+    noise = compare(rec, score_tokens(model, rec.prompt_ids, ids, chunk=chunk))
+    noise.pop("ok")  # informational only (decision D-021)
+    noise["chunk"] = chunk
+    return {"bookkeeping_chunk1": bookkeeping, "chunked_noise": noise,
+            "ok": bool(bookkeeping["ok"])}

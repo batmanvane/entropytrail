@@ -134,7 +134,7 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 **Decision:** The validation run on the real model (smoke-tool-01, 1500 tokens) gave p99 |dH| 0.0823 bits, p99 |dS| 0.1803 bits, max |dH| 0.2912, max |dS| 0.3607, same_tokens true, i.e. above the 0.01-bit threshold. The threshold and the code were not changed; the result is reported to Robert for a decision (likely cause to investigate: bf16 numerical differences between incremental decoding with cache and chunked full-sequence teacher forcing).
 
-**Outcome (fix round 1):** Probe showed chunk=1 teacher forcing reproduces the recording exactly, so bookkeeping is correct; chunk>1 differences are bf16 rounding. A float32 lm_head (D-020) reduced but did not remove the gap: chunk=512 p99 dH 0.0439, p99 dS 0.0829, max dH 0.0947, max dS 0.2543 bits, still above 0.01; chunk=1 check is exactly 0.0. Threshold unchanged; open for Robert's decision (remaining source: bf16 hidden states of the transformer body differ between chunked and single-token kernels).
+**Outcome (fix round 1):** Probe showed chunk=1 teacher forcing reproduces the recording exactly, so bookkeeping is correct; chunk>1 differences are bf16 rounding. A float32 lm_head (D-020) reduced but did not remove the gap: chunk=512 p99 dH 0.0439, p99 dS 0.0829, max dH 0.0947, max dS 0.2543 bits, still above 0.01; chunk=1 check is exactly 0.0. Threshold unchanged at that point; resolved by Robert's decision in D-021 (remaining source: bf16 hidden states of the transformer body differ between chunked and single-token kernels).
 
 **Reason:** A tolerance is not loosened silently; the cause needs analysis first.
 
@@ -165,3 +165,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Cost:** about 4 GB more memory and decode speed about 20 to 17 tok/s.
 
 **Alternatives:** keeping bf16 logits; float32 for the whole model.
+
+## D-021 · 2026-11-19 · Validation criterion (decided by Robert)
+
+**Decision:** Validation passes iff (a) teacher forcing token by token (chunk=1) reproduces the recorded H and S with max abs difference <= 1e-5 bits, and (b) the same seed gives the same token sequence. The chunked recomputation (default chunk 512) is still computed and written to `validation.json` as `chunked_noise`, but is informational only and does not affect the exit code. Measured chunked noise on 1500 tokens of the smoke app: p99 |dH| 0.044, p99 |dS| 0.083, max |dH| 0.095, max |dS| 0.254 bits (bf16 body kernels round differently per chunk size). Rule for later work: any comparison against recorded values recomputes token by token (chunk=1). The earlier "p99 <= 0.01 bits" criterion is replaced.
+
+**Reason:** The recorded values are the exact distribution the sampler used; the chunked differences are noise of the recomputation, not of the recording.
+
+**Alternatives:** Loosening the p99 threshold; running the body in float32.

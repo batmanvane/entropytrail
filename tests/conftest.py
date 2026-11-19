@@ -17,8 +17,7 @@ def _real_config() -> dict:
     return json.load(open(glob.glob(pat)[0]))
 
 
-@pytest.fixture(scope="session")
-def tiny_model():
+def make_tiny_model(**text_overrides):
     from mlx_lm.models import qwen3_5
 
     c = _real_config()
@@ -30,11 +29,17 @@ def tiny_model():
         linear_num_value_heads=4, linear_key_head_dim=16,
         linear_value_head_dim=16, vocab_size=1000,
     )
+    t.update(text_overrides)
     c["text_config"] = t
     mx.random.seed(0)
     m = qwen3_5.Model(qwen3_5.ModelArgs.from_dict(c))
     mx.eval(m.parameters())
     return m
+
+
+@pytest.fixture(scope="session")
+def tiny_model():
+    return make_tiny_model()
 
 
 @pytest.fixture

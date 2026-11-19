@@ -240,7 +240,7 @@ Every run writes a manifest; the journal links manifests. A "condition" = model 
 | WP | Content | Done when |
 |---|---|---|
 | WP0 | Repo, docs skeleton (README, DECISIONS, DATA, JOURNAL, METHODS), Python env on Studio and desktop, night scheduling (launchd / scheduled task) with Ollama stop/start, data transfer Studio → desktop | skeleton committed, env reproducible |
-| WP1 | Model download + runtime; recorder that logs 5.3 fields; validation: logged H/S match a teacher-forced recomputation within tolerance (e.g. 1e-2 bits), and the same seed reproduces the same token sequence on the same runtime (bit-exact logits not required) | one app generated and logged, validation passes |
+| WP1 | Model download + runtime; recorder that logs 5.3 fields; validation: logged H/S match a token-by-token (chunk=1) teacher-forced recomputation within 1e-5 bits (decision D-021; chunked recomputation differs by up to ~0.25 bits of bf16 noise and is informational only), and the same seed reproduces the same token sequence on the same runtime (bit-exact logits not required) | one app generated and logged, validation passes |
 | WP2 | Prompt set (~21 prompts, system prompt), reviewed by Robert; analysis plan frozen in `METHODS.md` | `prompts.yaml` v1 and analysis plan frozen |
 | WP3 | Batch generation: 20 samples × all prompts, resumable | ~420 apps with logs |
 | WP4 | Automatic evaluation on the desktop (render, errors, screenshots, fingerprints, embeddings, adherence checklists) | table of outcomes for all apps |
