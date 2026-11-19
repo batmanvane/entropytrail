@@ -1,10 +1,12 @@
+import dataclasses
+import hashlib
 import json
 from datetime import datetime, timedelta
 
 import pytest
 
 from entropytrail.condition import Condition, Prompt, PromptSet, derive_seed
-from entropytrail.runner import Unit, plan_units, run_units
+from entropytrail.runner import IdentityMismatch, Unit, plan_units, run_units
 from entropytrail.storage import is_done, run_dir
 
 BASE = datetime(2026, 1, 1, 23, 0, 0)
@@ -35,11 +37,12 @@ class Clock:
         return BASE + timedelta(seconds=self.n * self.step)
 
 
-def go(tiny_model, fake_io, tmp_path, units, cond=None, deadline=None, now=None):
+def go(tiny_model, fake_io, tmp_path, units, cond=None, deadline=None, now=None,
+       ps=None, fingerprint="test"):
     cond = cond or make_cond()
     return run_units(
-        units, cond, make_ps(), tiny_model, None, tmp_path, deadline,
-        fingerprint="test", now=now or Clock(0.0001),
+        units, cond, ps or make_ps(), tiny_model, None, tmp_path, deadline,
+        fingerprint=fingerprint, now=now or Clock(0.0001),
         io=(fake_io["eos_ids"], fake_io["token_texts"]),
         prompt_ids_fn=lambda p: [1, 2, 3],
     )
@@ -97,8 +100,13 @@ def test_runlog_appended(tiny_model, fake_io, tmp_path):
     lines = (tmp_path / "runlog.jsonl").read_text().splitlines()
     assert len(lines) == 2
     d = json.loads(lines[0])
-    assert set(d) == {"started", "ended", "condition_id", "done", "skipped", "aborted"}
+    assert set(d) == {
+        "started", "ended", "condition_id", "done", "skipped", "aborted",
+        "error", "git_commit", "weights_fingerprint", "stale_moved",
+    }
     assert d == r1
+    assert d["error"] is None and d["stale_moved"] == []
+    assert d["weights_fingerprint"] == "test" and d["git_commit"]
 
 
 def test_meta_has_provenance(tiny_model, fake_io, tmp_path):
@@ -113,6 +121,93 @@ def test_meta_has_provenance(tiny_model, fake_io, tmp_path):
     assert meta["prompt_set_version"] == "p1" and meta["sample"] == 0
     assert meta["system_prompt_version"] == "v1"
     assert meta["started_at"] and meta["finished_at"]
+    assert meta["prompt_ids"] == [1, 2, 3]
+    assert meta["prompt_text_sha256"] == hashlib.sha256(b"t1").hexdigest()
+    assert meta["system_prompt_sha256"] == hashlib.sha256(b"sys").hexdigest()
+
+
+def _ps_with(system="sys", texts=("t0", "t1", "t2")):
+    return PromptSet(
+        version="p1", system_prompts={"v1": system},
+        prompts=[Prompt(id=f"p{i}", domain="d", openness="o", text=t) for i, t in enumerate(texts)],
+    )
+
+
+def _last_log(tmp_path):
+    return json.loads((tmp_path / "runlog.jsonl").read_text().splitlines()[-1])
+
+
+def test_condition_manifest_created(tiny_model, fake_io, tmp_path):
+    cond = make_cond()
+    go(tiny_model, fake_io, tmp_path, plan_units(make_ps(), 1, ["p0"]), cond=cond)
+    m = json.loads((tmp_path / cond.condition_id / "condition.json").read_text())
+    assert m["condition_id"] == cond.condition_id
+    assert m["condition"] == dataclasses.asdict(cond)
+    assert m["weights_fingerprint"] == "test"
+    assert m["system_prompt_version"] == "v1"
+    assert m["system_prompt_sha256"] == hashlib.sha256(b"sys").hexdigest()
+    assert m["mlx"] and m["mlx_lm"] and m["created_at"]
+
+
+@pytest.mark.parametrize("change", ["fingerprint", "system_prompt", "mlx", "mlx_lm"])
+def test_manifest_mismatch_aborts(tiny_model, fake_io, tmp_path, change, monkeypatch):
+    cond = make_cond()
+    units = plan_units(make_ps(), 1, None)
+    go(tiny_model, fake_io, tmp_path, units[:1], cond=cond)
+    kw = {}
+    if change == "fingerprint":
+        kw["fingerprint"] = "other"
+    elif change == "system_prompt":
+        kw["ps"] = _ps_with(system="changed")
+    else:
+        import entropytrail.runner as runner
+
+        real = runner.provenance
+        monkeypatch.setattr(runner, "provenance", lambda: {**real(), change: "9.9.9"})
+    with pytest.raises(IdentityMismatch, match="condition.json"):
+        go(tiny_model, fake_io, tmp_path, units, cond=cond, **kw)
+    assert not is_done(run_dir(tmp_path, cond.condition_id, "p1", 0))
+    log = _last_log(tmp_path)
+    assert log["done"] == 0 and "IdentityMismatch" in log["error"]
+
+
+def test_prompt_text_change_on_done_unit_aborts(tiny_model, fake_io, tmp_path):
+    cond = make_cond()
+    units = plan_units(make_ps(), 1, ["p0"])
+    go(tiny_model, fake_io, tmp_path, units, cond=cond)
+    ps2 = _ps_with(texts=("CHANGED", "t1", "t2"))
+    with pytest.raises(IdentityMismatch, match="p0"):
+        go(tiny_model, fake_io, tmp_path, plan_units(ps2, 1, ["p0"]), cond=cond, ps=ps2)
+    assert "IdentityMismatch" in _last_log(tmp_path)["error"]
+
+
+def test_crash_writes_runlog_and_reraises(tiny_model, fake_io, tmp_path):
+    cond = make_cond()
+
+    def boom(p):
+        raise RuntimeError("kaputt")
+
+    with pytest.raises(RuntimeError, match="kaputt"):
+        run_units(
+            plan_units(make_ps(), 1, ["p0"]), cond, make_ps(), tiny_model, None, tmp_path,
+            None, fingerprint="test", now=Clock(0.0001),
+            io=(fake_io["eos_ids"], fake_io["token_texts"]), prompt_ids_fn=boom,
+        )
+    log = _last_log(tmp_path)
+    assert log["error"] == "RuntimeError: kaputt"
+    assert log["done"] == 0 and log["weights_fingerprint"] == "test"
+
+
+def test_stale_final_dir_moved_and_redone(tiny_model, fake_io, tmp_path):
+    cond = make_cond()
+    final = run_dir(tmp_path, cond.condition_id, "p0", 0)
+    final.mkdir(parents=True)
+    (final / "meta.json").write_text('{"status": "writing"}')
+    r = go(tiny_model, fake_io, tmp_path, plan_units(make_ps(), 1, ["p0"]), cond=cond)
+    assert r["done"] == 1 and is_done(final)
+    assert len(r["stale_moved"]) == 1
+    moved = tmp_path / r["stale_moved"][0]
+    assert moved.name.startswith("000.stale-") and (moved / "meta.json").exists()
 
 
 def test_cli_help_parses():
