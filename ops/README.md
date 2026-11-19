@@ -1,9 +1,16 @@
 # Night scheduling (Mac Studio)
 
 A root LaunchDaemon `de.entropytrail.night` runs `scripts/night-studio.sh` daily at 23:00.
-The script stops the system Ollama daemon (`com.robert.ollama`), runs
-`et run-window ... --until 06:00` as user robert, and restarts Ollama on every
-exit path (EXIT trap), including failures and unmounted volumes.
+The script first checks the window (only 23:00-05:59; a missed 23:00 fired by launchd
+after wake is skipped) and that `/Volumes/Models` and `/Volumes/Data` are mounted, then
+stops the system Ollama daemon (`com.robert.ollama`), runs
+`uv run --frozen --offline et run-window ... --until 06:00` as user robert, and restarts
+Ollama on every exit path after it was stopped (EXIT trap), including failures. A skipped
+night or an unmounted volume exits without touching Ollama.
+
+`et run-window` refuses to run when the repository has uncommitted changes (the night run
+does not pass `--allow-dirty`); the reason is in the night log, and no runlog entry is
+written in that case. Commit before the window starts.
 
 ## Install
 

@@ -31,6 +31,7 @@ def test_dry_run_order(tmp_path):
     lines = _cmd_lines(r.stdout)
     assert "bootout system/com.robert.ollama" in lines[0]
     assert "et run-window" in lines[1] and "--until 06:00" in lines[1]
+    assert "run --frozen --offline et run-window" in lines[1]
     assert "--samples 20" in lines[1]
     assert "bootstrap system" in lines[-1] and "com.robert.ollama.plist" in lines[-1]
     assert len(lines) == 3
@@ -43,11 +44,12 @@ def test_failing_run_still_restarts_ollama_last(tmp_path):
     assert "bootstrap system" in lines[-1] and "com.robert.ollama.plist" in lines[-1]
 
 
-def test_missing_mount_exits_but_restarts_ollama(tmp_path):
+def test_missing_mount_exits_without_touching_ollama(tmp_path):
     r = _run(tmp_path, ET_MODELS_DIR=str(tmp_path / "nope"))
     assert r.returncode != 0
     assert "run-window" not in r.stdout
-    assert "bootstrap system" in _cmd_lines(r.stdout)[-1]
+    assert "bootout" not in r.stdout and "bootstrap" not in r.stdout
+    assert "night end" in r.stdout
 
 
 def test_logs_start_and_end(tmp_path):
@@ -60,6 +62,13 @@ def test_outside_window_does_nothing(tmp_path):
     assert r.returncode == 0
     assert "outside" in r.stdout
     assert "bootout" not in r.stdout and "run-window" not in r.stdout
+    assert "bootstrap" not in r.stdout
+
+
+def test_outside_window_with_missing_mount_skips_cleanly(tmp_path):
+    r = _run(tmp_path, ET_NOW_HOUR="08", ET_MODELS_DIR=str(tmp_path / "nope"))
+    assert r.returncode == 0
+    assert "outside" in r.stdout and "bootstrap" not in r.stdout
 
 
 def test_inside_window_hours_run(tmp_path):
@@ -69,4 +78,5 @@ def test_inside_window_hours_run(tmp_path):
         assert "bootout system/com.robert.ollama" in r.stdout, h
         assert "et run-window" in r.stdout, h
     r = _run(tmp_path, ET_NOW_HOUR="06")
-    assert "run-window" not in r.stdout
+    assert r.returncode == 0 and "outside" in r.stdout
+    assert "run-window" not in r.stdout and "bootstrap" not in r.stdout
