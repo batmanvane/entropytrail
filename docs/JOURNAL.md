@@ -28,3 +28,7 @@ First run of the recorder on the real Qwen3.5-9B (bf16, MLX, mlx-lm 0.32.2) on t
 ## 2026-11-19 (fix round 2: validation criterion)
 
 Robert decided the criterion (D-021): validation passes iff chunk=1 teacher forcing reproduces recorded H and S within 1e-5 bits max and same_tokens; chunked recomputation is informational (`chunked_noise`). Re-run on the 9B, 1500 tokens, exit 0: chunk=1 max dH/dS 0.0, ok true, same_tokens true; chunked_noise (chunk 512) p99 dH 0.0439, p99 dS 0.0829, max dH 0.0947, max dS 0.2543 bits; generate 15.6 tok/s. Slow tests pass after the head swap.
+
+## 2026-11-19 (final review fixes)
+
+Final review fixes of plan 1 (D-022 to D-026): condition manifest `condition.json` and resume identity guard (prompt and system-prompt hashes, `prompt_ids` in meta.json); mlx-lm version checked at model load; `et generate` / `et run-window` refuse a dirty git tree without `--allow-dirty`, and `validation.json` carries provenance and the weights fingerprint; runlog entry written also on crash (`error`, `git_commit`, `weights_fingerprint`, `stale_moved`), non-done final directories moved aside and redone; night script restarts Ollama only if it stopped it and runs `uv run --frozen --offline`; DATA.md documents every file and key; DECISIONS entries D-002/3/4/6/10/11/16/20 aligned with the spec. Condition fields unchanged, condition_id stays `qwen35-9b-bf16-mlx-1195d88b` (now pinned in a test). The existing validation and smoke data predate these keys; validate/smoke are to be re-run at a clean HEAD.

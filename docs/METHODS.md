@@ -10,7 +10,7 @@ All information quantities are in bits (log base 2). Let p be the full next-toke
 ## Implementation notes (`src/entropytrail/stats.py`)
 
 - Logits and log-softmax are computed in float32 from a float32 copy of `lm_head` (condition field `logits_precision: float32`); the transformer body stays bf16.
-- Input is the natural-log probability vector from `generate_step` (log-softmax of the logits). It is cast to float32 (the model runs in bf16), converted to bits by dividing by ln 2, and all four quantities are computed on device in float32.
+- Input is the natural-log probability vector from `generate_step` (log-softmax of the logits). With the float32 head it is already float32 (the cast to float32 in `stats.py` only matters for a condition with `logits_precision: native`, where log-probs are in the model dtype bf16); it is converted to bits by dividing by ln 2, and all four quantities are computed on device in float32.
 - Entries with p = 0 (log-prob = -inf) contribute exactly 0 to H and to the second moment (`where(p > 0, ..., 0)`), so no NaNs arise. Varentropy is clamped at 0 against rounding.
 - Surprisal S uses the log-prob of the token actually emitted (or, in teacher forcing, the forced token).
 - Margin uses the two largest log2 probabilities (top-1 minus top-2); 0 if the vocabulary has a single entry.

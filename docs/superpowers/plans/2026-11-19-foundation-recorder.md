@@ -231,7 +231,7 @@ def test_seed_deterministic_and_distinct():
 **Interfaces:**
 - Consumes: `token_stats_batch`, tiny-model fixture, `generate_recorded`.
 - Produces: `score_tokens(model, prompt_ids: list[int], output_ids: list[int], chunk: int = 512) -> dict[str, np.ndarray]` — one prefill of the prompt with `mlx_lm.models.cache.make_prompt_cache(model)`, then feeds `output_ids` in chunks of `chunk` through `model(x, cache=cache)`; the distribution for output position t comes from the logits at the previous position (last prompt position for t=0); returns `token_stats_batch` arrays of length `len(output_ids)`. Memory: only one `(chunk, V)` block of log-probs is alive at a time.
-- Also produces: `compare(rec: Recording, scored: dict) -> dict` — keys `p99_abs_dH`, `p99_abs_dS`, `max_abs_dH`, `max_abs_dS`, `ok` (`p99 ≤ 0.01` for both).
+- Also produces: `compare(rec: Recording, scored: dict) -> dict` — keys `p99_abs_dH`, `p99_abs_dS`, `max_abs_dH`, `max_abs_dS`, `ok` (`p99 ≤ 0.01` for both) (validation criterion superseded by D-021).
 
 - [ ] **Step 1: Failing tests**
   - `test_matches_recorder`: tiny model, 200 generated tokens; `compare(...)["ok"]` is True.

@@ -12,27 +12,27 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 ## D-002 · 2026-11-19 · Primary model Qwen3.5-9B in bf16
 
-**Decision:** Qwen/Qwen3.5-9B at bf16 is the primary condition.
+**Decision:** Qwen/Qwen3.5-9B at full precision (bf16) is the primary model, frozen for the whole study (spec 4).
 
-**Reason:** Fits the Mac Studio (32 GB) without quantisation noise in the distributions.
+**Reason:** Quantization distorts probabilities (spec 4); bf16 (~18 GB) fits the Mac Studio's 32 GB but not the desktop's 16 GB VRAM (spec 8).
 
-**Alternatives:** Quantised variants; larger models.
+**Alternatives:** Qwen3.6-35B-A3B in MLX 4-bit as a later comparison model, a separate condition never mixed with the 9B data (spec 4); Qwen3.5-9B 8-bit on the desktop as an optional separate condition (WP9).
 
 ## D-003 · 2026-11-19 · Local only, no Ollama for measurement
 
-**Decision:** All measurement runs use MLX directly on the local machine.
+**Decision:** All measurement runs are local; Ollama is not used for measurement; the model is run with MLX or PyTorch directly (spec 4; runtime choice in D-016).
 
-**Reason:** Ollama does not expose full distributions; one runtime per condition keeps conditions comparable.
+**Reason:** Ollama gives no full distributions and no teacher forcing (spec 4).
 
-**Alternatives:** Ollama with logprobs.
+**Alternatives:** Ollama (rejected for the reason above).
 
-## D-004 · 2026-11-19 · Prompt grid 3x2 plus free prompt
+## D-004 · 2026-11-19 · Prompt grid 3x2 plus free cell
 
-**Decision:** Prompts form a 3x2 grid plus one free prompt (spec 5.1).
+**Decision:** 3 domains (education, game, tool) x 2 openness levels (tight, loose) plus a free cell; about 3 prompts per cell, the free cell has ~3 prompts ("Build an HTML app of your choice" + 2 variants), ~21 prompts in total (spec 5.1). All prompts share one fixed system prompt; prompts are versioned in `prompts/prompts.yaml` with stable ids.
 
-**Reason:** Enough variation for contrasts while staying computable.
+**Reason:** Openness is an experimental variable: the hypothesis is that it moves the forks from details (tight) to the idea level (loose/free) (spec 5.1, H2).
 
-**Alternatives:** Larger grid; a single prompt.
+**Alternatives:** None recorded in the spec.
 
 ## D-005 · 2026-11-19 · 20 samples per prompt, T=1.0, no truncation
 
@@ -42,13 +42,13 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 **Alternatives:** Lower temperature; nucleus sampling.
 
-## D-006 · 2026-11-19 · Thinking mode off (D1 proposal)
+## D-006 · 2026-11-19 · Thinking mode off
 
-**Decision:** Thinking is disabled via enable_thinking=False in the chat template.
+**Decision:** Thinking is disabled via enable_thinking=False in the chat template for the main grid (spec D1).
 
-**Reason:** Keeps the recorded trail on the artifact itself and the output length bounded.
+**Reason:** Thinking tokens are part of the landscape but make runs much longer (spec D1).
 
-**Alternatives:** Thinking on as a separate condition later.
+**Alternatives:** Thinking on; per the spec D1 proposal, one extra condition with thinking on for the free prompts later.
 
 ## D-007 · 2026-11-19 · Top-20 stored, no full logits
 
@@ -76,19 +76,19 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 ## D-010 · 2026-11-19 · Studio main series, desktop separate
 
-**Decision:** The Mac Studio produces the main series; the desktop PC is a separate condition.
+**Decision:** The Mac Studio produces the main series (all generation and fork experiments of the primary condition). The desktop PC does work that does not mix with the main series (rendering, screenshots, embeddings; optional separate 8-bit condition). The desktop is not a fallback for the Studio's main series; if the Studio is unavailable, the series pauses (spec 8).
 
-**Reason:** One condition equals one machine, runtime and precision.
+**Reason:** One condition = one machine + runtime + precision: logits differ slightly between MLX/Metal and CUDA and between precisions, so a condition is never split across machines (spec 8).
 
-**Alternatives:** Pooling machines.
+**Alternatives:** Pooling machines (rejected for the reason above).
 
-## D-011 · 2026-11-19 · Run window 23:00-06:00
+## D-011 · 2026-11-19 · Run window 23:00-06:00 with Ollama stop/start
 
-**Decision:** Runs happen only between 23:00 and 06:00; a unit interrupted by the deadline is discarded.
+**Decision:** Runs happen only between 23:00 and 06:00, started by launchd on the Studio. Ollama on the Studio (`com.robert.ollama`) is stopped at the start of the window and restarted at the end. Jobs are resumable per unit: a unit interrupted at 06:00 is discarded and redone in the next window; finished units are never recomputed (spec 8).
 
-**Reason:** The machine is otherwise in use.
+**Reason:** Ollama is stopped to free memory for the 9B model (spec 4, approved by Robert 2026-11-19). The spec gives no reason for the window times.
 
-**Alternatives:** Continuous runs.
+**Alternatives:** None recorded in the spec.
 
 ## D-012 · 2026-11-19 · Public repository
 
@@ -126,9 +126,9 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 **Decision:** Runtime is MLX with mlx-lm pinned exactly to 0.32.2.
 
-**Reason:** Native Apple Silicon speed; pinning keeps conditions reproducible (decided in the foundation plan).
+**Reason:** mlx-lm 0.32.2 supports the `qwen3_5` architecture (spec 4). Spec D6 requires full-precision logits and hidden-state access. (builder rationale) MLX meets both (float32 logits via D-020; hidden states are accessible from the model's layers), runs natively on Apple Silicon, and the exact pin keeps the condition reproducible.
 
-**Alternatives:** PyTorch MPS; llama.cpp.
+**Alternatives:** PyTorch-MPS (spec D6).
 
 ## D-017 · 2026-11-19 · Validation tolerance exceeded on the 9B model; thresholds unchanged
 
@@ -158,7 +158,7 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 
 ## D-020 · 2026-11-19 · Float32 lm_head (logits_precision: float32)
 
-**Decision:** The condition has a field `logits_precision`; with `float32` the language model's `lm_head` is replaced by a float32 copy and the hidden state is cast to float32 before the matmul, so logits and log-softmax are float32. This changes the condition_id (no study data existed yet). `et validate` now reports two blocks: chunk=1 vs recorder (max <= 1e-5 bits, bookkeeping) and chunk=512 vs recorder (p99 <= 0.01 bits, unchanged).
+**Decision:** The condition has a field `logits_precision`; with `float32` the language model's `lm_head` is replaced by a float32 copy and the hidden state is cast to float32 before the matmul, so logits and log-softmax are float32. This changes the condition_id (no study data existed yet). `et validate` now reports two blocks: chunk=1 vs recorder (max <= 1e-5 bits, bookkeeping) and chunk=512 vs recorder (p99 <= 0.01 bits, unchanged). Superseded by D-021: the chunked block is informational only, the p99 <= 0.01 bits criterion no longer applies.
 
 **Reason:** bf16 logits quantize log-probs by one bf16 ulp (0.18-0.36 bits of surprisal for rare tokens at |logp| 8-32 nats), which would contaminate fork and originality measures.
 
@@ -173,3 +173,44 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** The recorded values are the exact distribution the sampler used; the chunked differences are noise of the recomputation, not of the recording.
 
 **Alternatives:** Loosening the p99 threshold; running the body in float32.
+
+## D-022 · 2026-11-19 · Condition manifest and resume identity guard
+
+**Decision:** The first run of a condition writes `<data root>/<condition_id>/condition.json` (condition fields, condition_id, weights_fingerprint, system_prompt_version and the sha256 of its text, mlx and mlx-lm versions, created_at). Every later run compares all keys except created_at and aborts before running any unit if one differs. Each unit's `meta.json` also stores `system_prompt_sha256`, `prompt_text_sha256` and the `prompt_ids` fed to the model. When a done unit is skipped on resume, its prompt text hash must equal that of the current prompt, otherwise the run aborts. Units written before this key existed are checked via the sha256 of their stored `prompt.text`. The `Condition` fields are unchanged, so the condition_id stays `qwen35-9b-bf16-mlx-1195d88b` (now pinned in a test).
+
+**Reason:** Units were identified only by condition/prompt/sample, so a changed prompt text, system prompt, weight file or library version would have silently mixed into a condition (final review). (builder rationale) `prompt_set_version` is not compared: adding prompts to the set must not invalidate a condition, and the per-unit text hash catches a changed prompt.
+
+**Alternatives:** Putting fingerprint and versions into `Condition` (would change condition_id); comparing the full meta of every done unit.
+
+## D-023 · 2026-11-19 · mlx-lm version enforced at model load
+
+**Decision:** `load_model` raises before loading if the installed mlx-lm version differs from the condition's `runtime_version`. The mlx version is covered by `condition.json` (D-022).
+
+**Reason:** The runtime version is part of the condition but was not checked (final review).
+
+**Alternatives:** Adding the mlx version to the condition (would change condition_id).
+
+## D-024 · 2026-11-19 · Dirty-tree refusal and provenance in validation.json
+
+**Decision:** `et generate` and `et run-window` refuse to run when `git status --porcelain` is non-empty unless `--allow-dirty` is given; the night run does not pass it. `validation.json` now carries the provenance keys (git_commit, git_dirty, versions, host) and `weights_fingerprint`. (builder rationale) `et validate` and `et bench` are not guarded; validation records `git_dirty` instead.
+
+**Reason:** Data and WP1 evidence must name the exact code that produced them (final review).
+
+**Alternatives:** Only recording `git_dirty` (keeps the data, but its code is not recoverable).
+
+## D-025 · 2026-11-19 · Crash-safe runlog and stale unit directories
+
+**Decision:** `run_units` writes its runlog entry in `finally`, with `error` (null or `"<type>: <message>"`), `git_commit`, `weights_fingerprint` and `stale_moved`, and re-raises the exception. A final unit directory without `status: "done"` is renamed to `<dir>.stale-<YYYYmmdd-HHMMSS>` and the unit is redone. (builder rationale) Renamed rather than deleted, so a possible bug that produced it can still be inspected.
+
+**Reason:** A crash left no runlog trace, and a non-done final directory would have made `write_run` fail on every later night (final review).
+
+**Alternatives:** Deleting the stale directory.
+
+## D-026 · 2026-11-19 · Night script: restart Ollama only if this run stopped it
+
+**Decision:** The EXIT trap of `scripts/night-studio.sh` starts Ollama only after this run has booted it out. The window guard now runs before the mount check, so a missed 23:00 fired after wake (or an unmounted volume) exits without touching Ollama. The run uses `uv run --frozen --offline`.
+
+**Reason:** The skip path would otherwise start a deliberately stopped Ollama; at night uv must neither resolve nor download (final review).
+
+**Alternatives:** Always restarting Ollama on exit (previous behaviour).
+
