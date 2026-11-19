@@ -30,12 +30,16 @@ def build_parser() -> argparse.ArgumentParser:
     common(g)
     g.add_argument("--prompt-id", required=True)
     g.add_argument("--sample", required=True, type=int)
+    g.add_argument("--allow-dirty", action="store_true",
+                   help="run even if the git working tree has uncommitted changes")
 
     r = sub.add_parser("run-window", help="run units until a deadline")
     common(r)
     r.add_argument("--samples", required=True, type=int)
     r.add_argument("--prompt-ids", nargs="+", default=None)
     r.add_argument("--until", required=True, metavar="HH:MM")
+    r.add_argument("--allow-dirty", action="store_true",
+                   help="run even if the git working tree has uncommitted changes")
 
     v = sub.add_parser("validate", help="teacher-forcing validation of the recorder")
     common(v)
@@ -68,9 +72,15 @@ def _load(args, need_prompts=True):
 
 
 def _run(args, units_fn, deadline) -> int:
+    from entropytrail.model import provenance
     from entropytrail.runner import run_units
     from entropytrail.storage import data_root
 
+    if provenance()["git_dirty"] and not args.allow_dirty:
+        print("refusing to run: the git working tree has uncommitted changes, so meta.json "
+              "could not name the code that produced the data; commit first or pass "
+              "--allow-dirty", file=sys.stderr)
+        return 2
     cond, ps, model, tok, fp = _load(args)
     res = run_units(units_fn(ps), cond, ps, model, tok, data_root(), deadline, fingerprint=fp)
     print(json.dumps(res))
@@ -94,11 +104,13 @@ def cmd_run_window(args) -> int:
 
 def cmd_validate(args) -> int:
     from entropytrail.condition import derive_seed
-    from entropytrail.model import build_prompt_ids, generate_recorded, tokenizer_io
+    from entropytrail.model import (
+        build_prompt_ids, generate_recorded, provenance, tokenizer_io,
+    )
     from entropytrail.storage import data_root
     from entropytrail.teacher_forcing import validate_recording
 
-    cond, ps, model, tok, _ = _load(args)
+    cond, ps, model, tok, fp = _load(args)
     prompt = ps.prompts[0]
     ids = build_prompt_ids(tok, ps.system_prompts[cond.system_prompt_version],
                            prompt.text, cond.thinking)
@@ -118,7 +130,9 @@ def cmd_validate(args) -> int:
         generate_tokens_per_s=(n / rec.seconds) if rec.seconds else 0.0,
         # validate_recording scores the sequence twice (chunk=1 and chunk=N)
         score_tokens_per_s=(2 * n / score_s) if score_s else 0.0,
+        weights_fingerprint=fp,
     )
+    res.update(provenance())
     out = data_root() / "_validation" / cond.condition_id / _stamp()
     out.mkdir(parents=True)
     (out / "validation.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
