@@ -57,7 +57,7 @@ Rejected as core: observer-only measurement of externally produced apps (origina
 - No deadline. Compute budget is open; scale is set by measured run times, not by a date.
 - During runs the Ollama service on the Studio (`com.robert.ollama`) is stopped to free memory for the 9B model (Robert approved, 2026-11-19); it is restarted afterwards.
 - Local only. Ollama is not usable for measurement (no full distributions, no teacher forcing); use MLX or PyTorch directly.
-- **Primary model: Qwen3.5-9B** at full precision (bf16), frozen for the whole study. Only its config is cached right now (weights must be downloaded, ~18 GB). Facts from its config: architecture `Qwen3_5ForConditionalGeneration` (multimodal – usable for screenshot feedback in phase B), vocabulary 248,320, hidden size 4096, 32 layers, context 262,144.
+- **Primary model: Qwen3.5-9B** at full precision (bf16), frozen for the whole study. Weights are in the HF cache (4 safetensors files, 19.3 GB; checked 2026-11-19). Runtime: mlx-lm 0.32.2, which supports the `qwen3_5` architecture (hybrid: linear-attention layers with a full-attention layer every 4th). Facts from its config: architecture `Qwen3_5ForConditionalGeneration` (multimodal – usable for screenshot feedback in phase B), vocabulary 248,320, hidden size 4096, 32 layers, context 262,144.
 - **Comparison model (later): Qwen3.6-35B-A3B**, MLX 4-bit (already on disk). Quantization distorts probabilities; it is a second condition, never mixed with the 9B data.
 - Raw data lives outside the repo under `/Volumes/Data/entropytrail/`. The repo holds code, docs, prompt set, manifests and derived summaries.
 
