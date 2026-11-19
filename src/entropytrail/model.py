@@ -23,7 +23,7 @@ class Interrupted(Exception):
 
 
 def snapshot_dir(repo: str) -> Path:
-    """Newest local HF snapshot directory of ``repo`` (no network)."""
+    """Local HF snapshot directory of ``repo`` that ``refs/main`` points to (no network)."""
     from huggingface_hub import snapshot_download
 
     return Path(snapshot_download(repo, local_files_only=True))
@@ -33,6 +33,12 @@ def load_model(cond: Condition):
     import mlx.utils
     from mlx_lm import load
 
+    installed = md.version("mlx-lm")
+    if installed != cond.runtime_version:
+        raise RuntimeError(
+            f"condition {cond.name} requires mlx-lm {cond.runtime_version}, "
+            f"but mlx-lm {installed} is installed"
+        )
     model, tokenizer = load(cond.model_repo)
     if cond.precision == "bf16":
         emb = dict(mlx.utils.tree_flatten(model.parameters()))

@@ -51,3 +51,19 @@ def test_load_model_rejects_unknown_logits_precision(monkeypatch):
     c = dataclasses.replace(load_condition(COND), precision="other", logits_precision="fp8")
     with pytest.raises(ValueError):
         m.load_model(c)
+
+
+def test_golden_condition_id():
+    assert load_condition(COND).condition_id == "qwen35-9b-bf16-mlx-1195d88b"
+
+
+def test_load_model_rejects_runtime_version_mismatch(monkeypatch):
+    import entropytrail.model as m
+    import mlx_lm
+
+    called = []
+    monkeypatch.setattr(mlx_lm, "load", lambda repo: called.append(repo))
+    monkeypatch.setattr(m.md, "version", lambda pkg: "0.0.1" if pkg == "mlx-lm" else "1")
+    with pytest.raises(RuntimeError, match="mlx-lm"):
+        m.load_model(load_condition(COND))
+    assert called == []
