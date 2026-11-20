@@ -1,6 +1,6 @@
 """Render the README figures from the small data files in docs/figures/data/.
 
-Run:  uv run --with matplotlib python scripts/make_readme_figures.py
+Run:  ET_FIG_FONT_DIR=<folder with IBM Plex Mono .ttf> uv run --with matplotlib python scripts/make_readme_figures.py
 
 Data sources (both committed):
 - docs/figures/data/text-examples.json: two short generations by Qwen3.5-9B through the
@@ -18,29 +18,39 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.patches import FancyBboxPatch  # noqa: E402
+from matplotlib import font_manager  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "docs" / "figures" / "data"
 OUT = ROOT / "docs" / "figures"
 PREVIEW = Path(__import__("os").environ.get("ET_FIG_PREVIEW", "/tmp"))
 
-SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
-INK2 = "#52514e"
-GRID = "#e4e3df"
-BLUE = "#2a78d6"  # categorical slot 1
-ORANGE = "#eb6834"  # categorical slot 2
-# Sequential blue ramp (reference palette steps 100 -> 650) for entropy.
+# Colours and type follow the figures on batmanvane.github.io: paper, ink, warm grays,
+# one dark green accent, IBM Plex Mono.
+SURFACE = "#f2f1ec"  # paper
+INK = "#1a1a1a"
+INK2 = "#6b6b6b"
+GRID = "#dcdad3"
+GRAY = "#8f8c84"  # neutral bars
+ACCENT = "#1f4d3a"  # dark green: forks, the sampled token, the highlighted series
+# Sequential warm-gray ramp for entropy: paper (certain) -> dark gray (open).
 SEQ = LinearSegmentedColormap.from_list(
-    "seq", ["#f3f7fd", "#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#104281"]
+    "seq", ["#f7f6f2", "#e3e0d8", "#c4c1b8", "#9d9a92", "#77746d", "#4a4844"]
 )
 H_MAX = 3.0
 FORK = 2.0
 
+# IBM Plex Mono if available (set ET_FIG_FONT_DIR to a folder with its .ttf files);
+# Menlo / DejaVu Sans cover glyphs Plex lacks (≥, ←, ⏎) and stand in otherwise.
+_font_dir = __import__("os").environ.get("ET_FIG_FONT_DIR")
+if _font_dir:
+    for _f in Path(_font_dir).glob("*.ttf"):
+        font_manager.fontManager.addfont(str(_f))
+
 plt.rcParams.update(
     {
-        "font.family": "DejaVu Sans",
-        "font.size": 10,
+        "font.family": ["IBM Plex Mono", "Menlo", "DejaVu Sans"],
+        "font.size": 9.5,
         "text.color": INK,
         "axes.edgecolor": INK2,
         "axes.labelcolor": INK2,
@@ -94,17 +104,17 @@ def token_strips():
         ax.add_patch(FancyBboxPatch((x, yy - 2.4), w - 0.6, 4.8,
                                     boxstyle="round,pad=0,rounding_size=0.8",
                                     facecolor=SEQ(min(h, H_MAX) / H_MAX),
-                                    edgecolor=ORANGE if fork else SURFACE,
-                                    linewidth=2.0 if fork else 0.5))
+                                    edgecolor=ACCENT if fork else SURFACE,
+                                    linewidth=2.4 if fork else 0.5))
         dark_box = min(h, H_MAX) / H_MAX > 0.55
         ax.text(x + (w - 0.6) / 2, yy, txt, ha="center", va="center", fontsize=8.5,
-                family="DejaVu Sans Mono", color="white" if dark_box else INK)
+                color="white" if dark_box else INK)
         ax.text(x + (w - 0.6) / 2, yy - 4.0, f"{h:.1f}", ha="center", va="center",
                 fontsize=6.5, color=INK2)
     # legend row
     ax.add_patch(FancyBboxPatch((0, y_legend - 1.3), 3.2, 2.6,
                                 boxstyle="round,pad=0,rounding_size=0.5",
-                                facecolor=SURFACE, edgecolor=ORANGE, linewidth=2.0))
+                                facecolor=SURFACE, edgecolor=ACCENT, linewidth=2.4))
     ax.text(4.3, y_legend, "fork: H ≥ 2 bits     number under each token = H in bits",
             va="center", fontsize=8, color=INK2)
     x0, x1 = 62, 92
@@ -134,11 +144,11 @@ def fork_distribution():
     ys = list(range(len(labels)))[::-1]
     for y, lab, p in zip(ys, labels, probs):
         chosen = lab == "triggers"
-        ax.barh(y, p, height=0.62, color=ORANGE if chosen else BLUE, zorder=2)
+        ax.barh(y, p, height=0.62, color=ACCENT if chosen else GRAY, zorder=2)
         ax.text(p + 0.008, y, f"{p:.3f}" + ("   ← sampled" if chosen else ""),
                 va="center", fontsize=9, color=INK)
     ax.set_yticks(ys)
-    ax.set_yticklabels(labels, family="DejaVu Sans Mono")
+    ax.set_yticklabels(labels)
     ax.set_xlim(0, 0.55)
     ax.set_xlabel("probability of the next token")
     ax.grid(axis="x", color=GRID, zorder=0)
@@ -157,7 +167,7 @@ def entropy_histogram():
     total = sum(c)
     fig, ax = plt.subplots(figsize=(7.2, 3.2))
     for lo, hi, n in zip(e[:-1], e[1:], c):
-        ax.bar((lo + hi) / 2, 100 * n / total, width=(hi - lo) * 0.85, color=BLUE, zorder=2)
+        ax.bar((lo + hi) / 2, 100 * n / total, width=(hi - lo) * 0.85, color=GRAY, zorder=2)
     for x, lab in [(-1.0, "0.1 bits"), (0.301, "2 bits = fork")]:
         ax.axvline(x, color=INK2, linestyle=(0, (3, 3)), linewidth=1, zorder=3)
         ax.text(x + 0.04, ax.get_ylim()[1] * 0.92, lab, fontsize=8.5, color=INK2)
@@ -185,8 +195,8 @@ def forks_by_section():
     fig, ax = plt.subplots(figsize=(7.2, 3.0))
     x = range(len(secs))
     w = 0.36
-    ax.bar([i - w / 2 - 0.01 for i in x], tok, width=w, color=BLUE, label="share of all tokens", zorder=2)
-    ax.bar([i + w / 2 + 0.01 for i in x], frk, width=w, color=ORANGE, label="share of all forks (H ≥ 2 bits)", zorder=2)
+    ax.bar([i - w / 2 - 0.01 for i in x], tok, width=w, color=GRAY, label="share of all tokens", zorder=2)
+    ax.bar([i + w / 2 + 0.01 for i in x], frk, width=w, color=ACCENT, label="share of all forks (H ≥ 2 bits)", zorder=2)
     for i in x:
         ax.text(i - w / 2 - 0.01, tok[i] + 1.2, f"{tok[i]:.0f} %", ha="center", fontsize=8.5)
         ax.text(i + w / 2 + 0.01, frk[i] + 1.2, f"{frk[i]:.0f} %", ha="center", fontsize=8.5)
