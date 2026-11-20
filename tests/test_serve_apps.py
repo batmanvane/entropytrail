@@ -36,3 +36,9 @@ def test_serves_only_app_html(tmp_path):
                 assert e.code == 404
     finally:
         srv.shutdown()
+
+
+def test_storage_guard_is_unit_specific():
+    out = serve_apps.inject("<html><head></head></html>", "edu-tight-01/003")
+    assert "__et_unit" in out and "edu-tight-01/003" in out
+    assert out.index("rating shim") < out.index("storage guard")

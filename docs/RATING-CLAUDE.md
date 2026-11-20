@@ -77,5 +77,6 @@ One JSON file per app, next to the app: `/Volumes/Data/entropytrail/<condition_i
 
 ## Changes
 
+- v1.2a (2026-11-20, evening): the server clears web storage when a different app is loaded (apps share one origin); ratings before this change may have seen storage keys of other apps (noted in two notes of edu-loose-03, no score affected).
 - v1.2 (2026-11-20): automatic syntax pre-check (D-031); fixed checklist keys per tight prompt.
 - v1.1 (2026-11-20, after the pilot on edu-tight-01/011 and /000): repeated starts for randomised apps, reading the app source allowed, `novelty: null` for broken apps.

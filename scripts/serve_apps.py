@@ -23,12 +23,22 @@ SHIM = (
 UNIT = re.compile(r"^/([a-z0-9-]+)/(\d{3})/?(?:app\.html)?$")
 
 
-def inject(html: str) -> str:
-    """Insert SHIM before any other script: after <head> if present, else at the start."""
+def storage_guard(unit: str) -> str:
+    """All apps share one origin; clear web storage when a different unit is loaded,
+    keep it on a reload of the same unit (so persistence can still be tested)."""
+    return (
+        "<script>/* storage guard */try{if(localStorage.getItem('__et_unit')!=='" + unit + "')"
+        "{localStorage.clear();sessionStorage.clear();localStorage.setItem('__et_unit','" + unit + "')}}catch(e){}</script>"
+    )
+
+
+def inject(html: str, unit: str = "") -> str:
+    """Insert SHIM (and the storage guard) before any other script: after <head> if present."""
+    pre = SHIM + (storage_guard(unit) if unit else "")
     m = re.search(r"<head[^>]*>", html, re.I)
     if m:
-        return html[: m.end()] + SHIM + html[m.end():]
-    return SHIM + html
+        return html[: m.end()] + pre + html[m.end():]
+    return pre + html
 
 
 def make_handler(root: Path):
@@ -39,7 +49,7 @@ def make_handler(root: Path):
             if not app or not app.is_file():
                 self.send_error(404)
                 return
-            body = inject(app.read_text(encoding="utf-8")).encode("utf-8")
+            body = inject(app.read_text(encoding="utf-8"), f"{m.group(1)}/{m.group(2)}").encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
