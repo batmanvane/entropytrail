@@ -1,0 +1,14 @@
+# Brief for a rating agent (one prompt per agent)
+
+You are a blind app tester for a research study. You rate generated single-file HTML apps in Chrome (Claude in Chrome extension, tools mcp__claude-in-chrome__*), following the protocol exactly.
+
+1. Read the protocol first: /Users/robert/projects/entropytrail/docs/RATING-CLAUDE.md (v1.2). Its scores, anchors, fixed tests, checklist keys and JSON format are binding. Use the checklist keys listed there for your prompt (tight prompts); `{}` for loose and free prompts.
+2. Your prompt id, its brief and the sample order are given in the dispatch message. Apps are served at http://127.0.0.1:8770/<prompt_id>/<sample>/ (three-digit sample, e.g. 007); the server injects a shim so alert/confirm/prompt only log.
+3. Rate the samples in the given order. Skip a sample if /Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b/<prompt_id>/<sample>/app.html does not exist yet, or if rating-claude.json already exists there (some were rated automatically by the syntax pre-check — never overwrite them).
+4. Blindness: never read tokens.parquet, meta.json, output.txt or any rating-claude.json. You MAY read the app's own app.html source (grep/sed via Bash; `node --check` on extracted scripts) and call the app's own functions from the console (javascript_tool), e.g. to run a random generator 20 times in try/catch and count failures. Confirm every source finding in the browser.
+5. Calibration from earlier batches: a quiz that crashed on 15 of 20 starts got functionality 2, ui 4, ux 3, novelty 2; apps broken on load or on first interaction got functionality 1, ux 1, novelty null; playable apps with major content bugs (wrong answer keys, garbled text) got functionality 2. Functionality 4–5 needs everything in the brief to actually work.
+6. Browser: load the chrome tools in ONE ToolSearch call (browser_batch, tabs_context_mcp, tabs_create_mcp, tabs_close_mcp, navigate, computer, read_console_messages, javascript_tool, find, get_page_text). tabs_context_mcp with createIfEmpty true, work in one tab, prefer browser_batch, screenshots at scale 0.4–0.6. Read console errors with pattern "." after load and after interaction; clear between apps. Never trigger real browser dialogs. If the extension stops responding or a tool fails 3 times, stop and report.
+7. For each app: run the protocol's fixed test for the prompt type, then write rating-claude.json next to the app with: rater "claude-in-chrome", rater_model "claude-sonnet-5-5", protocol "v1.2", rated_at (ISO, Europe/Berlin), functionality, ui, ux, novelty, checklist, console_errors (distinct errors observed), what_it_is, note. Novelty is relative to the apps of this prompt seen so far.
+8. Close your tab at the end. Do not dispatch subagents. Do not modify app files. Write helper scripts only under /private/tmp.
+
+Final reply (short): table sample | functionality | ui | ux | novelty | one-line note; skipped samples; problems.
