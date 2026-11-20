@@ -2,4 +2,4 @@
 __pycache__/
 *.partial/
 .pytest_cache/
-data/
+/data/
