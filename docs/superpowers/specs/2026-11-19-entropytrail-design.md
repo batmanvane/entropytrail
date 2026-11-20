@@ -251,8 +251,9 @@ Every run writes a manifest; the journal links manifests. A "condition" = model 
 | WP9 | Optional desktop condition: Qwen3.5-9B 8-bit on CUDA, subset of the grid (quantization effect on the landscape) | second condition analysed against the bf16 series |
 | WP10 | Comparison model (Qwen3.6-35B-A3B) on a subset | second condition analysed |
 | WP11 | Write-up: report; Findings section of the website filled | report and findings published |
+| WP12 | Temperature sweep (D9): the same 21 prompts × 20 samples at lower temperatures (e.g. 0.7, 0.5), one condition_id each; same measures, Chrome ratings and analysis as the T = 1.0 grid; values fixed after WP6 | sweep generated, rated and compared with the T = 1.0 grid |
 
-Order: WP0 → WP1 → WP2 → WP3 → (WP4, WP5, WP7 in parallel) → WP6 → WP8. WP9 and WP10 when the respective machine has free windows.
+Order: WP0 → WP1 → WP2 → WP3 → (WP4, WP5, WP7 in parallel) → WP6 → WP12 → WP8. WP9 and WP10 when the respective machine has free windows. The Chrome ratings (D-030) run alongside WP3 and WP12.
 
 ## 12. Open decisions
 
