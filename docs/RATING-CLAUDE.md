@@ -1,4 +1,4 @@
-# Claude ratings: protocol (v1.1, 2026-11-20)
+# Claude ratings: protocol (v1.2, 2026-11-20)
 
 Every app of the main grid is opened in Chrome by Claude (Claude in Chrome extension), tried out with a fixed test for its prompt type, and rated. These ratings are a **separate outcome** next to the human ratings (spec §5.6, §9). They do not replace them and are never pooled with them (D-030).
 
@@ -16,6 +16,24 @@ The rater sees only the app (served at `http://127.0.0.1:8770/<prompt_id>/<sampl
 | **novelty** | standard solution, like most apps of this prompt seen so far | mostly standard, one small twist | some own idea beyond the brief | clearly own idea or unusual feature | surprising idea, not seen in other apps of this prompt |
 
 Novelty is judged relative to the apps of the same prompt seen so far and to the obvious solution of the brief; it does not reward polish (that is ui/ux).
+
+## Automatic pre-check (v1.2)
+
+Before the Chrome test, `scripts/precheck_apps.py` parses each app's inline JavaScript with `node --check`. An app whose JavaScript does not parse (or that has no `app.html`) cannot run; it gets an automatic rating (`rater: "auto-precheck"`, functionality 1, ux 1, ui and novelty `null`) and is not opened in Chrome. All other apps are tested in Chrome as below.
+
+## Checklist keys for the tight prompts
+
+| prompt | keys |
+|---|---|
+| edu-tight-01 | 10 questions · one at a time · immediate feedback · score at the end |
+| edu-tight-02 | tables 1 to 10 · random questions · input field · 60-second timer · correct-answer counter |
+| edu-tight-03 | two sliders for a and b · draws right triangle · squares on each side · shows a²+b²=c² with current numbers · numbers correct |
+| game-tight-01 | 20×20 grid · arrow keys · grows when eating · speed up every 5 food · score · game over with restart button |
+| game-tight-02 | 16 cards (8 pairs) in 4×4 · two cards per move · pairs stay open · move counter · win message |
+| game-tight-03 | paddle with left/right arrows · one ball · 5 rows of 10 bricks · 3 lives · score |
+| tool-tight-01 | one input field · input-unit selector · other two units shown · updates while typing · values correct |
+| tool-tight-02 | 25-min work / 5-min break phases · start · pause · reset · completed-phase counter |
+| tool-tight-03 | bill amount · 10/15/20 % buttons · custom tip · number of people · tip and amount per person · values correct |
 
 ## Fixed tests by prompt type (2–4 minutes per app)
 
@@ -59,4 +77,5 @@ One JSON file per app, next to the app: `/Volumes/Data/entropytrail/<condition_i
 
 ## Changes
 
+- v1.2 (2026-11-20): automatic syntax pre-check (D-031); fixed checklist keys per tight prompt.
 - v1.1 (2026-11-20, after the pilot on edu-tight-01/011 and /000): repeated starts for randomised apps, reading the app source allowed, `novelty: null` for broken apps.

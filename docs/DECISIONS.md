@@ -246,3 +246,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Robert wants quality control of the generated apps and an additional, complete outcome set (the human ratings cover a sample). Novelty added as a fourth criterion on Robert's request.
 
 **Alternatives:** A stratified sample (2 or 5 per prompt) instead of all 420 (offered, declined); automatic checks only (they remain planned as WP4 and complement these ratings).
+
+## D-031 · 2026-11-20 · Keep the grid at temperature 1.0; automatic pre-check before Chrome ratings
+
+**Decision:** The main grid continues unchanged (temperature 1.0, no truncation, frozen plan). Before the Chrome ratings, `scripts/precheck_apps.py` parses each app's JavaScript with `node --check`; apps that do not parse get an automatic rating (functionality 1, ux 1, ui and novelty null) and are not opened in Chrome. Rating protocol v1.2.
+
+**Reason:** The first Chrome batch (edu-tight-01) found no fully working app: 13 of 20 broken on load or first click, 7 playable with major content bugs; syntax errors in 7/20 (fractions quiz), 1/20 (times-table trainer), 6/12 (Pythagoras), 2/20 (smoke converter). Untruncated sampling at T=1.0 regularly draws low-probability tokens, and in code one wrong token breaks the app. For the study these failures are data (H4 can be tested at the exact failure positions), so the condition is kept. The pre-check saves browser work on apps that cannot run at all. Approved by Robert.
+
+**Alternatives:** Lower temperature or top-p truncation for the grid (rejected: changes the frozen condition and hides the true landscape; a lower-temperature comparison condition may follow later as a separate condition_id); rating every app in Chrome regardless (more expensive, same result for unparseable apps).
