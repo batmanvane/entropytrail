@@ -238,3 +238,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Exploration of the 20 smoke apps (JOURNAL 2026-11-20): comments are 8 % of tokens but hold 64 % of all H ≥ 2 tokens (34 % of comment tokens are forks vs 1.0–3.1 % in CSS/HTML/JS code); the highest-H positions are all comment wordings. Unamended, H3 and H5 would mostly measure comment phrasing rather than decisions in the program. Approved by Robert before any grid data existed.
 
 **Alternatives:** Keep the plan unchanged and add code-only measures as exploratory (rejected: the primary tests would then measure the wrong thing); instruct the model not to write comments (rejected: changes the system prompt and the condition).
+
+## D-030 · 2026-11-20 · Claude ratings of all apps in Chrome
+
+**Decision:** Every app of the main grid (420) is tried out in Chrome by Claude (Claude in Chrome extension) and rated 1–5 on functionality, UI, UX and novelty, with a checklist for tight briefs, console-error count and a short note, following `docs/RATING-CLAUDE.md` (protocol v1). Apps are served by `scripts/serve_apps.py` on 127.0.0.1:8770 with a shim that turns blocking dialogs into console logs; the server exposes only `app.html`. Raters are blind to the recorded token data. Ratings are stored as `rating-claude.json` per unit and kept as a separate outcome, never pooled with the human ratings.
+
+**Reason:** Robert wants quality control of the generated apps and an additional, complete outcome set (the human ratings cover a sample). Novelty added as a fourth criterion on Robert's request.
+
+**Alternatives:** A stratified sample (2 or 5 per prompt) instead of all 420 (offered, declined); automatic checks only (they remain planned as WP4 and complement these ratings).
