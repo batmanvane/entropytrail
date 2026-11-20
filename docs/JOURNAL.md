@@ -40,3 +40,7 @@ Re-ran on the 9B at a clean tree (git_dirty false, commit 82adefd). `et validate
 ## 2026-11-20 (first night run)
 
 First night of `de.entropytrail.night` (queue: smoke-tool-01, 20 samples). Started 23:00; the Python process blocked ~50 min in `open()` on a macOS privacy prompt for access to the external volumes (launchd-started processes do not inherit the interactive grant). Robert clicked Allow on the Studio; the run continued 23:49–00:30: 19 units done, 1 skipped (000), 0 aborted, no error, commit a30ba4c, Ollama restarted (0.40.14). Sample 001: 2743 tokens, 15.6 tok/s. Consequence: watchdog added to the night script (D-027).
+
+## 2026-11-20 (WP2 frozen)
+
+Prompt grid v1 (21 prompts) and the analysis plan frozen after Robert's approval (D-028). Night queue now runs the full grid, 20 samples per prompt (420 units); expected ~3–4 nights at ~16 tok/s.

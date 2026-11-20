@@ -222,3 +222,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** The first night (2026-11-19) hung for ~50 min in `open()` on a macOS privacy prompt (external volumes, new Python binary). `--until 06:00` is only checked between tokens, so a run blocked elsewhere would have kept Ollama stopped indefinitely. Requested by Robert.
 
 **Alternatives:** Full Disk Access for the Python binary only (does not cover a future new binary); `timeout` (not on macOS by default).
+
+## D-028 · 2026-11-20 · Prompt grid v1 and analysis plan frozen
+
+**Decision:** Prompt set v1 (`prompts/prompts.yaml`: 3 domains × tight/loose × 3 prompts + 3 free prompts = 21) and the analysis plan (METHODS.md, "Analysis plan (frozen 2026-11-20)") are frozen as drafted, including the proposed thresholds: fork = H ≥ 2 bits; late JS surprise = share of tokens in the last third of the JavaScript with S ≥ 4 bits; H3 support requires ρ(H, importance) < 0.5; ≈ 100 rated apps, ≥ 3 ratings each. The smoke prompt set moved to `prompts/prompts-v0-smoke.yaml`. The night queue runs the grid with 20 samples per prompt from 2026-11-20 23:00.
+
+**Reason:** Spec §6 and WP2: the analysis plan must be fixed before the main grid is generated. Approved by Robert.
+
+**Alternatives:** Revising the thresholds before freezing (offered, declined).

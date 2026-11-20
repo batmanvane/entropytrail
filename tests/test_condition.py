@@ -17,8 +17,15 @@ def test_condition_id_stable_and_sensitive():
 
 
 def test_prompts_load():
-    ps = load_prompts(Path("prompts/prompts.yaml"))
+    ps = load_prompts(Path("prompts/prompts-v0-smoke.yaml"))
     assert ps.prompts[0].id == "smoke-tool-01" and "sys-v1" in ps.system_prompts
+
+
+def test_frozen_grid_v1():
+    ps = load_prompts(Path("prompts/prompts.yaml"))
+    assert ps.version == "v1" and len(ps.prompts) == 21
+    cells = {(p.domain, p.openness) for p in ps.prompts}
+    assert cells == {(d, o) for d in ("education", "game", "tool") for o in ("tight", "loose")} | {("free", "open")}
 
 
 def test_prompt_ids_unique(tmp_path):

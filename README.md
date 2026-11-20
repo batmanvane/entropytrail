@@ -19,7 +19,7 @@ Raw data lives outside the repo in `/Volumes/Data/entropytrail/` (override with 
 ## How to run
 
 ```
-C=configs/conditions/qwen35-9b-bf16-mlx.yaml; P=prompts/prompts.yaml
+C=configs/conditions/qwen35-9b-bf16-mlx.yaml; P=prompts/prompts-v0-smoke.yaml  # main grid: prompts/prompts.yaml
 uv run et generate   --condition $C --prompts $P --prompt-id smoke-tool-01 --sample 0
 uv run et run-window --condition $C --prompts $P --samples 20 --until 06:00 [--prompt-ids ID ...]
 uv run et validate   --condition $C --prompts $P --tokens 1500    # recorder validation (D-021)

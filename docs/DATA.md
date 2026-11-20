@@ -67,7 +67,7 @@ Identity of the unit (runner):
 | `condition` | object | all fields of the condition (`dataclasses.asdict(Condition)`) |
 | `condition_id` | string | `<name>-<first 8 hex of sha256 of the canonical JSON of condition>` |
 | `prompt` | object | the prompt: `id`, `domain`, `openness`, `text` |
-| `prompt_set_version` | string | `version` of `prompts/prompts.yaml` |
+| `prompt_set_version` | string | `version` of the prompt set used (`v1` = main grid, `v0-smoke` = recorder tests) |
 | `system_prompt_version` | string | key of the system prompt used (from the condition) |
 | `system_prompt_sha256` | string | sha256 (hex) of the system prompt text (UTF-8) |
 | `prompt_text_sha256` | string | sha256 (hex) of the user prompt text (UTF-8); checked against the current prompt when a done unit is skipped on resume |
