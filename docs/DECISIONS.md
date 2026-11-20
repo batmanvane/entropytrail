@@ -230,3 +230,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Spec §6 and WP2: the analysis plan must be fixed before the main grid is generated. Approved by Robert.
 
 **Alternatives:** Revising the thresholds before freezing (offered, declined).
+
+## D-029 · 2026-11-20 · Forks counted in code only (analysis plan amendment)
+
+**Decision:** In the frozen analysis plan, a fork is a **code** token with H ≥ 2 bits; comment tokens (JS/CSS `//`, `/* */`, HTML `<!-- -->`) are excluded from fork share, fork surprise, late JS surprise and fork-experiment candidates, and comment forks are reported separately as a secondary measure. H1's dip test still uses all tokens, with a code-only secondary run.
+
+**Reason:** Exploration of the 20 smoke apps (JOURNAL 2026-11-20): comments are 8 % of tokens but hold 64 % of all H ≥ 2 tokens (34 % of comment tokens are forks vs 1.0–3.1 % in CSS/HTML/JS code); the highest-H positions are all comment wordings. Unamended, H3 and H5 would mostly measure comment phrasing rather than decisions in the program. Approved by Robert before any grid data existed.
+
+**Alternatives:** Keep the plan unchanged and add code-only measures as exploratory (rejected: the primary tests would then measure the wrong thing); instruct the model not to write comments (rejected: changes the system prompt and the condition).

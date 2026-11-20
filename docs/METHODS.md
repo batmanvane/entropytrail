@@ -22,7 +22,7 @@ Recorded values are the exact sampling distribution: the transformer body runs i
 
 ## Analysis plan (frozen 2026-11-20)
 
-Approved by Robert on 2026-11-20 (D-028) and committed before the main grid (prompt set v1) was generated — light pre-registration per spec §6. Changes after this date need a dated DECISIONS.md entry; the original stays visible in git history.
+Approved by Robert on 2026-11-20 (D-028); amended the same day before any grid data existed (D-029: forks counted in code only, comments reported separately). Committed before the main grid (prompt set v1) was generated — light pre-registration per spec §6. Changes after this date need a dated DECISIONS.md entry; the original stays visible in git history.
 
 ### Data and units
 
@@ -36,24 +36,27 @@ Approved by Robert on 2026-11-20 (D-028) and committed before the main grid (pro
 
 | Name | Definition |
 |---|---|
-| fork | token with H ≥ 2 bits |
-| fork share | forks / tokens of the app |
+| comment token | token whose first character lies inside a comment: JS/CSS `// …` and `/* … */`, HTML `<!-- … -->`; detected by a scan that ignores comment markers inside string literals and URLs *(amendment 2026-11-20, D-029)* |
+| code token | any token of the app that is not a comment token |
+| fork | **code** token with H ≥ 2 bits *(amendment 2026-11-20, D-029; originally any token)* |
+| comment fork | comment token with H ≥ 2 bits (secondary measure, reported separately) |
+| fork share | forks / code tokens of the app |
 | relative position | token index / app length (0 = start, 1 = end) |
 | ensemble spread | mean pairwise distance between the 20 apps of a prompt (screenshot embedding, cosine) |
 | ensemble rarity | mean distance of an app to the other 19 apps of its prompt |
 | fork importance | spec §5.4: alternative-vs-same-token outcome distance minus the same-token noise floor |
-| late JS surprise | share of tokens in the last third of the app's JavaScript with S ≥ 4 bits |
+| late JS surprise | share of code tokens in the last third of the app's JavaScript with S ≥ 4 bits (comments excluded, D-029) |
 | fork surprise | mean S over the app's forks |
 
 Thresholds (2 bits, 4 bits, last third) are fixed here so they cannot be tuned after seeing data.
 
 ### Primary tests (one per hypothesis, Holm-corrected across H1–H5, α = 0.05)
 
-**H1 – bimodality.** Per app: Hartigan's dip test on log10(H + 10⁻³). Support if the dip test rejects unimodality (p < 0.05) in ≥ 80 % of apps. Reported alongside: share of tokens with H < 0.1 bits and fork share, by domain and openness.
+**H1 – bimodality.** Per app: Hartigan's dip test on log10(H + 10⁻³). Support if the dip test rejects unimodality (p < 0.05) in ≥ 80 % of apps. Reported alongside: share of tokens with H < 0.1 bits, fork share and comment-fork share, by domain and openness. The dip test runs on all tokens (H1 concerns the whole distribution); a secondary run uses code tokens only.
 
 **H2 – openness moves forks.** Outcome: ensemble spread per prompt (21 values). Model: linear regression spread ~ openness + domain. Support if loose > tight (one-sided). Secondary (not part of the Holm family): median relative position of the 10 highest-H forks per app, mixed model ~ openness + domain + (1 | prompt); expected earlier for loose/open.
 
-**H3 – entropy ≠ consequence.** Data: fork experiments (subset, spec §5.4). Outcome: fork importance per fork. Model comparison: importance ~ H vs importance ~ H + relative position + section, both with (1 | app). Support if the larger model is better (likelihood-ratio test) **and** Spearman ρ(H, importance) < 0.5.
+**H3 – entropy ≠ consequence.** Data: fork experiments (subset, spec §5.4), forks selected among code tokens (D-029). Outcome: fork importance per fork. Model comparison: importance ~ H vs importance ~ H + relative position + section, both with (1 | app). Support if the larger model is better (likelihood-ratio test) **and** Spearman ρ(H, importance) < 0.5.
 
 **H4 – usefulness.** Outcome: mean human usefulness rating per app (only apps with ≥ 3 ratings). Primary predictor: late JS surprise. Model: rating ~ late JS surprise + domain + openness + (1 | prompt). Support if the coefficient is negative (one-sided). Secondary: renders yes/no and prompt adherence (tight prompts) with the same predictor.
 

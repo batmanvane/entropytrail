@@ -44,3 +44,7 @@ First night of `de.entropytrail.night` (queue: smoke-tool-01, 20 samples). Start
 ## 2026-11-20 (WP2 frozen)
 
 Prompt grid v1 (21 prompts) and the analysis plan frozen after Robert's approval (D-028). Night queue now runs the full grid, 20 samples per prompt (420 units); expected ~3–4 nights at ~16 tok/s.
+
+## 2026-11-20 (exploration of the 20 smoke apps)
+
+Exploratory, one tight prompt (smoke-tool-01), 20 samples, 48,122 tokens. 71.7 % of tokens have H < 0.1 bits, 4.5 % have H ≥ 2 bits; the log-H histogram shows a large peak near 0 and a second bump around 0.5–1.5 bits. By section: CSS 43 % of tokens (1.0 % forks), HTML 20 % (1.4 %), JS code 29 % (3.1 %), comments 8 % (34 %) — comments hold 64 % of all forks; the 15 highest-H positions are all comment wordings. Median fork position at 77 % of the file. App length 1,481–4,176 tokens (mean ≈ 2,400), correlation of length with fork share r = 0.71. All 20 are unit converters; 12/20 add an unrequested swap button. All ended with EOS. Consequence: analysis plan amended (D-029).

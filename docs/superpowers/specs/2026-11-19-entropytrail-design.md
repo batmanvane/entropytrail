@@ -104,7 +104,7 @@ Hidden states: for a subset (see D3), residual-stream vectors at a few layers, f
 ### 5.4 Fork experiments (reachability)
 
 For each app:
-1. Select fork positions: top-N tokens by H (N=10, minimum spacing so forks don't cluster in one identifier), plus 3 random positions as controls.
+1. Select fork positions: top-N tokens by H (N=10, minimum spacing so forks don't cluster in one identifier), plus 3 random positions as controls. Candidates are code tokens only; comment tokens are excluded (D-029, after the smoke run showed 64 % of high-entropy tokens sit in comments).
 2. At each fork, force each of the top-3 alternatives that differ from the actual token, and complete the app from there (1 rollout per alternative, same sampling settings).
 3. **Baseline:** at the same fork, keep the actual token and re-sample the continuation 2 times. This measures how much the outcome drifts from sampling noise alone.
 4. Compare all rollouts' final apps (see 5.5).
