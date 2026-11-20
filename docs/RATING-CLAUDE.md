@@ -1,4 +1,4 @@
-# Claude ratings: protocol (v1, 2026-11-20)
+# Claude ratings: protocol (v1.1, 2026-11-20)
 
 Every app of the main grid is opened in Chrome by Claude (Claude in Chrome extension), tried out with a fixed test for its prompt type, and rated. These ratings are a **separate outcome** next to the human ratings (spec §5.6, §9). They do not replace them and are never pooled with them (D-030).
 
@@ -27,6 +27,10 @@ Before interacting, the page's `alert`, `confirm` and `prompt` are replaced by t
 - **Tools (converter, Pomodoro, tip calculator, loose tools):** enter typical values and check the results by hand (100 cm = 39.37 in = 3.281 ft; tip 15 % of 80 for 4 people = 12 total, 23 per person); try one odd input (empty, negative, text); for timers, start/pause/reset and check the counter logic without waiting the full time.
 - **Loose and free prompts:** first find out what the app is meant to do, then exercise its main function as above.
 
+**Randomised content:** if the app generates its content at random (questions, levels, positions), start it at least 3 times, or call its generator function repeatedly from the console, to catch failures that only happen on some starts. The rater may read the app's own source (`app.html`) to check logic such as answer keys; it never reads the recorded token data.
+
+**Broken apps:** if the core does not run, `novelty` is `null` (not observable) and the note says why.
+
 **Checklist (tight prompts):** each concrete requirement of the brief is marked `true`/`false` (e.g. "10 questions", "score at the end").
 
 ## Record
@@ -37,7 +41,7 @@ One JSON file per app, next to the app: `/Volumes/Data/entropytrail/<condition_i
 {
   "rater": "claude-in-chrome",
   "rater_model": "<model id of the rating agent>",
-  "protocol": "v1",
+  "protocol": "v1.1",
   "rated_at": "2026-11-20T14:05:00+01:00",
   "functionality": 4,
   "ui": 3,
@@ -51,3 +55,8 @@ One JSON file per app, next to the app: `/Volumes/Data/entropytrail/<condition_i
 ```
 
 `checklist` is `{}` for loose and free prompts. A later script collects all files into `results/ratings-claude.csv`.
+
+
+## Changes
+
+- v1.1 (2026-11-20, after the pilot on edu-tight-01/011 and /000): repeated starts for randomised apps, reading the app source allowed, `novelty: null` for broken apps.
