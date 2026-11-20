@@ -31,7 +31,7 @@ A position with H ≥ 2 bits is called a **fork**: the model could have gone sev
 
 **Worked example.** We asked the model for one sentence about a button on a web page (a plain-text example, outside the study grid). After *"A clickable button on a web page"* it saw this distribution:
 
-![Next-token distribution after "A clickable button on a web page"](docs/figures/fork-distribution.svg)
+![Next-token distribution after "A clickable button on a web page"](docs/figures/fork-distribution-v2.svg)
 
 | candidate | p | −log₂ p | −p log₂ p |
 |---|---|---|---|
@@ -48,7 +48,7 @@ So this position is a fork (H = 2.73 bits), and the token that was drawn, *trigg
 
 Colouring every token by its entropy shows where the decisions sit. Both examples are real recordings (Qwen3.5-9B, seed 7):
 
-![Two recorded generations, every token coloured by entropy](docs/figures/token-strips.svg)
+![Two recorded generations, every token coloured by entropy](docs/figures/token-strips-v2.svg)
 
 - In the **sentence**, the open positions are content words: *clickable*, *on*, *triggers*, *clicked*. Once *triggers* is drawn, only *a* or *an* is still open (1.0 bit); *specific action* then follows almost by itself (0.1 bits each).
 - In the **code**, the line is decided in its first few tokens. At the comma in `for (let i = 1,` the model would have preferred a semicolon (p = 0.63). Drawing the comma (S = 1.43 bits) commits the loop to declaring a second variable in its header. Only its name is still open (`sum` or `s`, 1.1 bits); the rest of the line, `= 0; i <= 10; i++) sum += i;`, carries almost no entropy.
@@ -93,11 +93,11 @@ Every app is rendered in a headless browser: does it load, are there console err
 
 Before the main grid, the model built the same tight brief (a cm/inch/feet converter) 20 times. These are early numbers from one prompt, not tests of the hypotheses.
 
-![Entropy histogram of 48,122 tokens](docs/figures/entropy-histogram.svg)
+![Entropy histogram of 48,122 tokens](docs/figures/entropy-histogram-v2.svg)
 
 Most tokens are close to certain (72 % below 0.1 bits), a second, smaller group sits around 1 bit, and 4.5 % are forks.
 
-![Share of tokens and of forks by part of the file](docs/figures/forks-by-section.svg)
+![Share of tokens and of forks by part of the file](docs/figures/forks-by-section-v2.svg)
 
 Most forks are not in the code: comments are 8 % of the tokens but hold 64 % of the forks, because how to word a comment is far more open than what the code must say. The analysis plan was therefore amended before the main grid: forks are counted in code only, and comment forks are reported separately (D-029 in [docs/DECISIONS.md](docs/DECISIONS.md)).
 

@@ -125,8 +125,8 @@ def token_strips():
         ax.text(xv, y_legend - 2.9, ["0", "1", "2", "≥3 bits"][v], ha="center",
                 fontsize=7.5, color=INK2)
     ax.text((x0 + x1) / 2, y_legend + 2.6, "entropy H", ha="center", fontsize=8, color=INK2)
-    fig.savefig(OUT / "token-strips.svg", bbox_inches="tight", pad_inches=0.15)
-    fig.savefig(PREVIEW / "token-strips.png", dpi=110, bbox_inches="tight", pad_inches=0.15)
+    fig.savefig(OUT / "token-strips-v2.svg", bbox_inches="tight", pad_inches=0.15)
+    fig.savefig(PREVIEW / "token-strips-v2.png", dpi=110, bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
 
 
@@ -157,7 +157,7 @@ def fork_distribution():
     ax.tick_params(axis="y", length=0)
     ax.set_title(f'"{prefix} ___"\nH = {t["H"]:.2f} bits   ·   S(triggers) = {t["S"]:.2f} bits',
                  fontsize=10, loc="left", color=INK)
-    fig.savefig(OUT / "fork-distribution.svg", bbox_inches="tight")
+    fig.savefig(OUT / "fork-distribution-v2.svg", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -181,7 +181,7 @@ def entropy_histogram():
         ax.spines[sp].set_visible(False)
     ax.set_title(f"{total:,} tokens from {s['n_apps']} apps (same brief: unit converter)",
                  fontsize=10, loc="left")
-    fig.savefig(OUT / "entropy-histogram.svg", bbox_inches="tight")
+    fig.savefig(OUT / "entropy-histogram-v2.svg", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -209,7 +209,7 @@ def forks_by_section():
         ax.spines[sp].set_visible(False)
     ax.legend(frameon=False, fontsize=8.5, loc="upper left")
     ax.set_title("Where the forks are (20 smoke apps)", fontsize=10, loc="left")
-    fig.savefig(OUT / "forks-by-section.svg", bbox_inches="tight")
+    fig.savefig(OUT / "forks-by-section-v2.svg", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -218,4 +218,4 @@ if __name__ == "__main__":
     fork_distribution()
     entropy_histogram()
     forks_by_section()
-    print("written:", sorted(p.name for p in OUT.glob("*.svg")))
+    print("written:", sorted(p.name for p in OUT.glob("*-v2.svg")))
