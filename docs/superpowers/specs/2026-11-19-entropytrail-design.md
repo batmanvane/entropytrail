@@ -266,6 +266,7 @@ Order: WP0 → WP1 → WP2 → WP3 → (WP4, WP5, WP7 in parallel) → WP6 → W
 | D6 | Runtime: MLX vs PyTorch-MPS for the 9B model | Builder's call, but must give full-precision logits and hidden-state access; document in DECISIONS |
 | D7 | ~~Repo visibility~~ → public from the start (decided 2026-11-19): needed for GitHub Pages on a free account, and makes the frozen analysis plan publicly timestamped. Raw data stays off GitHub. | – |
 | D8 | Language of prompts (English vs German) | English for the main grid; German variants as an optional later condition |
+| D9 | Temperature sweep after the first DoE (agreed with Robert 2026-11-20) | After the T = 1.0 grid is complete and analysed: the same 21 prompts × 20 samples at lower temperatures (values to fix then, e.g. 0.7 and 0.5), each a separate condition_id. The recorder logs the untempered distribution, so H and S stay comparable across temperatures; only the sampled paths change. Parked alternative: generate per prompt until 20 syntactically valid apps exist (cap 60, all attempts kept). |
 
 ## 13. Left to the builder
 

@@ -48,3 +48,7 @@ Prompt grid v1 (21 prompts) and the analysis plan frozen after Robert's approval
 ## 2026-11-20 (exploration of the 20 smoke apps)
 
 Exploratory, one tight prompt (smoke-tool-01), 20 samples, 48,122 tokens. 71.7 % of tokens have H < 0.1 bits, 4.5 % have H ≥ 2 bits; the log-H histogram shows a large peak near 0 and a second bump around 0.5–1.5 bits. By section: CSS 43 % of tokens (1.0 % forks), HTML 20 % (1.4 %), JS code 29 % (3.1 %), comments 8 % (34 %) — comments hold 64 % of all forks; the 15 highest-H positions are all comment wordings. Median fork position at 77 % of the file. App length 1,481–4,176 tokens (mean ≈ 2,400), correlation of length with fork share r = 0.71. All 20 are unit converters; 12/20 add an unrequested swap button. All ended with EOS. Consequence: analysis plan amended (D-029).
+
+## 2026-11-20 (quality of the first grid apps)
+
+Chrome ratings (D-030/D-031) of the first prompts: fractions quiz 0/20 fully working (13 broken), times-table trainer 8/20 with functionality ≥ 3, Pythagoras 0/16 usable (8 syntax errors, all drawings wrong). Untruncated T = 1.0 draws 12–42 tokens per app with p < 1 %; in code one such token can break the app. Discussed with Robert: keep the grid at T = 1.0 (the failures are H4 data); a temperature sweep follows after the first DoE (spec D9); generating until 20 syntactically valid apps per prompt is parked as an alternative.
