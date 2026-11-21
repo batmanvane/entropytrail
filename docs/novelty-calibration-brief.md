@@ -1,0 +1,12 @@
+# Brief for a novelty calibration agent (one prompt per agent, D-032)
+
+You recalibrate the **novelty** score of all 20 apps of one prompt in one sitting, so that the scores are consistent within the prompt. Read the protocol section "Novelty calibration pass" in /Users/robert/projects/entropytrail/docs/RATING-CLAUDE.md first; the novelty anchors there are binding.
+
+1. Apps: http://127.0.0.1:8770/<prompt_id>/<sample>/ (samples 000–019). Use Chrome (Claude in Chrome tools; load them in ONE ToolSearch call: browser_batch, tabs_context_mcp, tabs_create_mcp, tabs_close_mcp, navigate, computer, javascript_tool, get_page_text). One tab, screenshots at scale 0.4–0.5. Do not start servers. Do not grant mic/camera permissions. If a tab freezes, close it and open a fresh one.
+2. Blindness: do NOT read any rating-claude.json, tokens.parquet, meta.json or output.txt before you have written your scores. You may read each app's own app.html (e.g. title, headings, a skim of the script) to understand its idea when the app does not run.
+3. Step A — survey: open every app once (start screen and, with one or two interactions, its main view). For each, write down a one-line description of its core idea. For apps that do not run, describe the idea visible from the screen and the source.
+4. Step B — score: only after all 20 are surveyed, assign `novelty_calibrated` (1–5) to every app relative to the obvious solution of the brief and to the other 19 apps: 1 = the standard solution most apps of this prompt chose; 5 = a surprising idea seen in no other app of this prompt. Novelty is about the idea, not polish or whether it works. `null` only if nothing of the idea is observable at all (blank page and no readable idea in the source).
+5. Step C — write: for each sample, add exactly two fields to /Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b/<prompt_id>/<sample>/rating-claude.json and change nothing else: `"novelty_calibrated": <int or null>`, `"novelty_calibration": {"agent_model": "claude-sonnet-5-5", "at": "<actual ISO time, Europe/Berlin>", "idea": "<one line>"}`. Use a small Python script that loads the JSON, adds the two keys, and writes it back with indent=2, ensure_ascii=False. Write helper files only under /private/tmp.
+6. Close your tab. Do not dispatch subagents.
+
+Final reply: table sample | novelty_calibrated | idea (one line); then the distribution of scores and any problems.
