@@ -1,4 +1,4 @@
-# Claude ratings: protocol (v1.2, 2026-11-20)
+# Claude ratings: protocol (v1.3, 2026-11-21)
 
 Every app of the main grid is opened in Chrome by Claude (Claude in Chrome extension), tried out with a fixed test for its prompt type, and rated. These ratings are a **separate outcome** next to the human ratings (spec §5.6, §9). They do not replace them and are never pooled with them (D-030).
 
@@ -51,6 +51,10 @@ Before interacting, the page's `alert`, `confirm` and `prompt` are replaced by t
 
 **Checklist (tight prompts):** each concrete requirement of the brief is marked `true`/`false` (e.g. "10 questions", "score at the end").
 
+## Novelty calibration pass (v1.3)
+
+Novelty is relative to the apps of a prompt, and the first-pass raters saw different subsets in different batches (rater drift, e.g. tool-tight-03: novelty 1 throughout in one batch, 2 for similar apps in the next). After all apps of the grid are rated, one calibration agent per prompt opens **all 20 apps of that prompt in one sitting** (screenshot of the start screen and the main view; apps that do not run are judged from their visible idea and source), without reading any rating file, and assigns every app a `novelty_calibrated` score (1–5, same anchors, `null` only if nothing of the idea is observable). It adds two fields to each `rating-claude.json` and leaves all other fields untouched: `novelty_calibrated` and `novelty_calibration` (`{"agent_model": ..., "at": ..., "idea": "one line: the app's core idea"}`). Analyses use `novelty_calibrated`; the first-pass `novelty` stays for comparison (D-032).
+
 ## Record
 
 One JSON file per app, next to the app: `/Volumes/Data/entropytrail/<condition_id>/<prompt_id>/<sample>/rating-claude.json`
@@ -77,6 +81,7 @@ One JSON file per app, next to the app: `/Volumes/Data/entropytrail/<condition_i
 
 ## Changes
 
+- v1.3 (2026-11-21): novelty calibration pass per prompt after the first pass (D-032).
 - v1.2a (2026-11-20, evening): the server clears web storage when a different app is loaded (apps share one origin); ratings before this change may have seen storage keys of other apps (noted in two notes of edu-loose-03, no score affected).
 - v1.2 (2026-11-20): automatic syntax pre-check (D-031); fixed checklist keys per tight prompt.
 - v1.1 (2026-11-20, after the pilot on edu-tight-01/011 and /000): repeated starts for randomised apps, reading the app source allowed, `novelty: null` for broken apps.

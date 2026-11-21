@@ -254,3 +254,11 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** The first Chrome batch (edu-tight-01) found no fully working app: 13 of 20 broken on load or first click, 7 playable with major content bugs; syntax errors in 7/20 (fractions quiz), 1/20 (times-table trainer), 6/12 (Pythagoras), 2/20 (smoke converter). Untruncated sampling at T=1.0 regularly draws low-probability tokens, and in code one wrong token breaks the app. For the study these failures are data (H4 can be tested at the exact failure positions), so the condition is kept. The pre-check saves browser work on apps that cannot run at all. Approved by Robert.
 
 **Alternatives:** Lower temperature or top-p truncation for the grid (rejected: changes the frozen condition and hides the true landscape; a lower-temperature comparison condition may follow later as a separate condition_id); rating every app in Chrome regardless (more expensive, same result for unparseable apps).
+
+## D-032 · 2026-11-21 · Novelty calibration pass
+
+**Decision:** After the first-pass Chrome ratings of the whole grid, one calibration agent per prompt rates the novelty of all 20 apps of that prompt in one sitting (`novelty_calibrated`, protocol v1.3). Analyses of novelty (H5) use `novelty_calibrated`; the first-pass `novelty` is kept for comparison.
+
+**Reason:** Novelty is relative to the apps a rater has seen. First-pass raters saw different subsets per batch and drifted (tool-tight-03: novelty 1 for nearly all apps in the first batch, 2 for similar apps in the second). Functionality, UI and UX are tied to absolute anchors and are not affected. Approved by Robert.
+
+**Alternatives:** Keep the first-pass novelty (inconsistent within prompts); re-rate everything in one pass per prompt (far more expensive).
