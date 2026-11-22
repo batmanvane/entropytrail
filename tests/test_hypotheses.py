@@ -65,3 +65,37 @@ def test_h2_one_sided_wrong_direction():
     meas = ens.loc[ens.index.repeat(5), ["prompt_id", "domain", "openness"]].reset_index(drop=True)
     meas["median_relpos_top10_forks"] = rng.random(len(meas))
     assert h2(ens, meas)["p_primary"] > 0.95
+
+
+def _forks(effect_on="section", seed=5, sections=("css", "js", "text")):
+    from entropytrail.analysis.tests_h import h3  # noqa: F401
+    rng = np.random.default_rng(seed)
+    rows = []
+    for a in range(15):
+        for s in range(13):
+            sec = sections[rng.integers(len(sections))]
+            H = rng.uniform(0, 6)
+            base = {"css": 0.05, "js": 0.4, "text": 0.2, "html": 0.1}[sec] if effect_on == "section" else 0.08 * H
+            rows.append({"prompt_id": "p", "sample": a, "app": f"a{a}", "pos": s * 50, "H": H, "section": sec,
+                         "rel_pos": s / 13, "kind": "top" if s < 10 else "random",
+                         "importance": base + rng.normal(0, 0.05)})
+    return pd.DataFrame(rows)
+
+
+def test_h3_section_matters_not_entropy():
+    from entropytrail.analysis.tests_h import h3
+    r = h3(_forks("section"))
+    assert r["p_primary"] < 0.01 and r["lrt_df"] == 3  # rel_pos + 2 section dummies
+    assert abs(r["spearman_rho"]) < 0.5 and r["rho_ci"][0] < r["spearman_rho"] < r["rho_ci"][1]
+    assert set(r["by_kind"]) == {"top", "random"}
+
+
+def test_h3_df_from_realised_sections():
+    from entropytrail.analysis.tests_h import h3
+    assert h3(_forks("section", sections=("css", "js")))["lrt_df"] == 2
+
+
+def test_h3_entropy_only():
+    from entropytrail.analysis.tests_h import h3
+    r = h3(_forks("H"))
+    assert r["spearman_rho"] > 0.5

@@ -78,3 +78,40 @@ def h2(ensemble: pd.DataFrame, measures: pd.DataFrame) -> dict:
         "model": "MixedLM median_relpos_top10_forks ~ loose + C(domain) + (1|prompt)",
     }
     return out
+
+
+# --- H3 ---------------------------------------------------------------------------------
+
+def h3(imp: pd.DataFrame, n_boot: int = 2000, seed: int = 0) -> dict:
+    """Fork importance ~ H vs ~ H + rel_pos + section, app as group, ML fits, LRT.
+
+    Sites per R2: all sites in ``imp`` (top and random); the caller passes the H >= 2 subset
+    for the sensitivity run. LRT df = difference in fitted fixed-effect parameters.
+    """
+    import statsmodels.formula.api as smf
+
+    d = imp.dropna(subset=["importance"]).copy()
+    if "app" not in d:
+        d["app"] = d["prompt_id"].astype(str) + "/" + d["sample"].astype(str)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        small = smf.mixedlm("importance ~ H", d, groups=d["app"]).fit(reml=False)
+        big = smf.mixedlm("importance ~ H + rel_pos + C(section)", d, groups=d["app"]).fit(reml=False)
+    lr = max(0.0, 2 * (big.llf - small.llf))
+    df_ = len(big.fe_params) - len(small.fe_params)
+    rho = float(stats.spearmanr(d["H"], d["importance"]).statistic)
+    rng = np.random.default_rng(seed)
+    apps = d["app"].unique()
+    groups = {a: g for a, g in d.groupby("app")}
+    boots = []
+    for _ in range(n_boot):
+        s = pd.concat([groups[a] for a in rng.choice(apps, len(apps), replace=True)])
+        boots.append(stats.spearmanr(s["H"], s["importance"]).statistic)
+    return {
+        "n_sites": len(d), "n_apps": len(apps), "lrt_stat": lr, "lrt_df": df_,
+        "p_primary": float(stats.chi2.sf(lr, df_)) if df_ > 0 else np.nan,
+        "spearman_rho": rho, "rho_ci": [float(np.nanpercentile(boots, 2.5)), float(np.nanpercentile(boots, 97.5))],
+        "rho_below_0_5": rho < 0.5,
+        "by_kind": {k: float(g["importance"].mean()) for k, g in d.groupby("kind")} if "kind" in d else {},
+        "model": "MixedLM (ML) importance ~ H vs ~ H + rel_pos + C(section), (1|app)",
+    }
