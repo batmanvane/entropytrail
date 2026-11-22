@@ -85,7 +85,7 @@ Code: `src/entropytrail/analysis/measures.py`; table: `results/app-measures.csv`
 
 - **App part:** tokens whose first character lies in the extracted HTML (`extract.app_span`); `rel_pos` = index among app tokens / number of app tokens.
 - **Sections:** `sections.token_sections(..., detail=True)`; code = html, css, js, text; comment = js-comment, css-comment, html-comment (D-029 rule: label of the token's first character; comment markers inside JS strings are code; regex literals are not detected).
-- **late JS surprise** (reading R3, pending Robert's confirmation before any test uses it): take the JS **code** tokens (label `js`, JS comments dropped first) in order, keep the last third by count (index ≥ ⌈2n/3⌉), share with S ≥ 4 bits; undefined (NaN) if the app has fewer than 3 JS code tokens (0 of the 420 grid apps).
+- **late JS surprise** (reading R3, confirmed by Robert, D-036): take the JS **code** tokens (label `js`, JS comments dropped first) in order, keep the last third by count (index ≥ ⌈2n/3⌉), share with S ≥ 4 bits; undefined (NaN) if the app has fewer than 3 JS code tokens (0 of the 420 grid apps).
 - **fork surprise:** mean S over forks; NaN if the app has no fork. **median_relpos_top10_forks:** median `rel_pos` of the (up to) 10 forks with the highest H.
 - **path action:** Σ S over app tokens; also per token. **H per char / per line:** Σ H over app tokens divided by characters / lines of `app.html`.
 - Check: the 20 smoke apps give 71.7 % of app tokens with H < 0.1 bits and 4.5 % with H ≥ 2 bits, as in JOURNAL 2026-11-20.

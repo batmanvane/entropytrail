@@ -296,3 +296,16 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Spec §5.4 and D2; the pilot measures real cost and noise floor before committing ~13+ nights.
 
 **Alternatives:** KV-cache sharing across the 5 rollouts of a site (faster prefill, more code, cache copy for the hybrid linear-attention layers); 2 apps per prompt for all 21 prompts directly (spec §8; decided after the pilot).
+
+## D-036 · 2026-11-22 · Readings of the frozen analysis plan (R1–R3) and model coding
+
+**Decision (Robert, 2026-11-22, before any confirmatory test was computed):**
+- **R1 (H1):** support is decided by the frozen rule "≥ 80 % of apps reject unimodality" (`support_frozen`). For the Holm family H1 enters with the one-sided binomial p-value of the rejecting share against 0.80 (H0: share ≤ 0.80). Both are reported; a disagreement between them is stated, not resolved.
+- **R2 (H3):** all fork sites of the fork plans enter the H3 test (10 top-H code tokens and 3 random code tokens per app, D-035). Sensitivity runs: sites with H ≥ 2 bits only, and sites whose parent app is not truncated.
+- **R3 (H4):** late JS surprise = share of tokens with S ≥ 4 bits among the last third (by count, index ≥ ⌈2n/3⌉) of the app's JavaScript **code** tokens, JS comments removed before the cut.
+- **Model coding (all models):** `loose` dummy (1 = loose prompt) plus `C(domain)` with levels education/game/tool/free, all 21 prompts, because openness `open` and domain `free` coincide. Holm always with m = 5; until all five p-values exist results are flagged interim and the multiplier uses the rank among the available p-values (never smaller than the final adjustment).
+- **Fixed secondaries:** H4 renders → logistic GLM with cluster-robust SE by prompt; H4 adherence from the Claude checklist (D-034 deviation); H5 ensemble rarity as outcome with fork surprise as predictor; H5 alternative predictor path action per token. Sensitivity of every primary test without truncated apps (H2: spread recomputed from the non-truncated apps of each prompt).
+
+**Reason:** The frozen plan (D-028, D-029) leaves these details open; they change the numbers and must be fixed before results exist (Claude ratings already exist). Recommendations and alternatives in plan 2 (Part C) were explained to Robert, who chose the recommended option in all three cases.
+
+**Alternatives:** R1 — support only if the binomial test survives Holm (stricter, changes the frozen rule), or H1 outside the Holm family; R2 — only sites with H ≥ 2 bits (literal "fork", narrow H range, tight apps drop out); R3 — cut the last third over JS code and comment tokens, then drop comments.
