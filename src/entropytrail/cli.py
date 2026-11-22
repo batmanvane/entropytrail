@@ -214,25 +214,15 @@ def cmd_bench(args) -> int:
 
 
 def cmd_eval(args) -> int:
-    from playwright.sync_api import sync_playwright
-
     from entropytrail.embed import CodeEmbedder, ImageEmbedder
     from entropytrail.evaluate import eval_units, find_units
-    from entropytrail.render import render_app
+    from entropytrail.render import IsolatedRenderer
 
     units = find_units(args.root, prompt_ids=args.prompt_ids, forks=args.forks)
     print(f"{len(units)} units", flush=True)
-    with sync_playwright() as p:
-        state = {"browser": p.chromium.launch()}
-
-        def render_fn(html, out):
-            if not state["browser"].is_connected():  # crashed on a previous app
-                state["browser"] = p.chromium.launch()
-            return render_app(html, out, browser=state["browser"])
-
+    with IsolatedRenderer() as render_fn:
         res = eval_units(units, render_fn=render_fn, image_embedder=ImageEmbedder(),
                          code_embedder=CodeEmbedder())
-        state["browser"].close()
     print(json.dumps(res))
     return 0 if res["failed"] == 0 else 1
 

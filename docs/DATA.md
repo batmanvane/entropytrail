@@ -196,6 +196,7 @@ folders, so both must never run at the same time (D-033).
 | `page_errors`, `console_errors` | list<string> | first 20 messages, each cut at 300 chars |
 | `n_page_errors_after_interaction` | int | uncaught exceptions during the interaction |
 | `interaction_failed` | list<string> | interaction steps that could not be done (`click`, `keys`, `fill`, `wait`), e.g. a covered button |
+| `hung_killed` | bool | the page blocked the renderer (e.g. a busy loop started by a timer after load) for longer than 35 s; the render worker was killed, `timeout` is true and `renders` false |
 | `body_text_chars` | int | length of `document.body.innerText` after load |
 | `blocked_requests` | int | network requests aborted (everything except the app file) |
 | `first_random` | float | first value returned by the seeded `Math.random` (NaN if never called) |

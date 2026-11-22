@@ -102,3 +102,18 @@ def test_blocked_click_is_not_a_timeout(browser, tmp_path):
     assert r["renders"] and not r["timeout"]
     assert r["interaction_failed"] == ["click"]
     assert (tmp_path / "interact.png").stat().st_size > 0
+
+HANG_AFTER_LOAD = "<html><body><p>hi</p><script>setTimeout(()=>{while(true){}}, 100)</script></body></html>"
+
+
+def test_hang_after_load_is_bounded_in_isolated_worker(tmp_path):
+    from entropytrail.render import IsolatedRenderer
+
+    with IsolatedRenderer(timeout_s=3) as r:
+        t = time.monotonic()
+        rec = r(HANG_AFTER_LOAD, tmp_path / "h")
+        assert time.monotonic() - t < 40
+        assert rec["timeout"] and not rec["renders"]
+        assert (tmp_path / "h" / "load.png").exists() and (tmp_path / "h" / "render.json").exists()
+        ok = r(OK, tmp_path / "ok")  # worker restarted after the kill
+        assert ok["renders"]

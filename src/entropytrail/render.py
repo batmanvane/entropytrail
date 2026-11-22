@@ -10,6 +10,11 @@ from __future__ import annotations
 
 import importlib.metadata as md
 import json
+import os
+import select
+import signal
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -42,30 +47,40 @@ def _blank(path: Path) -> None:
     Image.new("RGB", VIEWPORT, "white").save(path)
 
 
-def render_app(html: str | None, out_dir: Path, *, browser, timeout_s: float = 15.0) -> dict:
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    ms = int(timeout_s * 1000)
-    rec = {
+def _base_record(chromium: str) -> dict:
+    return {
         "renders": False, "timeout": False,
         "n_page_errors": 0, "n_console_errors": 0, "page_errors": [], "console_errors": [],
         "n_page_errors_after_interaction": 0, "body_text_chars": 0, "blocked_requests": 0,
-        "interaction_failed": [],
+        "interaction_failed": [], "hung_killed": False,
         "first_random": float("nan"), "viewport": list(VIEWPORT), "random_seed": RANDOM_SEED,
         "clock_start": CLOCK_START, "playwright": md.version("playwright"),
-        "chromium": browser.version, "render_version": RENDER_VERSION,
+        "chromium": chromium, "render_version": RENDER_VERSION,
     }
-    shots = {"load": out_dir / "load.png", "interact": out_dir / "interact.png"}
 
-    if html is not None:
-        _run(html, rec, shots, browser, ms)
-    for p in shots.values():
-        if not p.exists():
-            _blank(p)
+
+def _finish(rec: dict, out_dir: Path) -> dict:
+    for name in ("load.png", "interact.png"):
+        if not (out_dir / name).exists():
+            _blank(out_dir / name)
     rec["page_errors"] = rec["page_errors"][:MAX_LISTED]
     rec["console_errors"] = rec["console_errors"][:MAX_LISTED]
     (out_dir / "render.json").write_text(json.dumps(rec, indent=2, ensure_ascii=False), encoding="utf-8")
     return rec
+
+
+def render_app(html: str | None, out_dir: Path, *, browser, timeout_s: float = 15.0) -> dict:
+    """Render in-process. A page that busy-loops after load can block a Playwright call
+    forever; use ``IsolatedRenderer`` for unattended batches."""
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ms = int(timeout_s * 1000)
+    rec = _base_record(browser.version)
+    shots = {"load": out_dir / "load.png", "interact": out_dir / "interact.png"}
+
+    if html is not None:
+        _run(html, rec, shots, browser, ms)
+    return _finish(rec, out_dir)
 
 
 def _run(html: str, rec: dict, shots: dict, browser, ms: int) -> None:
@@ -165,3 +180,103 @@ def _interact(page) -> list[str]:
     step("fill", fill)
     step("wait", lambda: page.clock.run_for(1000))
     return failed
+
+
+class IsolatedRenderer:
+    """Renders each app in a persistent worker process with its own browser.
+
+    If the worker does not answer within ``timeout_s + grace_s`` seconds (a page that
+    busy-loops after load blocks Playwright calls that have no timeout, e.g. ``clock.run_for``),
+    the worker's process group is killed, the unit gets a "hung" outcome (``timeout``
+    true, ``renders`` false, ``hung_killed`` true, blank missing screenshots) and a new
+    worker is started for the next unit. Use as a context manager; call like ``render_fn``.
+    """
+
+    def __init__(self, timeout_s: float = 15.0, grace_s: float = 20.0):
+        self.timeout_s, self.grace_s = timeout_s, grace_s
+        self.proc: subprocess.Popen | None = None
+        self.chromium = ""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def _start(self) -> None:
+        self.proc = subprocess.Popen(
+            [sys.executable, "-m", "entropytrail.render", str(self.timeout_s)],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, start_new_session=True,
+        )
+        line = self._readline(60.0)
+        if line is None:
+            self._kill()
+            raise RuntimeError("render worker did not start")
+        self.chromium = json.loads(line)["chromium"]
+
+    def _readline(self, timeout: float) -> str | None:
+        ready, _, _ = select.select([self.proc.stdout], [], [], timeout)
+        if not ready:
+            return None
+        line = self.proc.stdout.readline()
+        return line or None
+
+    def _kill(self) -> None:
+        if self.proc is None:
+            return
+        try:
+            os.killpg(self.proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        self.proc.wait()
+        self.proc = None
+
+    def close(self) -> None:
+        if self.proc is not None:
+            try:
+                self.proc.stdin.close()
+                self.proc.wait(timeout=10)
+            except Exception:  # noqa: BLE001
+                pass
+            self._kill()
+
+    def __call__(self, html: str | None, out_dir: Path) -> dict:
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        if self.proc is None or self.proc.poll() is not None:
+            self._start()
+        with tempfile.TemporaryDirectory() as tmp:
+            src = None
+            if html is not None:
+                src = Path(tmp) / "in.html"
+                src.write_text(html, encoding="utf-8")
+            self.proc.stdin.write(json.dumps({"html": str(src) if src else None, "out": str(out_dir)}) + "\n")
+            self.proc.stdin.flush()
+            line = self._readline(self.timeout_s + self.grace_s)
+        if line is not None:
+            return json.loads(line)
+        self._kill()
+        rec = _base_record(self.chromium)
+        rec.update(timeout=True, renders=False, hung_killed=True)
+        return _finish(rec, out_dir)
+
+
+def _worker(timeout_s: float) -> None:
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        print(json.dumps({"chromium": browser.version}), flush=True)
+        for line in sys.stdin:
+            req = json.loads(line)
+            html = Path(req["html"]).read_text(encoding="utf-8") if req["html"] else None
+            if not browser.is_connected():
+                browser = p.chromium.launch()
+            rec = render_app(html, Path(req["out"]), browser=browser, timeout_s=timeout_s)
+            print(json.dumps(rec), flush=True)
+        browser.close()
+
+
+if __name__ == "__main__":
+    _worker(float(sys.argv[1]) if len(sys.argv) > 1 else 15.0)
