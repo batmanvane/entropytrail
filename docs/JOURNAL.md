@@ -68,3 +68,9 @@ Calibration pass (D-032, protocol v1.3) done for all 21 prompts: 420/420 files c
 - 288/420 apps render (load without uncaught error), 10 time out or hang. Agreement with the Claude first-pass rating (functionality ≥ 2): 82 %. Disagreements are mostly apps that load but whose core is broken (57 render, functionality 1), and 20 apps with an uncaught load error that still partly work.
 - Visual check of 8 random apps (load and interaction screenshots against the Claude `what_it_is` line): all match; the fixed interaction visibly acts (input filled, puzzle tile moved, game started/over).
 - Sanity check required by plan 2 (A6), descriptive only, not the H2 test: the most uniform prompts (tip calculator, unit converter, times-table trainer, memory) have the lowest screen spread (0.03–0.08); the free prompts and loose tools the highest (0.25–0.29).
+
+## 2026-11-22 (WP5: fork rollouts smoke test, pilot queued)
+
+Day smoke test of the rollout runner on the 9B (Ollama idle, D-018): one site of the pilot plan (game-tight-01/000, position 1873, a colour constant, H 1.9 bits), 5 rollouts in 1 min 48 s (229–283 tokens each, 7–15 tok/s including prefill of the ~2,000-token prefix), all end with EOS, prefixes identical to the parent up to the forced token. `et eval --forks`: all 5 render; importance 0.010 (noise floor ≈ 0), i.e. the colour choice barely changes the screen. These rollouts are identical to what the pilot run would produce (same code, seeds and forced tokens) and are kept.
+
+Final review of plan 2 (fresh reviewer): fixed the parent-token identity check of the fork runner, the classification of render-worker crashes, and section labels for regex literals and CSS strings (16 of 420 apps change in `results/app-measures.csv`; pilot plan regenerated, free-01/004 sites changed). The night queue now runs `results/forks/plan-pilot.json` (`ET_FORK_PLAN` in `ops/night.env`), expected ~4 nights.

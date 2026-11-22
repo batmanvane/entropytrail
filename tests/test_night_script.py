@@ -14,6 +14,7 @@ def _run(tmp_path, **extra):
         "ET_MODELS_DIR": str(tmp_path),
         "ET_DATA_DIR": str(tmp_path),
         "ET_NOW_HOUR": "23",
+        "ET_FORK_PLAN": "",  # grid queue unless a test sets a plan
         **extra,
     }
     return subprocess.run(
