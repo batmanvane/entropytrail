@@ -78,3 +78,14 @@ Thresholds (2 bits, 4 bits, last third) are fixed here so they cannot be tuned a
 - Null results are reported with effect sizes and confidence intervals.
 - Changes after freezing get a dated entry in DECISIONS.md with the reason, and the original stays visible in git.
 - Ratings: apps shown in random order, blind (spec §9); the rating sample is stratified by prompt (≈ 5 apps per prompt → ≈ 100 apps, D4). If fewer than 3 ratings per app are reached, the sample is reduced stratified by prompt rather than relaxing the ≥ 3 rule; the reduction is logged in DECISIONS.md.
+
+## Implementation notes (WP6, 2026-11-22)
+
+Code: `src/entropytrail/analysis/measures.py`; table: `results/app-measures.csv` (one row per app).
+
+- **App part:** tokens whose first character lies in the extracted HTML (`extract.app_span`); `rel_pos` = index among app tokens / number of app tokens.
+- **Sections:** `sections.token_sections(..., detail=True)`; code = html, css, js, text; comment = js-comment, css-comment, html-comment (D-029 rule: label of the token's first character; comment markers inside JS strings are code; regex literals are not detected).
+- **late JS surprise** (reading R3, pending Robert's confirmation before any test uses it): take the JS **code** tokens (label `js`, JS comments dropped first) in order, keep the last third by count (index ≥ ⌈2n/3⌉), share with S ≥ 4 bits; undefined (NaN) if the app has fewer than 3 JS code tokens (0 of the 420 grid apps).
+- **fork surprise:** mean S over forks; NaN if the app has no fork. **median_relpos_top10_forks:** median `rel_pos` of the (up to) 10 forks with the highest H.
+- **path action:** Σ S over app tokens; also per token. **H per char / per line:** Σ H over app tokens divided by characters / lines of `app.html`.
+- Check: the 20 smoke apps give 71.7 % of app tokens with H < 0.1 bits and 4.5 % with H ≥ 2 bits, as in JOURNAL 2026-11-20.
