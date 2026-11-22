@@ -51,6 +51,13 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--prompt-ids", nargs="+", default=None)
     e.add_argument("--forks", action="store_true", help="also evaluate fork rollouts")
 
+    f = sub.add_parser("forks-plan", help="select fork sites and write a fork plan (WP5)")
+    f.add_argument("--root", required=True, type=Path, help="condition directory")
+    f.add_argument("--prompt-ids", nargs="+", required=True)
+    f.add_argument("--apps-per-prompt", required=True, type=int)
+    f.add_argument("--seed", required=True, type=int)
+    f.add_argument("--out", required=True, type=Path)
+
     b = sub.add_parser("bench", help="single-sequence throughput")
     common(b, prompts=False)
     b.add_argument("--tokens", type=int, default=1000)
@@ -205,6 +212,21 @@ def cmd_eval(args) -> int:
     return 0 if res["failed"] == 0 else 1
 
 
+def cmd_forks_plan(args) -> int:
+    from entropytrail.forks import build_plan, choose_apps, write_plan
+
+    apps = choose_apps(args.root, args.prompt_ids, args.apps_per_prompt, args.seed)
+    plan = build_plan(args.root, apps, seed=args.seed)
+    write_plan(args.out, plan)
+    n_sites = sum(len(a["sites"]) for a in plan["apps"])
+    n_roll = sum(len(s["variants"]) for a in plan["apps"] for s in a["sites"])
+    tokens = sum((a["n_tokens"] - s["pos"]) * len(s["variants"]) for a in plan["apps"] for s in a["sites"])
+    print(json.dumps({"apps": len(apps), "sites": n_sites, "rollouts": n_roll,
+                      "rollout_tokens_upper_estimate": tokens,
+                      "hours_at_17_tok_s": round(tokens / 17 / 3600, 1)}))
+    return 0
+
+
 class _BenchArgs:
     def __init__(self, a):
         self.condition = a.condition
@@ -214,5 +236,6 @@ def main(argv: list[str] | None = None) -> None:
     _setup_env()
     args = build_parser().parse_args(argv)
     fn = {"generate": cmd_generate, "run-window": cmd_run_window,
-          "validate": cmd_validate, "bench": cmd_bench, "eval": cmd_eval}[args.cmd]
+          "validate": cmd_validate, "bench": cmd_bench, "eval": cmd_eval,
+          "forks-plan": cmd_forks_plan}[args.cmd]
     sys.exit(fn(args))

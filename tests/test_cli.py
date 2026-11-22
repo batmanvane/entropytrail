@@ -77,3 +77,9 @@ def test_eval_parser():
     assert a.cmd == "eval" and str(a.root) == "/x" and a.prompt_ids == ["a", "b"] and a.forks
     a = cli.build_parser().parse_args(["eval", "--root", "/x"])
     assert a.prompt_ids is None and not a.forks
+
+
+def test_forks_plan_parser():
+    a = cli.build_parser().parse_args(["forks-plan", "--root", "/x", "--prompt-ids", "a", "b",
+                                       "--apps-per-prompt", "5", "--seed", "2026", "--out", "p.json"])
+    assert a.cmd == "forks-plan" and a.apps_per_prompt == 5 and a.seed == 2026 and a.prompt_ids == ["a", "b"]
