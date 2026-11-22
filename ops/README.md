@@ -39,6 +39,14 @@ space-separated). It is read at every start; no launchd reload needed.
 Manual start for a test: `sudo launchctl kickstart system/de.entropytrail.night`.
 Dry run (no side effects): `ET_DRY_RUN=1 bash scripts/night-studio.sh`.
 
+## Fork queue (WP5)
+
+Set `ET_FORK_PLAN=results/forks/plan-pilot.json` (path relative to the repo) in
+`ops/night.env` to run the rollouts of a fork plan instead of the grid; `ET_PROMPT_IDS`
+must then be empty. The plan file must be committed (the run refuses a dirty tree).
+Progress: `grep '"kind": "forks"' /Volumes/Data/entropytrail/runlog.jsonl | tail`.
+Set `ET_FORK_PLAN=` again to return to the grid queue.
+
 ## Watchdog
 
 `--until 06:00` is only checked between tokens. If the run blocks elsewhere (first night:

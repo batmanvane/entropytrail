@@ -282,3 +282,17 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Screens must be comparable between grid apps and fork rollouts, and same-vs-same rollout distances (the noise floor of fork importance) must come from the model, not the renderer. Check on 30 random grid apps rendered twice: 29 byte-identical screenshot pairs, one pair differed once (CSS animation timing race; four further renders identical). Without the paused clock and disabled animations, animated apps differed on every run.
 
 **Alternatives:** Real time and real randomness (noisy screens); a hand-written automatic adherence checklist per tight prompt (duplicates the Claude checklist, which already exists for all 180 tight apps); CLIP ViT-B/32 (older, 224 px).
+
+## D-035 · 2026-11-22 · Fork experiment pilot (D2)
+
+**Decision:**
+- *Pilot* (spec D2 proposal): 3 prompts × 5 apps — `game-tight-01` (tight game), `tool-loose-01` (loose tool), `free-01` (open) — apps drawn with seed 2026 among apps with extracted HTML (`results/forks/plan-pilot.json`: 15 apps, 195 sites, 975 rollouts, ≤ 26 h decoding at 17 tok/s). Scale-up is decided by Robert after the pilot.
+- *Sites:* 10 highest-H code tokens (A1 sections html/css/js/text, D-029) greedily at least 20 tokens apart, plus 3 random code tokens (seeded per app) also 20 apart; the last token is never a site. Sites are not required to have H ≥ 2 (in tight apps the top code tokens are often below 2 bits; see R2 in plan 2).
+- *Variants:* the top-3 alternatives ≠ actual token from the recorded top-20 (EOS allowed: the app then ends at the prefix), one rollout each; two same-token rollouts.
+- *Rollouts:* recorder and condition of the grid; the prefix is prefilled anew per rollout (no KV-cache sharing; the distribution at the site may differ from the recorded one by bf16 chunk noise, D-021, irrelevant because the token is forced); budget `max_tokens − pos − 1` (cap counted from the start of generation); seed per rollout derived from condition, parent, position and variant.
+- *Importance:* primary as spec §5.4 (alternatives vs the two same-token rollouts, minus their distance). Secondary `importance_incl_original`: the parent app is added as a third same-token outcome (better noise floor, but sites were chosen with knowledge of the parent's later tokens).
+- *Night queue:* `ET_FORK_PLAN` in `ops/night.env` switches the night run to `et run-window --fork-plan`; combined with `ET_PROMPT_IDS` it is a configuration error and the night is skipped without touching Ollama.
+
+**Reason:** Spec §5.4 and D2; the pilot measures real cost and noise floor before committing ~13+ nights.
+
+**Alternatives:** KV-cache sharing across the 5 rollouts of a site (faster prefill, more code, cache copy for the hybrid linear-attention layers); 2 apps per prompt for all 21 prompts directly (spec §8; decided after the pilot).

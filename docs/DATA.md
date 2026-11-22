@@ -214,3 +214,39 @@ rule), `code_rarity` (same with code embeddings), `fingerprint_rarity` (same wit
 n_apps, n_renders, ensemble_spread` (mean pairwise screen cosine distance),
 `ensemble_spread_render_rule` (same with outcome distance, D-034), `code_spread`,
 `fingerprint_spread`.
+
+## Fork experiments (WP5)
+
+### results/forks/plan-&lt;name&gt;.json (committed)
+
+Written by `et forks-plan`. Keys: `plan_version` (1), `condition_id`, `created_at`, `seed`,
+`params` (`n_top` 10, `n_random` 3, `min_spacing` 20, `n_alt` 3, `n_same` 2), `apps`: list of
+`{prompt_id, sample, n_tokens, sites}`; each site: `pos` (token index in the parent's
+`tokens.parquet`), `kind` (`top` = among the 10 highest-H code tokens, `random` = control),
+`H`, `S` (bits, as recorded), `section` (A1 label of the token), `rel_pos` ((pos − first app
+token) / number of app tokens), `actual_id`, `variants` (`alt1..alt3`: the top-3 alternatives
+≠ actual token, in descending probability; `same1`, `same2`: the actual token).
+
+### Rollout units
+
+`<prompt_id>/<sample:03d>/forks/<pos:05d>/<variant>/`, a unit directory as above (atomic
+`.partial` rename, `status: "done"`, stale directories renamed). The rollout continues the
+parent app from the prefix `prompt_ids + parent tokens[:pos] + [forced token]` with the same
+condition (T = 1.0, no truncation) and at most `max_tokens − pos − 1` new tokens, so the
+16,000-token cap counts from the start of generation as for the grid apps.
+
+- `output.txt` / `app.html`: the **full** app text (parent prefix + forced token + continuation).
+- `tokens.parquet`: the **continuation** tokens only (same columns as above); `char_offset`
+  is relative to `fork.continuation_char_offset`. A forced EOS (or a zero budget) gives an
+  empty table.
+- `meta.json`: the keys of an app unit (`n_tokens` counts continuation tokens, `seconds` is
+  the continuation time, `prompt_ids` is the chat prompt) plus `seed` =
+  `derive_seed(condition_id, "<prompt_id>/<sample:03d>/<pos:05d>/<variant>", 0)` and
+  `fork`: `parent` (`<prompt_id>/<sample:03d>`), `pos`, `kind`, `variant`,
+  `forced_token_id`, `actual_token_id`, `H` (recorded entropy at the site),
+  `prefix_len` (= len(prompt_ids) + pos + 1, input length for a chunk=1 re-check, D-021),
+  `continuation_char_offset`, `plan` (plan path), `plan_sha256`.
+
+On resume a done rollout is skipped only if its `parent`, `pos`, `variant`,
+`forced_token_id` and `seed` equal the plan's; otherwise the run aborts. `runlog.jsonl`
+entries of fork runs carry `"kind": "forks"` and `plan`.

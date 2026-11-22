@@ -104,3 +104,19 @@ def test_watchdog_deadline_is_0605_next_morning(tmp_path):
     r = _run(tmp_path)
     assert r.returncode == 0, r.stderr
     assert "watchdog armed until" in r.stdout and "06:05" in r.stdout
+
+
+def test_fork_plan_queue(tmp_path):
+    r = _run(tmp_path, ET_FORK_PLAN="results/forks/plan-pilot.json")
+    assert r.returncode == 0, r.stderr
+    lines = _cmd_lines(r.stdout)
+    assert "bootout system/com.robert.ollama" in lines[0]
+    assert "--fork-plan results/forks/plan-pilot.json" in lines[1] and "--until 06:00" in lines[1]
+    assert "--samples" not in lines[1] and "--prompt-ids" not in lines[1]
+    assert "bootstrap system" in lines[-1] and len(lines) == 3
+
+
+def test_fork_plan_with_prompt_ids_is_a_config_error(tmp_path):
+    r = _run(tmp_path, ET_FORK_PLAN="results/forks/plan-pilot.json", ET_PROMPT_IDS="free-01")
+    assert r.returncode != 0
+    assert _cmd_lines(r.stdout) == []
