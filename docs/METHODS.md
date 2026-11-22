@@ -20,6 +20,16 @@ All information quantities are in bits (log base 2). Let p be the full next-toke
 
 Recorded values are the exact sampling distribution: the transformer body runs in bf16, the head (float32 copy of `lm_head`) and the log-softmax in float32. A chunked teacher-forced recomputation (chunk > 1) differs from the recorded values because the bf16 body kernels round differently for different chunk sizes; measured on 1500 tokens of the smoke app (chunk 512): p99 |dH| 0.044, p99 |dS| 0.083, max |dH| 0.095, max |dS| 0.254 bits. Compare against recorded values only by recomputing token by token (chunk = 1), which reproduces them exactly (decision D-021).
 
+## Outcome measures (WP4, defined 2026-11-22, before any fork rollout existed)
+
+See D-034 for the render procedure and models. With e_load, e_interact the L2-normalised image embeddings of an app's two screenshots:
+
+- **screen embedding** s = (e_load + e_interact) / ‖e_load + e_interact‖
+- **screen distance** d_s(a, b) = clip(1 − s_a·s_b, 0, 1)
+- **outcome distance** d(a, b) = 1 if exactly one of a, b renders, else d_s(a, b) (spec §5.4; used for fork importance)
+- **ensemble spread** of a prompt = mean of d_s over all pairs of its apps; **ensemble rarity** of an app = mean d_s to the other apps of its prompt (no render rule, as worded in the frozen plan; the render-rule variant is reported alongside)
+- code and fingerprint spread/rarity: the same with the cosine distance of code embeddings and with `fingerprint_distance` (mean of tag-histogram cosine distance and Jaccard distances of JS function names and CSS colours)
+
 ## Analysis plan (frozen 2026-11-20)
 
 Approved by Robert on 2026-11-20 (D-028); amended the same day before any grid data existed (D-029: forks counted in code only, comments reported separately). Committed before the main grid (prompt set v1) was generated — light pre-registration per spec §6. Changes after this date need a dated DECISIONS.md entry; the original stays visible in git history.

@@ -70,3 +70,10 @@ def test_validation_json_has_provenance(monkeypatch, tmp_path, tiny_model):
     assert v["weights_fingerprint"] == "fp-test"
     for k in ("git_commit", "git_dirty", "mlx", "mlx_lm", "python", "macos", "hostname"):
         assert k in v
+
+
+def test_eval_parser():
+    a = cli.build_parser().parse_args(["eval", "--root", "/x", "--prompt-ids", "a", "b", "--forks"])
+    assert a.cmd == "eval" and str(a.root) == "/x" and a.prompt_ids == ["a", "b"] and a.forks
+    a = cli.build_parser().parse_args(["eval", "--root", "/x"])
+    assert a.prompt_ids is None and not a.forks

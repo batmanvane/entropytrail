@@ -262,3 +262,23 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Novelty is relative to the apps a rater has seen. First-pass raters saw different subsets per batch and drifted (tool-tight-03: novelty 1 for nearly all apps in the first batch, 2 for similar apps in the second). Functionality, UI and UX are tied to absolute anchors and are not affected. Approved by Robert.
 
 **Alternatives:** Keep the first-pass novelty (inconsistent within prompts); re-rate everything in one pass per prompt (far more expensive).
+
+## D-033 · 2026-11-22 · WP4 runs on the Mac Studio
+
+**Decision:** The automatic evaluation (render, screenshots, fingerprints, embeddings) runs on the Mac Studio as a day job (`et eval`), never at the same time as a 9B run. The desktop stays available if Studio time gets short.
+
+**Reason:** Spec §8 assigned WP4 to the desktop so that it does not mix with the main series. Outcome measures are not part of the landscape condition, so the "one condition = one machine" rule does not apply to them. The data, a matching Chromium build (Playwright 1.65.2, Chromium 159.0.8154.6) and the WP5 rollouts are all on the Studio; evaluating there avoids a sync step per rollout batch. Measured: ~0.3 s per app to render, ~1.5 s (median) to 10 s (16k tokens) per code embedding.
+
+**Alternatives:** Desktop with a Studio → desktop sync (spec §8; more moving parts, same results up to float noise of the embedding models).
+
+## D-034 · 2026-11-22 · Outcome measures (render procedure v1, embeddings, outcome distance)
+
+**Decision:**
+- *Render v1* (`src/entropytrail/render.py`): headless Chromium, new context per unit, viewport 1024×768, scale 1; `Math.random` replaced by mulberry32 seed 12345; Playwright fake clock paused at 2026-01-01T12:00:00Z, page time advances only by `run_for` (1.5 s before `load.png`); blocking dialogs logged instead; all requests except the app file aborted; 15 s load timeout. Interaction: click the first visible button (else the first canvas), press ArrowRight, ArrowUp, Space, Enter (150 ms page time each), type 42 into the first visible text/number input, 1 s page time, `interact.png`. Screenshots with `animations="disabled"`. `renders` = loaded and no uncaught error up to `load.png`.
+- *Embeddings:* screenshots with `google/siglip2-base-patch16-384` (snapshot f775b65a), code with `Qwen/Qwen3-Embedding-0.6B` (snapshot 97b0c614, no instruction prefix, max 16,384 tokens); both L2-normalised, MPS.
+- *Screen embedding* of an app = normalised mean of its two screenshot embeddings. *Outcome distance* (spec §5.4) = 1 if exactly one of the two apps renders, else screen cosine distance clipped to [0, 1]. *Ensemble spread / rarity* (frozen plan) = mean pairwise / mean-to-others screen cosine distance **without** the render rule; the render-rule variant is reported alongside.
+- **Deviation, labelled:** prompt adherence for tight prompts (H4 secondary, spec §5.5 "hand-written checklist") is taken from the Claude Chrome checklist (D-030) instead of a second, automatic checklist. A Claude-derived measure thus enters a pre-registered secondary test; it is reported as "adherence (Claude checklist)" and never pooled with human ratings.
+
+**Reason:** Screens must be comparable between grid apps and fork rollouts, and same-vs-same rollout distances (the noise floor of fork importance) must come from the model, not the renderer. Check on 30 random grid apps rendered twice: 29 byte-identical screenshot pairs, one pair differed once (CSS animation timing race; four further renders identical). Without the paused clock and disabled animations, animated apps differed on every run.
+
+**Alternatives:** Real time and real randomness (noisy screens); a hand-written automatic adherence checklist per tight prompt (duplicates the Claude checklist, which already exists for all 180 tight apps); CLIP ViT-B/32 (older, 224 px).

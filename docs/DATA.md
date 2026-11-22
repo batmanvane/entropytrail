@@ -165,3 +165,52 @@ seed 0, `--tokens` tokens, single sequence).
 | `prefill_tokens_per_s` | float | tokens/s | `prompt_tokens / prefill_s` |
 | `decode_s` | float | s | time from first to last token |
 | `decode_tokens_per_s` | float | tokens/s | `(tokens - 1) / decode_s` |
+
+## eval/ (automatic outcomes, WP4)
+
+`<unit>/eval/`, written by `et eval` (`src/entropytrail/evaluate.py`) for every done unit:
+grid apps (`<prompt_id>/NNN/`) and, with `--forks`, fork rollouts
+(`<prompt_id>/NNN/forks/PPPPP/<variant>/`). Written atomically via `eval.partial/`, which is
+renamed to `eval/` when complete; a unit is evaluated iff `eval/eval.json` has
+`status: "done"` and the current `render_version`, `image_model` and `code_model` (otherwise
+it is redone). `et eval` is a day job: the night run's `clean_partials` deletes `eval.partial`
+folders, so both must never run at the same time (D-033).
+
+| file | content |
+|---|---|
+| `load.png` | screenshot 1024×768 after load and 1.5 s of page time; blank white if the unit has no `app.html` or the page hung |
+| `interact.png` | screenshot after the fixed interaction (D-034); blank white if not reached |
+| `render.json` | render record, see below |
+| `fingerprint.json` | `tags` (start-tag counts), `js_functions` (sorted names), `css_colors` (sorted, normalised) |
+| `embeddings.npz` | float32 L2-normalised vectors: `img_load`, `img_interact` (image model), `screen` (normalised mean of the two), `code` (code model, of `app.html`, or of `output.txt` if no HTML was extracted) |
+| `eval.json` | `status`, `render_version`, `image_model`, `code_model`, `code_truncated` (input longer than 16,384 tokens of the code model), `git_commit`, `evaluated_at` |
+
+### render.json
+
+| key | type | definition |
+|---|---|---|
+| `renders` | bool | `app.html` exists, the page fired `load` within 15 s, and no uncaught page error occurred up to the first screenshot |
+| `timeout` | bool | the page did not load in time or hung (e.g. an endless loop) |
+| `n_page_errors` | int | uncaught exceptions (`pageerror`) over the whole session |
+| `n_console_errors` | int | `console.error` messages over the whole session |
+| `page_errors`, `console_errors` | list<string> | first 20 messages, each cut at 300 chars |
+| `n_page_errors_after_interaction` | int | uncaught exceptions during the interaction |
+| `interaction_failed` | list<string> | interaction steps that could not be done (`click`, `keys`, `fill`, `wait`), e.g. a covered button |
+| `body_text_chars` | int | length of `document.body.innerText` after load |
+| `blocked_requests` | int | network requests aborted (everything except the app file) |
+| `first_random` | float | first value returned by the seeded `Math.random` (NaN if never called) |
+| `viewport`, `random_seed`, `clock_start`, `render_version` | | fixed procedure parameters |
+| `playwright`, `chromium` | string | versions |
+
+## results/outcomes.csv and results/ensemble.csv
+
+Written by `scripts/collect_outcomes.py` from the `eval/` folders of the grid apps.
+`outcomes.csv`, one row per app: `prompt_id, sample, domain, openness, n_tokens,
+finish_reason, html_extracted, n_chars, n_lines` (of `app.html`, 0 if none), the render keys
+`renders, timeout, n_page_errors, n_console_errors, n_page_errors_after_interaction`, and
+`ensemble_rarity` (mean screen cosine distance to the other apps of the prompt, no render
+rule), `code_rarity` (same with code embeddings), `fingerprint_rarity` (same with
+`fingerprint_distance`). `ensemble.csv`, one row per prompt: `prompt_id, domain, openness,
+n_apps, n_renders, ensemble_spread` (mean pairwise screen cosine distance),
+`ensemble_spread_render_rule` (same with outcome distance, D-034), `code_spread`,
+`fingerprint_spread`.
