@@ -60,3 +60,11 @@ All 420 units of prompt set v1 (21 prompts × 20 samples, condition `qwen35-9b-b
 ## 2026-11-21 (novelty calibration complete)
 
 Calibration pass (D-032, protocol v1.3) done for all 21 prompts: 420/420 files carry `novelty_calibrated` (1: 194, 2: 129, 3: 73, 4: 22, 5: 2; no null). First-pass vs calibrated novelty: r = 0.49, 54 % identical (n = 253 with both values) — confirms the rater drift that motivated the pass. Exploratory, not a test of H5: Spearman ρ(functionality, novelty_calibrated) = −0.25; share of apps with functionality ≥ 3 falls from 43 % (novelty 1) to 28 % (2), 25 % (3) and 9 % (4). The first calibration agent (edu-tight-01) judged from source only; the brief was tightened to require a screenshot per app for all later prompts. `results/ratings-claude.csv` updated.
+
+## 2026-11-22 (WP4: automatic outcomes of the grid)
+
+`et eval` (render v1, SigLIP2 screenshots, Qwen3-Embedding code, fingerprints; D-033, D-034) on all 420 grid apps on the Studio, day run, Ollama idle: 420 done, 0 failed. The first attempt stalled for ~35 min on free-02/012 (a busy loop started by a timer after load blocks Playwright calls without timeout); fixed by rendering each unit in a killable worker process (35 s limit), then resumed (144 skipped, 276 done). Results in `results/outcomes.csv` and `results/ensemble.csv`.
+
+- 288/420 apps render (load without uncaught error), 10 time out or hang. Agreement with the Claude first-pass rating (functionality ≥ 2): 82 %. Disagreements are mostly apps that load but whose core is broken (57 render, functionality 1), and 20 apps with an uncaught load error that still partly work.
+- Visual check of 8 random apps (load and interaction screenshots against the Claude `what_it_is` line): all match; the fixed interaction visibly acts (input filled, puzzle tile moved, game started/over).
+- Sanity check required by plan 2 (A6), descriptive only, not the H2 test: the most uniform prompts (tip calculator, unit converter, times-table trainer, memory) have the lowest screen spread (0.03–0.08); the free prompts and loose tools the highest (0.25–0.29).
