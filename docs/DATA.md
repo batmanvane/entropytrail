@@ -250,3 +250,12 @@ condition (T = 1.0, no truncation) and at most `max_tokens − pos − 1` new to
 On resume a done rollout is skipped only if its `parent`, `pos`, `variant`,
 `forced_token_id` and `seed` equal the plan's; otherwise the run aborts. `runlog.jsonl`
 entries of fork runs carry `"kind": "forks"` and `plan`.
+
+### results/forks/importance-&lt;plan&gt;.csv
+
+Written by `scripts/collect_forks.py`, one row per site with ≥ 1 evaluated alternative and
+2 evaluated same-token rollouts: `prompt_id, sample, domain, openness, pos, kind, H, S,
+section, rel_pos` (from the plan), `n_alt, n_same, n_alt_renders, n_same_renders`,
+`alt_same` (mean outcome distance alternative vs same-token rollouts), `noise_floor` (mean
+distance among same-token rollouts), `importance` = `alt_same − noise_floor` (spec §5.4),
+`importance_incl_original` (same with the parent app as a third same-token outcome, D-035).
