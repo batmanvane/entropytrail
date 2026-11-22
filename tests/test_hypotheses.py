@@ -99,3 +99,45 @@ def test_h3_entropy_only():
     from entropytrail.analysis.tests_h import h3
     r = h3(_forks("H"))
     assert r["spearman_rho"] > 0.5
+
+
+def _rated(slope, seed=6, n_per=8):
+    rng = np.random.default_rng(seed)
+    p = grid_prompts()
+    d = p.loc[p.index.repeat(n_per)].reset_index(drop=True)
+    d["x"] = rng.random(len(d))
+    shift = dict(zip(p["prompt_id"], rng.normal(0, 0.3, len(p))))
+    d["y"] = 3 + slope * d["x"] + d["prompt_id"].map(shift) + rng.normal(0, 0.3, len(d))
+    d["n_ratings"] = 3
+    return d
+
+
+def test_rating_test_negative_slope():
+    from entropytrail.analysis.tests_h import rating_test
+    r = rating_test(_rated(-1.0), "y", "x", "-", min_ratings=3)
+    assert r["estimate"] < 0 and r["p_primary"] < 0.05 and r["n"] == 21 * 8
+
+
+def test_rating_test_min_ratings_filters():
+    from entropytrail.analysis.tests_h import rating_test
+    d = _rated(-1.0)
+    d.loc[:20, "n_ratings"] = 2
+    assert rating_test(d, "y", "x", "-", min_ratings=3)["n"] == 21 * 8 - 21
+
+
+def test_renders_logit():
+    from entropytrail.analysis.tests_h import renders_test
+    d = _rated(0.0)
+    rng = np.random.default_rng(1)
+    d["renders"] = rng.random(len(d)) < 1 / (1 + np.exp(-(2 - 4 * d["x"])))
+    r = renders_test(d, "x")
+    assert r["estimate"] < 0 and r["p_one_sided"] < 0.05
+
+
+def test_holm():
+    from entropytrail.analysis.tests_h import holm
+    h = holm({"a": 0.01, "b": 0.04, "c": 0.03}, m=3)
+    assert {k: round(v["p_holm"], 6) for k, v in h.items()} == {"a": 0.03, "b": 0.06, "c": 0.06}
+    assert [k for k, v in h.items() if v["reject"]] == ["a"]
+    h5 = holm({"a": 0.01})
+    assert h5["a"]["p_holm"] == pytest.approx(0.05) and not h5["a"]["reject"]

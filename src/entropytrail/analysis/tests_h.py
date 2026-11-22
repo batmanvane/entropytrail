@@ -115,3 +115,52 @@ def h3(imp: pd.DataFrame, n_boot: int = 2000, seed: int = 0) -> dict:
         "by_kind": {k: float(g["importance"].mean()) for k, g in d.groupby("kind")} if "kind" in d else {},
         "model": "MixedLM (ML) importance ~ H vs ~ H + rel_pos + C(section), (1|app)",
     }
+
+
+# --- H4 / H5 ----------------------------------------------------------------------------
+
+def rating_test(df: pd.DataFrame, outcome: str, predictor: str, sign: str,
+                min_ratings: int | None = 3) -> dict:
+    """MixedLM ``outcome ~ predictor + loose + C(domain)`` with prompt groups; one-sided p."""
+    import statsmodels.formula.api as smf
+
+    d = design(df).dropna(subset=[outcome, predictor])
+    if min_ratings is not None and "n_ratings" in d:
+        d = d[d["n_ratings"] >= min_ratings]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = smf.mixedlm(f"{outcome} ~ {predictor} + loose + C(domain)", d, groups=d["prompt_id"]).fit()
+    coef, p_two = float(fit.params[predictor]), float(fit.pvalues[predictor])
+    lo, hi = (float(x) for x in fit.conf_int().loc[predictor])
+    return {"n": len(d), "n_prompts": int(d["prompt_id"].nunique()), "estimate": coef, "ci": [lo, hi],
+            "p_two_sided": p_two, "p_primary": one_sided(coef, p_two, sign), "sign": sign,
+            "model": f"MixedLM {outcome} ~ {predictor} + loose + C(domain) + (1|prompt)"}
+
+
+def renders_test(df: pd.DataFrame, predictor: str) -> dict:
+    """H4 secondary: logistic GLM renders ~ predictor + loose + C(domain), SE cluster-robust by prompt."""
+    import statsmodels.api as sm
+    import statsmodels.formula.api as smf
+
+    d = design(df).dropna(subset=[predictor]).copy()
+    d["renders"] = d["renders"].astype(int)
+    groups = pd.factorize(d["prompt_id"])[0]
+    fit = smf.glm(f"renders ~ {predictor} + loose + C(domain)", d, family=sm.families.Binomial()).fit(
+        cov_type="cluster", cov_kwds={"groups": groups})
+    coef, p_two = float(fit.params[predictor]), float(fit.pvalues[predictor])
+    return {"n": len(d), "estimate": coef, "p_two_sided": p_two, "p_one_sided": one_sided(coef, p_two, "-"),
+            "model": f"Logit renders ~ {predictor} + loose + C(domain), cluster-robust SE by prompt"}
+
+
+def holm(pvals: dict[str, float], alpha: float = ALPHA, m: int = 5) -> dict[str, dict]:
+    """Holm step-down with family size ``m`` (5 = H1-H5). Hypotheses not yet tested count as
+    untested: the multiplier uses the rank among available p-values, which can only shrink
+    when more p-values arrive, so interim adjusted p-values are never smaller than final ones."""
+    items = sorted(pvals.items(), key=lambda kv: kv[1])
+    out, running, stop = {}, 0.0, False
+    for j, (k, p) in enumerate(items):
+        adj = min(1.0, (m - j) * p)
+        running = max(running, adj)
+        stop = stop or running >= alpha
+        out[k] = {"p": p, "p_holm": running, "reject": not stop}
+    return {k: out[k] for k in pvals}
