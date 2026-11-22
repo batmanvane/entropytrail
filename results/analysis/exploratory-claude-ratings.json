@@ -1,0 +1,29 @@
+{
+  "label": "exploratory - Claude ratings, not human ratings; not part of the Holm family",
+  "H4_functionality": {
+    "n": 357,
+    "n_prompts": 21,
+    "estimate": -23.106720593839537,
+    "ci": [
+      -32.85337292207613,
+      -13.360068265602939
+    ],
+    "p_two_sided": 3.3752684935249627e-06,
+    "p_primary": 1.6876342467624814e-06,
+    "sign": "-",
+    "model": "MixedLM functionality ~ late_js_surprise + loose + C(domain) + (1|prompt)"
+  },
+  "H5_novelty_calibrated": {
+    "n": 354,
+    "n_prompts": 21,
+    "estimate": 0.2108773785487134,
+    "ci": [
+      0.02730352438939268,
+      0.39445123270803417
+    ],
+    "p_two_sided": 0.02435542589646686,
+    "p_primary": 0.01217771294823343,
+    "sign": "+",
+    "model": "MixedLM novelty_calibrated ~ fork_surprise + loose + C(domain) + (1|prompt)"
+  }
+}
