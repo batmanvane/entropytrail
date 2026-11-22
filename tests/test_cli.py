@@ -83,3 +83,13 @@ def test_forks_plan_parser():
     a = cli.build_parser().parse_args(["forks-plan", "--root", "/x", "--prompt-ids", "a", "b",
                                        "--apps-per-prompt", "5", "--seed", "2026", "--out", "p.json"])
     assert a.cmd == "forks-plan" and a.apps_per_prompt == 5 and a.seed == 2026 and a.prompt_ids == ["a", "b"]
+
+
+def test_run_window_fork_plan_parser():
+    base = ["run-window", "--condition", "c.yaml", "--prompts", "p.yaml", "--until", "06:00"]
+    a = cli.build_parser().parse_args(base + ["--fork-plan", "plan.json"])
+    assert str(a.fork_plan) == "plan.json" and a.samples is None
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(base + ["--fork-plan", "plan.json", "--samples", "2"])
+    with pytest.raises(SystemExit):
+        cli.build_parser().parse_args(base)

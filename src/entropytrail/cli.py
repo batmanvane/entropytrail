@@ -35,7 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     r = sub.add_parser("run-window", help="run units until a deadline")
     common(r)
-    r.add_argument("--samples", required=True, type=int)
+    what = r.add_mutually_exclusive_group(required=True)
+    what.add_argument("--samples", type=int, help="grid queue: samples per prompt")
+    what.add_argument("--fork-plan", type=Path, help="fork queue: rollouts of this plan (WP5)")
     r.add_argument("--prompt-ids", nargs="+", default=None)
     r.add_argument("--until", required=True, metavar="HH:MM")
     r.add_argument("--allow-dirty", action="store_true",
@@ -83,7 +85,7 @@ def _load(args, need_prompts=True):
     return cond, ps, model, tok, weights_fingerprint(cond.model_repo)
 
 
-def _run(args, units_fn, deadline) -> int:
+def _run(args, units_fn, deadline, run_fn=None) -> int:
     from entropytrail.model import provenance
     from entropytrail.runner import run_units
     from entropytrail.storage import data_root
@@ -94,7 +96,10 @@ def _run(args, units_fn, deadline) -> int:
               "--allow-dirty", file=sys.stderr)
         return 2
     cond, ps, model, tok, fp = _load(args)
-    res = run_units(units_fn(ps), cond, ps, model, tok, data_root(), deadline, fingerprint=fp)
+    if run_fn is not None:
+        res = run_fn(cond, ps, model, tok, data_root(), deadline, fp)
+    else:
+        res = run_units(units_fn(ps), cond, ps, model, tok, data_root(), deadline, fingerprint=fp)
     print(json.dumps(res))
     return 0
 
@@ -111,7 +116,27 @@ def cmd_run_window(args) -> int:
     from entropytrail.runner import plan_units
 
     deadline = next_occurrence(args.until, datetime.now())
+    if args.fork_plan is not None:
+        if args.prompt_ids:
+            print("--prompt-ids cannot be combined with --fork-plan", file=sys.stderr)
+            return 2
+        return _run(args, None, deadline, run_fn=_fork_runner(args.fork_plan))
     return _run(args, lambda ps: plan_units(ps, args.samples, args.prompt_ids), deadline)
+
+
+def _fork_runner(path: Path):
+    import hashlib
+
+    from entropytrail.forks import read_plan, run_rollouts
+
+    raw = Path(path).read_bytes()
+    plan = read_plan(path)
+
+    def run(cond, ps, model, tok, root, deadline, fp):
+        return run_rollouts(plan, cond, ps, model, tok, root, deadline, fingerprint=fp,
+                            plan_name=str(path), plan_sha256=hashlib.sha256(raw).hexdigest())
+
+    return run
 
 
 def cmd_validate(args) -> int:
