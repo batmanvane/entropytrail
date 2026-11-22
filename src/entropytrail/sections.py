@@ -3,8 +3,9 @@
 Labels: ``html`` (inside tags), ``text`` (between tags), ``css`` (inside <style>),
 ``js`` (inside <script>), ``comment`` (JS ``//``/``/* */``, CSS ``/* */``, HTML ``<!-- -->``).
 With ``detail=True`` comments are ``js-comment``, ``css-comment`` or ``html-comment``.
-In JS, comment markers inside '…', "…" and `…` strings are code; regex literals are not
-detected (a ``//`` inside a regex literal would start a comment).
+In JS, comment markers inside '…', "…" and `…` strings and inside regex literals are code
+('…' and "…" end at a newline; a ``/`` starts a regex literal after an operator, an opening
+bracket, ``;``/``,``/``:`` or a keyword such as ``return``). In CSS, strings are skipped.
 """
 from __future__ import annotations
 
@@ -15,15 +16,61 @@ CODE_SECTIONS = frozenset({"html", "css", "js", "text"})
 _RAW_OPEN = re.compile(r"<(script|style)\b[^>]*>", re.IGNORECASE)
 
 
+_REGEX_PREV = set("(,=:[!&|?{};+-*%<>~^")
+_REGEX_WORDS = ("return", "typeof", "case", "do", "else", "in", "of", "void", "yield", "await")
+
+
+def _string_end(src: str, i: int, b: int) -> int:
+    """End (exclusive) of the string starting at i; '…' and "…" also end at a newline."""
+    q = src[i]
+    j = i + 1
+    while j < b and src[j] != q:
+        if q != "`" and src[j] == "\n":
+            return j
+        j += 2 if src[j] == "\\" else 1
+    return min(j + 1, b)
+
+
+def _regex_end(src: str, i: int, b: int) -> int | None:
+    """End (exclusive) of a regex literal starting at i, or None (then it is division)."""
+    j, in_class = i + 1, False
+    while j < b:
+        c = src[j]
+        if c == "\n":
+            return None
+        if c == "\\":
+            j += 2
+            continue
+        if c == "[":
+            in_class = True
+        elif c == "]":
+            in_class = False
+        elif c == "/" and not in_class:
+            return j + 1
+        j += 1
+    return None
+
+
+def _regex_allowed(src: str, a: int, i: int) -> bool:
+    k = i - 1
+    while k >= a and src[k] in " \t\r\n":
+        k -= 1
+    if k < a:
+        return True
+    if src[k] in _REGEX_PREV:
+        return True
+    w = k
+    while w >= a and (src[w].isalnum() or src[w] in "_$"):
+        w -= 1
+    return src[w + 1:k + 1] in _REGEX_WORDS
+
+
 def _js(src: str, a: int, b: int, lab: list[str], com: str) -> None:
     i = a
     while i < b:
         c = src[i]
         if c in "'\"`":
-            j = i + 1
-            while j < b and src[j] != c:
-                j += 2 if src[j] == "\\" else 1
-            j = min(j + 1, b)
+            j = _string_end(src, i, b)
             lab[i:j] = ["js"] * (j - i)
             i = j
         elif src.startswith("//", i):
@@ -36,6 +83,9 @@ def _js(src: str, a: int, b: int, lab: list[str], com: str) -> None:
             j = b if j < 0 else j + 2
             lab[i:j] = [com] * (j - i)
             i = j
+        elif c == "/" and _regex_allowed(src, a, i) and (j := _regex_end(src, i, b)) is not None:
+            lab[i:j] = ["js"] * (j - i)
+            i = j
         else:
             lab[i] = "js"
             i += 1
@@ -44,7 +94,11 @@ def _js(src: str, a: int, b: int, lab: list[str], com: str) -> None:
 def _css(src: str, a: int, b: int, lab: list[str], com: str) -> None:
     i = a
     while i < b:
-        if src.startswith("/*", i):
+        if src[i] in "'\"":
+            j = _string_end(src, i, b)
+            lab[i:j] = ["css"] * (j - i)
+            i = j
+        elif src.startswith("/*", i):
             j = src.find("*/", i + 2, b)
             j = b if j < 0 else j + 2
             lab[i:j] = [com] * (j - i)

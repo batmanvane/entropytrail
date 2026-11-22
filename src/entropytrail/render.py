@@ -52,7 +52,7 @@ def _base_record(chromium: str) -> dict:
         "renders": False, "timeout": False,
         "n_page_errors": 0, "n_console_errors": 0, "page_errors": [], "console_errors": [],
         "n_page_errors_after_interaction": 0, "body_text_chars": 0, "blocked_requests": 0,
-        "interaction_failed": [], "hung_killed": False,
+        "interaction_failed": [], "hung_killed": False, "post_load_error": None,
         "first_random": float("nan"), "viewport": list(VIEWPORT), "random_seed": RANDOM_SEED,
         "clock_start": CLOCK_START, "playwright": md.version("playwright"),
         "chromium": chromium, "render_version": RENDER_VERSION,
@@ -125,11 +125,15 @@ def _run(html: str, rec: dict, shots: dict, browser, ms: int) -> None:
             except Exception:  # noqa: BLE001 - timeout or crash of the page
                 rec["timeout"] = True
                 return
-            page.screenshot(path=str(shots["load"]), timeout=ms, animations="disabled")
+            try:  # e.g. a page that navigates or reloads itself after load
+                page.screenshot(path=str(shots["load"]), timeout=ms, animations="disabled")
+                rec["body_text_chars"] = page.evaluate(
+                    "document.body ? document.body.innerText.length : 0")
+                fr = page.evaluate("window.__et_first_random === undefined ? null : window.__et_first_random")
+            except Exception as e:  # noqa: BLE001
+                rec["post_load_error"] = f"{type(e).__name__}: {str(e).splitlines()[0][:200]}"
+                return
             rec["renders"] = rec["n_page_errors"] == 0
-            rec["body_text_chars"] = page.evaluate(
-                "document.body ? document.body.innerText.length : 0")
-            fr = page.evaluate("window.__et_first_random === undefined ? null : window.__et_first_random")
             if fr is not None:
                 rec["first_random"] = fr
             errors_at_load = rec["n_page_errors"]
@@ -255,11 +259,24 @@ class IsolatedRenderer:
             self.proc.stdin.flush()
             line = self._readline(self.timeout_s + self.grace_s)
         if line is not None:
-            return json.loads(line)
+            rec = json.loads(line)
+            if "error" in rec:
+                raise RuntimeError(f"render worker error: {rec['error']}")
+            return rec
         self._kill()
         rec = _base_record(self.chromium)
         rec.update(timeout=True, renders=False, hung_killed=True)
         return _finish(rec, out_dir)
+
+
+def handle_request(req: dict, browser, timeout_s: float) -> dict:
+    """One worker request; an exception becomes ``{"error": ...}`` so the caller can tell a
+    crash (retried by the next ``et eval``) from a hang (recorded as hung)."""
+    try:
+        html = Path(req["html"]).read_text(encoding="utf-8") if req["html"] else None
+        return render_app(html, Path(req["out"]), browser=browser, timeout_s=timeout_s)
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"{type(e).__name__}: {str(e).splitlines()[0][:300] if str(e) else ''}"}
 
 
 def _worker(timeout_s: float) -> None:
@@ -269,12 +286,9 @@ def _worker(timeout_s: float) -> None:
         browser = p.chromium.launch()
         print(json.dumps({"chromium": browser.version}), flush=True)
         for line in sys.stdin:
-            req = json.loads(line)
-            html = Path(req["html"]).read_text(encoding="utf-8") if req["html"] else None
             if not browser.is_connected():
                 browser = p.chromium.launch()
-            rec = render_app(html, Path(req["out"]), browser=browser, timeout_s=timeout_s)
-            print(json.dumps(rec), flush=True)
+            print(json.dumps(handle_request(json.loads(line), browser, timeout_s)), flush=True)
         browser.close()
 
 

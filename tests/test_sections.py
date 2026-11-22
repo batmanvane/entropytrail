@@ -73,3 +73,31 @@ def test_app_span_matches_extracted():
 
 def test_code_sections():
     assert CODE_SECTIONS == frozenset({"html", "css", "js", "text"})
+
+
+def test_quote_inside_regex_literal_does_not_open_a_string():
+    h = "<script>s=s.replace(/\"/g,'&quot;'); let x=1; // real comment\n</script>"
+    lab = char_sections(h)
+    assert lab[h.index("// real")] == "comment" and lab[h.index("let x")] == "js"
+
+
+def test_regex_with_slashes_and_class():
+    h = "<script>r=/[/]+\\/x/g; return /a\\/b/.test(s) // c\n</script>"
+    lab = char_sections(h)
+    assert lab[h.index("// c")] == "comment" and lab[h.index("+\\/x")] == "js"
+
+
+def test_division_is_not_a_regex():
+    h = "<script>a = b / c; d = e / f // comment\n</script>"
+    assert char_sections(h)[h.index("// comment")] == "comment"
+
+
+def test_css_string_with_comment_marker():
+    h = '<style>a::before{content:"/*"} b{color:red}</style>'
+    lab = char_sections(h)
+    assert lab[h.index("/*")] == "css" and lab[h.index("color")] == "css"
+
+
+def test_unterminated_string_ends_at_newline():
+    h = "<script>s='oops\nx=1 // c\n</script>"
+    assert char_sections(h)[h.index("// c")] == "comment"

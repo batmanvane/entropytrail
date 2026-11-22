@@ -117,3 +117,31 @@ def test_hang_after_load_is_bounded_in_isolated_worker(tmp_path):
         assert (tmp_path / "h" / "load.png").exists() and (tmp_path / "h" / "render.json").exists()
         ok = r(OK, tmp_path / "ok")  # worker restarted after the kill
         assert ok["renders"]
+
+RELOADING = '<html><body><p>x</p><script>addEventListener("load",()=>location.reload())</script></body></html>'
+
+
+def test_post_load_failure_is_recorded_not_raised(browser, tmp_path):
+    r = render_app(RELOADING, tmp_path, browser=browser, timeout_s=3)
+    assert r["post_load_error"] and not r["renders"] and not r["hung_killed"]
+    assert (tmp_path / "load.png").exists() and (tmp_path / "render.json").exists()
+
+
+def test_worker_reports_errors_instead_of_dying(tmp_path):
+    from entropytrail.render import handle_request
+
+    class Broken:
+        version = "x"
+
+        def is_connected(self):
+            return True
+
+        def new_context(self, **kw):
+            raise RuntimeError("browser gone")
+
+    rec = handle_request({"html": None, "out": str(tmp_path)}, Broken(), 3.0)
+    assert rec["renders"] is False  # no html: nothing to render, no error
+    src = tmp_path / "in.html"
+    src.write_text("<p>x</p>")
+    rec = handle_request({"html": str(src), "out": str(tmp_path / "o")}, Broken(), 3.0)
+    assert rec["error"].startswith("RuntimeError")

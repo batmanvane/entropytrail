@@ -193,6 +193,13 @@ def run_rollouts(plan: dict, cond, ps, model, tokenizer, root: Path, deadline, *
             pmeta = _check_parent(unit, cid, prompt)
             prompt_ids = [int(i) for i in pmeta["prompt_ids"]]
             parent_ids = [int(i) for i in read_tokens(unit).column("token_id").to_pylist()]
+            # the parent must still be the app the plan was built on
+            if app.get("n_tokens") is not None and len(parent_ids) != int(app["n_tokens"]):
+                raise IdentityMismatch(f"parent {unit} has {len(parent_ids)} tokens, plan says {app['n_tokens']}")
+            for site in app["sites"]:
+                p_ = int(site["pos"])
+                if p_ >= len(parent_ids) or parent_ids[p_] != int(site["actual_id"]):
+                    raise IdentityMismatch(f"parent {unit} token at {p_} differs from the plan's actual_id")
             for site in app["sites"]:
                 if stop:
                     break

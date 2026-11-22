@@ -46,7 +46,7 @@ def parent(tiny_model, fake_io, tmp_path):
 
 def one_site_plan(cond, pos, actual, variants, sample=0):
     return {"plan_version": 1, "condition_id": cond.condition_id, "seed": 0, "params": {},
-            "apps": [{"prompt_id": "p0", "sample": sample, "n_tokens": 20, "sites": [
+            "apps": [{"prompt_id": "p0", "sample": sample, "n_tokens": None, "sites": [
                 {"pos": pos, "kind": "top", "H": 2.5, "S": 1.0, "section": "js", "rel_pos": 0.1,
                  "actual_id": actual, "variants": variants}]}]}
 
@@ -179,3 +179,15 @@ def test_text_split_with_merging_detokenizer(tiny_model, fake_io, tmp_path):
     out = (d / "output.txt").read_text()
     assert out[off:] == "".join(t["text"])
     assert all(t["char_offset"][k] == len("".join(t["text"][:k])) for k in range(len(t["text"])))
+
+
+def test_parent_tokens_must_match_plan(tiny_model, fake_io, tmp_path, parent):
+    u, ids = parent
+    plan = one_site_plan(make_cond(), 3, ids[3] + 1, {"same1": ids[3] + 1})  # plan built on other tokens
+    with pytest.raises(IdentityMismatch):
+        go_forks(tiny_model, io_of(fake_io), tmp_path, plan)
+    plan = one_site_plan(make_cond(), 3, ids[3], {"alt1": 7})
+    plan["apps"][0]["n_tokens"] = len(ids) + 5
+    with pytest.raises(IdentityMismatch):
+        go_forks(tiny_model, io_of(fake_io), tmp_path, plan)
+    assert not (u / "forks").exists()
