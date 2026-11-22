@@ -1,0 +1,2 @@
+prompt_id,sample,domain,openness,pos,kind,H,S,section,rel_pos,n_alt,n_same,n_alt_renders,n_same_renders,alt_same,noise_floor,importance,importance_incl_original
+game-tight-01,0,game,tight,1873,top,1.888479,0.461656,js,0.824879,3,2,3,2,0.010016,0.0,0.010016,0.010016

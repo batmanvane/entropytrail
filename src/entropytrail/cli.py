@@ -254,3 +254,7 @@ def main(argv: list[str] | None = None) -> None:
           "validate": cmd_validate, "bench": cmd_bench, "eval": cmd_eval,
           "forks-plan": cmd_forks_plan}[args.cmd]
     sys.exit(fn(args))
+
+
+if __name__ == "__main__":
+    main()

@@ -47,6 +47,22 @@ must then be empty. The plan file must be committed (the run refuses a dirty tre
 Progress: `grep '"kind": "forks"' /Volumes/Data/entropytrail/runlog.jsonl | tail`.
 Set `ET_FORK_PLAN=` again to return to the grid queue.
 
+## Morning job after fork nights
+
+A user LaunchAgent `de.entropytrail.morning` runs `scripts/morning_forks.py` daily at 06:30
+(after the night's 06:00 end and the 06:05 watchdog). While `ET_FORK_PLAN` is set it runs
+`et eval --forks` for the plan's prompts, rewrites `results/forks/importance-<plan>.csv`,
+appends an automatic entry to `docs/JOURNAL.md` and commits exactly these two files (no
+push). It skips if a night run is still active, does not commit if either file had
+uncommitted changes, and stops once it has written "fork <plan>: complete". It never
+commits other files, so a dirty tree still blocks the night (by design). Log:
+`~/Library/Logs/entropytrail-morning.log`. Test without writing: `ET_MORNING_DRY=1 uv run
+--group eval --group analysis python scripts/morning_forks.py`.
+
+    cp ops/launchd/de.entropytrail.morning.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/de.entropytrail.morning.plist
+    # remove: launchctl bootout gui/$(id -u)/de.entropytrail.morning
+
 ## Watchdog
 
 `--until 06:00` is only checked between tokens. If the run blocks elsewhere (first night:

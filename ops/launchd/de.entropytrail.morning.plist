@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>de.entropytrail.morning</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/uv</string>
+    <string>--directory</string>
+    <string>/Users/robert/projects/entropytrail</string>
+    <string>run</string>
+    <string>--frozen</string>
+    <string>--offline</string>
+    <string>--group</string>
+    <string>eval</string>
+    <string>--group</string>
+    <string>analysis</string>
+    <string>python</string>
+    <string>scripts/morning_forks.py</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HF_HOME</key>
+    <string>/Volumes/Models/huggingface</string>
+    <key>HF_HUB_OFFLINE</key>
+    <string>1</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>6</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/robert/Library/Logs/entropytrail-morning.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/robert/Library/Logs/entropytrail-morning.log</string>
+</dict>
+</plist>
