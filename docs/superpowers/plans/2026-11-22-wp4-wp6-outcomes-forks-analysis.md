@@ -108,13 +108,13 @@ def test_app_span_none_without_html():
 
 **Interfaces:**
 - Produces: `render_app(html: str | None, out_dir: Path, *, browser, timeout_s: float = 15.0) -> dict`. Writes `out_dir/load.png` and `out_dir/interact.png` (always; a blank page when `html is None` or on timeout) and returns the render record (also written as `out_dir/render.json`):
-  `{"renders": bool, "timeout": bool, "n_page_errors": int, "n_console_errors": int, "page_errors": [str, ≤20], "console_errors": [str, ≤20], "n_page_errors_after_interaction": int, "body_text_chars": int, "viewport": [1024, 768], "random_seed": 12345, "playwright": str, "chromium": str}`.
+  `{"renders": bool, "timeout": bool, "n_page_errors": int, "n_console_errors": int, "page_errors": [str, ≤20], "console_errors": [str, ≤20], "n_page_errors_after_interaction": int, "body_text_chars": int, "blocked_requests": int, "first_random": float, "viewport": [1024, 768], "random_seed": 12345, "clock_start": "2026-01-01T12:00:00Z", "playwright": str, "chromium": str}` (`first_random` = the first value the seeded `Math.random` returned in the page, read back via a page global set by the init script; NaN if the page never ran).
 - Produces: `RENDER_VERSION = 1` (bump if the procedure changes).
 
-Procedure (fixed for apps and rollouts, so screens are comparable):
-1. New browser context per call (isolated storage), viewport 1024×768, device scale 1. Init script replaces `Math.random` by mulberry32 seeded with 12345 and `alert/confirm/prompt` by console logging (copy the shim from `scripts/serve_apps.py`). All requests except the app's own `file://` URL are aborted (no network).
-2. Write the HTML to a temp file, `goto` it (`wait_until="load"`, timeout `timeout_s`), wait 1500 ms, screenshot `load.png`. `renders` = page loaded and `n_page_errors == 0` at this point and `html is not None`.
-3. Interaction: click the first visible `button` (else the centre of the first `canvas`, else nothing); press `ArrowRight`, `ArrowUp`, `Space`, `Enter` 150 ms apart; type `42` into the first visible `input[type=number], input[type=text], input:not([type])` if present; wait 1000 ms; screenshot `interact.png`.
+Procedure (fixed for apps and rollouts, so screens are comparable and **deterministic** — same-vs-same noise in fork importance must come from the model, not from the renderer):
+1. New browser context per call (isolated storage), viewport 1024×768, device scale 1. Init script replaces `Math.random` by mulberry32 seeded with 12345 and `alert/confirm/prompt` by console logging (copy the shim from `scripts/serve_apps.py`). Playwright's fake clock (`page.clock.install(time=2026-01-01T12:00:00Z)`) freezes `Date`, timers, `requestAnimationFrame` and `performance.now`; time only moves via `page.clock.run_for(ms)`. All requests except the app's own `file://` URL are aborted and counted (no network).
+2. Write the HTML to a temp file, `goto` it (`wait_until="load"`, timeout `timeout_s`), `clock.run_for(1500)`, screenshot `load.png`. `renders` = page loaded and `n_page_errors == 0` at this point and `html is not None`.
+3. Interaction: click the first visible `button` (else the centre of the first `canvas`, else nothing); press `ArrowRight`, `ArrowUp`, `Space`, `Enter`, each followed by `clock.run_for(150)`; type `42` into the first visible `input[type=number], input[type=text], input:not([type])` if present; `clock.run_for(1000)`; screenshot `interact.png`.
 4. Every step is guarded: a timeout or crash sets `timeout: true` (if the page did not finish), keeps counters so far, writes a blank 1024×768 PNG for missing screenshots, and closes the context. A hung page must not block more than ~`timeout_s + 10` s.
 
 - [ ] **Step 1:** Add group `eval = ["playwright==<version whose chromium build is already in ~/Library/Caches/ms-playwright, else latest>", "pillow"]` (torch/transformers come in A4); `uv lock`; `uv run --group eval playwright install chromium` only if no cached build fits. Add `browser` marker and change `addopts` to `-m 'not slow and not browser'`.
@@ -146,9 +146,19 @@ def test_no_html_gives_blank_outcome(browser, tmp_path):
     r = render_app(None, tmp_path, browser=browser)
     assert not r["renders"] and (tmp_path / "interact.png").exists()
 
-def test_external_requests_blocked_and_random_seeded(browser, tmp_path):
+def test_external_requests_blocked(browser, tmp_path):
     r = render_app(EXTERNAL, tmp_path, browser=browser)
-    assert r["random_seed"] == 12345  # request to example.com never leaves the machine (route aborted)
+    assert r["blocked_requests"] >= 1
+
+def test_random_is_seeded(browser, tmp_path):
+    a = render_app(RANDOM_APP, tmp_path / "a", browser=browser)
+    assert a["first_random"] == pytest.approx(MULBERRY32_12345_FIRST)  # constant computed in the test from the same algorithm in Python
+
+def test_animated_random_app_renders_identically_twice(browser, tmp_path):
+    # canvas animation driven by setInterval + Math.random + Date.now
+    render_app(ANIMATED, tmp_path / "a", browser=browser); render_app(ANIMATED, tmp_path / "b", browser=browser)
+    for f in ("load.png", "interact.png"):
+        assert (tmp_path / "a" / f).read_bytes() == (tmp_path / "b" / f).read_bytes()
 ```
 (`browser` is a session fixture in `tests/conftest.py` that launches Chromium via `sync_playwright` and skips if Playwright is not installed.)
 
@@ -202,8 +212,9 @@ def test_distance_identity_and_bounds():
   - `@dataclass(frozen=True) class Outcome: renders: bool; screen: np.ndarray` (L2-normalised d-vector).
   - `screen_embedding(img_load: np.ndarray, img_interact: np.ndarray) -> np.ndarray` = L2-normalised mean of the two.
   - `outcome_distance(a: Outcome, b: Outcome) -> float` = `1.0` if `a.renders != b.renders`, else `clip(1 − a.screen·b.screen, 0, 1)`.
-  - `pairwise(outcomes: list[Outcome]) -> np.ndarray` (n×n distance matrix).
-  - `ensemble_spread(outcomes) -> float` = mean of the upper triangle (screen cosine distance only, **no** render rule — the frozen plan defines spread as screenshot-embedding cosine); `ensemble_rarity(outcomes) -> np.ndarray` = per app mean screen cosine distance to the others. Both take `use_render_rule: bool = False`; the fork-importance code uses `outcome_distance` (render rule on, spec §5.4).
+  - `cosine_distances(emb: np.ndarray) -> np.ndarray` (n×n, `clip(1 − E·Eᵀ, 0, 1)`, zero diagonal) and `outcome_distances(outcomes: list[Outcome]) -> np.ndarray` (n×n with the render rule).
+  - `spread(D: np.ndarray) -> float` = mean of the upper triangle; `rarity(D: np.ndarray) -> np.ndarray` = per row mean over the other columns. Used for screen, code (`cosine_distances` of code embeddings) and fingerprint (matrix of `fingerprint_distance`) spaces alike.
+  - `ensemble_spread(outcomes, use_render_rule=False) -> float` and `ensemble_rarity(outcomes, use_render_rule=False) -> np.ndarray` = `spread`/`rarity` of screen cosine distances (**no** render rule by default — the frozen plan defines spread as screenshot-embedding cosine); the fork-importance code uses `outcome_distance` (render rule on, spec §5.4).
 
 - [ ] **Step 1:** `uv add --group eval torch transformers sentence-transformers`; download both models once with `HF_HUB_OFFLINE=0` into `/Volumes/Models/huggingface`; note the snapshot hashes.
 - [ ] **Step 2: Write failing tests**
@@ -242,7 +253,7 @@ def test_screen_embedding_normalised():
 
 **Interfaces:**
 - Consumes: `render_app`, `fingerprint`, `ImageEmbedder`, `CodeEmbedder`, `screen_embedding` (A2–A4).
-- Produces: `find_units(cond_dir: Path, *, prompt_ids: list[str] | None, forks: bool) -> list[Path]` — done app units (`NNN/`), and with `forks=True` also done rollout units (`NNN/forks/PPPPP/<variant>/`), sorted; smoke prompts excluded.
+- Produces: `find_units(cond_dir: Path, *, prompt_ids: list[str] | None, forks: bool) -> list[Path]` — done app units (exactly `NNN/`), and with `forks=True` also done rollout units (exactly `NNN/forks/PPPPP/<variant in VARIANTS>/`), sorted; smoke prompts excluded; never `*.stale-*`, `*.partial`, `forks.smoke-*` or anything else. Note: the night run's `clean_partials` deletes `eval.partial` folders, so `et eval` must not run during a night run (it never does: eval is a day job, D-033).
 - Produces: `eval_units(units: list[Path], *, render_fn, image_embedder, code_embedder) -> dict` — for each unit without a valid `eval/eval.json` (missing, or `render_version`/model ids differ): writes `eval/` atomically via `eval.partial/` → rename. Contents: `load.png`, `interact.png`, `render.json`, `fingerprint.json`, `embeddings.npz` (keys `img_load`, `img_interact`, `screen`, `code`), `eval.json` = `{"status": "done", "render_version", "image_model", "code_model", "code_truncated", "git_commit", "evaluated_at"}`. Embeddings are computed in batches of 16 units after rendering. Returns counts `{"done", "skipped", "failed"}`; a unit that raises is logged and counted as failed, never aborts the batch.
 - Produces: `load_outcome(unit: Path) -> Outcome` (reads `render.json` and `embeddings.npz`).
 - CLI: `et eval --root <condition dir> [--prompt-ids …] [--forks]`; does not need the 9B model or a clean tree (records `git_commit`).
@@ -274,7 +285,7 @@ def test_find_units_includes_rollouts_only_with_flag(tmp_path): ...
 - [ ] **Step 2:** `uv run pytest tests/test_evaluate.py -v` → FAIL; implement; → PASS.
 - [ ] **Step 3: Docs.** DATA.md: `eval/` section with every file and key above. DECISIONS:
   - **D-033** WP4 runs on the Mac Studio, not the desktop (deviation from spec §8): outcome measures are not part of the landscape condition, the data and a cached Chromium are on the Studio, and WP5 rollouts are produced there; runs in the day, never in parallel with a 9B run. Desktop stays available if Studio time gets short.
-  - **D-034** Outcome measures: render procedure v1 (viewport, seeded `Math.random`, fixed interaction, no network, 15 s timeout); embedding models and snapshot hashes; `outcome_distance` and screen embedding as defined in A4; ensemble spread/rarity = screen cosine without the render rule (frozen plan wording); prompt adherence for tight prompts is taken from the Claude checklist (D-030) rather than a second automatic checklist.
+  - **D-034** Outcome measures: render procedure v1 (viewport, seeded `Math.random`, fake clock, fixed interaction, no network, 15 s timeout); embedding models and snapshot hashes; `outcome_distance` and screen embedding as defined in A4; ensemble spread/rarity = screen cosine without the render rule (frozen plan wording). **Deviation, labelled:** prompt adherence for tight prompts (H4 secondary) is taken from the Claude checklist (D-030) instead of a hand-written automatic checklist (spec §5.5); this makes a Claude-derived measure part of a pre-registered secondary test, so the H4 adherence result is reported as "adherence (Claude checklist)" and never pooled with human ratings.
   - METHODS.md: add an "Outcome measures (WP4)" section with the formulas of A4 and a note "defined 2026-11-22, before any fork rollout existed".
 - [ ] **Step 4:** Commit `feat: et eval writes render, fingerprint and embeddings per unit (D-033, D-034)`.
 
@@ -307,7 +318,6 @@ def test_find_units_includes_rollouts_only_with_flag(tmp_path): ...
 **Interfaces:**
 - Consumes: `token_sections`, `CODE_SECTIONS` (A1); `read_tokens` (storage).
 - Produces:
-  - `@dataclass(frozen=True) class ForkSite: pos: int; kind: Literal["top", "random"]; H: float; actual_id: int; alternatives: tuple[int, ...]`
   - `select_sites(H: np.ndarray, sections: list[str], *, n_top=10, n_random=3, min_spacing=20, seed: int) -> list[tuple[int, str]]` — candidates are positions with `sections[i] in CODE_SECTIONS`, excluding the last token; top: greedy by H descending, skipping positions within `min_spacing` tokens of an already chosen one; random: `numpy.random.default_rng(seed)` uniform over remaining candidates outside the spacing of all chosen sites. Returns sorted by pos. Fewer candidates ⇒ fewer sites, no error.
   - `alternatives(topk_ids: list[int], actual_id: int, n=3) -> tuple[int, ...]` — first `n` ids of the top-20 list that differ from `actual_id` (EOS allowed).
   - `VARIANTS = ("alt1", "alt2", "alt3", "same1", "same2")`
@@ -355,8 +365,9 @@ def test_plan_roundtrip(tmp_path): ...  # build_plan on a fake unit, write/read 
 - Produces: `rollout_dir(unit_dir: Path, pos: int, variant: str) -> Path` = `unit_dir / "forks" / f"{pos:05d}" / variant`.
 - Produces: `run_rollouts(plan: dict, cond: Condition, ps: PromptSet, model, tokenizer, root: Path, deadline: datetime | None, *, fingerprint: str, now=datetime.now, io=None) -> dict` — same contract as `run_units` (resumable, deadline → current rollout discarded and loop stops, runlog entry in `finally` with `"kind": "forks"`, re-raise on error). Order: apps in plan order, sites by pos, variants in `VARIANTS` order.
   Per rollout: parent `meta.json` must be done, have the plan's `condition_id`, and its `prompt_text_sha256` must match the current prompt (else `IdentityMismatch`). Parent ids = `tokens.parquet: token_id`. Prefix = `parent_meta["prompt_ids"] + parent_ids[:pos] + [forced]`; `budget = cond.max_tokens - pos - 1`. If `forced in eos_ids` or `budget <= 0`: no generation, empty continuation, `finish_reason` `"eos"` resp. `"max_tokens"`. Else `generate_recorded(model, prefix, seed=derive_seed(cid, f"{prompt_id}/{sample:03d}/{pos:05d}/{variant}", 0), temperature=cond.temperature, max_tokens=budget, …)`.
-  Output text = `"".join(token_texts(parent_ids[:pos] + [forced] + continuation_without_eos))`; `tokens.parquet` holds the continuation tokens only, `char_offset` relative to the continuation start; `Recording.text` = full output text so `write_run` extracts the full app.
-  meta.json = provenance + `condition`, `condition_id`, `prompt`, `prompt_set_version`, `system_prompt_sha256`, `prompt_text_sha256`, `weights_fingerprint`, `seed`, `started_at`, `finished_at`, and fork keys `{"fork": {"parent": "<prompt_id>/<sample:03d>", "pos": int, "kind": str, "variant": str, "forced_token_id": int, "actual_token_id": int, "H": float, "continuation_char_offset": int, "plan": "<plan file name>", "plan_sha256": str}}`.
+  Text: decode the **full** sequence once, `full = token_texts(parent_ids[:pos] + [forced] + continuation_without_eos)` (streaming detokenizers merge bytes across token boundaries, so the continuation must not be decoded on its own). Continuation token texts = `full[pos + 1:]` (plus `""` for a trailing EOS); `continuation_char_offset = len("".join(full[:pos + 1]))`; `char_offset` in `tokens.parquet` is relative to that offset. Assert `output_text[continuation_char_offset:] == "".join(continuation_texts)` before writing. `tokens.parquet` holds the continuation tokens only; `Recording.text` = full output text so `write_run` extracts the full app.
+  meta.json = provenance + `condition`, `condition_id`, `prompt`, `prompt_set_version`, `system_prompt_sha256`, `prompt_text_sha256`, `prompt_ids` (the chat prompt, as in app units), `weights_fingerprint`, `seed`, `started_at`, `finished_at`, and fork keys `{"fork": {"parent": "<prompt_id>/<sample:03d>", "pos": int, "kind": str, "variant": str, "forced_token_id": int, "actual_token_id": int, "H": float, "prefix_len": len(prompt_ids) + pos + 1, "continuation_char_offset": int, "plan": "<plan file name>", "plan_sha256": str}}` — enough to rebuild the exact input for a chunk=1 teacher-forcing check (D-021).
+  Resume identity: `plan["condition_id"]` must equal `cond.condition_id` (else `IdentityMismatch` before any rollout). A done rollout is skipped only if `_check_done_rollout(dir, site, variant)` passes: same `parent`, `pos`, `variant`, `forced_token_id` and `seed`; otherwise `IdentityMismatch` (a different plan must not silently reuse old rollouts; `plan_sha256` may differ, e.g. a scale-up plan that contains the pilot sites).
 - CLI: `et run-window` gets `--fork-plan PATH` as an alternative to `--samples` (mutually exclusive, one required). Keeping the command name means the night watchdog pattern `et run-window --condition` still matches.
 
 - [ ] **Step 1: Write failing tests** (tiny model; a parent unit generated with `run_units` first; fake io with EOS 999):
@@ -383,6 +394,15 @@ def test_parent_identity_checked(tmp_path, tiny_model, fake_io): ...
 
 def test_same_seed_same_rollout(tmp_path, tiny_model, fake_io): ...
     # same plan in two roots -> identical token ids for same1
+
+def test_text_split_with_merging_detokenizer(tmp_path, tiny_model): ...
+    # fake token_texts that emits "" for odd ids and appends their char to the next token
+    # (like a multi-byte UTF-8 split): output.txt[continuation_char_offset:] == "".join(parquet text)
+
+def test_done_rollout_with_other_forced_token_is_rejected(tmp_path, tiny_model, fake_io): ...
+    # run plan with alt1=7, then plan with alt1=8 at the same site -> IdentityMismatch
+
+def test_plan_of_other_condition_rejected(tmp_path, tiny_model, fake_io): ...
 ```
 
 - [ ] **Step 2:** `uv run pytest tests/test_forks_runner.py -v` → FAIL; implement; → PASS; full fast suite `uv run pytest` → PASS.
@@ -395,11 +415,11 @@ def test_same_seed_same_rollout(tmp_path, tiny_model, fake_io): ...
 - Create: `results/forks/plan-pilot.json`
 
 **Interfaces:**
-- `ops/night.env` gains `ET_FORK_PLAN=` (empty = grid queue as before). When set, the script runs `et run-window --condition … --prompts … --fork-plan "$ET_FORK_PLAN" --until 06:00` instead of `--samples`.
+- `ops/night.env` gains `ET_FORK_PLAN=` (empty = grid queue as before). When set, the script runs `et run-window --condition … --prompts … --fork-plan "$ET_FORK_PLAN" --until 06:00` instead of `--samples`. `ET_FORK_PLAN` together with a non-empty `ET_PROMPT_IDS` is a configuration error: the script logs it and exits before touching Ollama.
 
-- [ ] **Step 1: Failing test** in `tests/test_night_script.py`: with `ET_FORK_PLAN=results/forks/plan-pilot.json` the dry-run line contains `--fork-plan results/forks/plan-pilot.json`, not `--samples`, and Ollama stop/start order is unchanged. Run → FAIL; implement; → PASS (all night-script tests).
+- [ ] **Step 1: Failing tests** in `tests/test_night_script.py`: with `ET_FORK_PLAN=results/forks/plan-pilot.json` the dry-run line contains `--fork-plan results/forks/plan-pilot.json`, neither `--samples` nor `--prompt-ids`, and Ollama stop/start order is unchanged; with both `ET_FORK_PLAN` and `ET_PROMPT_IDS` set the script exits non-zero and prints no `launchctl` line. Run → FAIL; implement; → PASS (all night-script tests).
 - [ ] **Step 2: Pilot plan (D2).** `uv run et forks-plan --root … --prompt-ids game-tight-01 tool-loose-01 free-01 --apps-per-prompt 5 --seed 2026 --out results/forks/plan-pilot.json`. Check: 15 apps, ≤ 13 sites each, 5 variants per site; print expected rollout tokens Σ(n_tokens − pos) × 5 and hours at 17 tok/s.
-- [ ] **Step 3: Docs.** DATA.md: `forks/` layout and the `fork` meta keys, plan file format. DECISIONS **D-035**: pilot = 3 prompts (one tight game, one loose tool, one open) × 5 apps, seed 2026; `min_spacing` 20 tokens; rollout seeds; continuation budget counted from the app start; prefix re-prefilled per rollout (no KV-cache sharing; the forced position's distribution may differ from the recorded one by bf16 chunk noise, D-021, which is irrelevant because the token is forced); EOS allowed as an alternative; the original app is a third same-token outcome used only in a **secondary** importance (`importance_incl_original`), primary stays as spec §5.4.
+- [ ] **Step 3: Docs.** DATA.md: `forks/` layout and the `fork` meta keys, plan file format. DECISIONS **D-035**: pilot = 3 prompts (one tight game, one loose tool, one open) × 5 apps, seed 2026; `min_spacing` 20 tokens; rollout seeds; continuation budget `max_tokens − pos − 1`, i.e. the 16,000-token cap counts from the first generated token (start of generation, not of the extracted HTML), as for the original apps; prefix re-prefilled per rollout (no KV-cache sharing; the forced position's distribution may differ from the recorded one by bf16 chunk noise, D-021, which is irrelevant because the token is forced); EOS allowed as an alternative; the original app is a third same-token outcome used only in a **secondary** importance (`importance_incl_original`), primary stays as spec §5.4.
 - [ ] **Step 4:** Commit `feat: night queue runs a fork plan; pilot plan for D2 (D-035)`.
 
 ### Task B4: Fork importance table
@@ -436,12 +456,19 @@ Run → FAIL; implement; → PASS.
 
 - [ ] **Step 1: Daytime smoke** (Ollama idle, D-018): plan with one app, one site (`et forks-plan … --apps-per-prompt 1` then trim to one site by hand into `$SCRATCH/plan-smoke.json`, not committed), `uv run et run-window --condition configs/conditions/qwen35-9b-bf16-mlx.yaml --prompts prompts/prompts.yaml --fork-plan <smoke plan> --until <now + 1 h>`. Expect 5 rollouts, `same1` and `same2` differ from each other, `alt1` output starts with the parent prefix. Then `et eval --forks` on that app and open the five `load.png`. Delete the smoke rollouts afterwards (move to `forks.smoke-<date>`).
 - [ ] **Step 2:** Commit any fixes; set `ET_FORK_PLAN=results/forks/plan-pilot.json` in `ops/night.env`; commit; check `ET_DRY_RUN=1 bash scripts/night-studio.sh` prints the fork command. JOURNAL entry "fork pilot queued".
-- [ ] **Step 3: Each morning:** check `runlog.jsonl` and the night log, record rollouts done and tok/s in JOURNAL.
+- [ ] **Step 3: Each morning:** check `runlog.jsonl` and the night log, record rollouts done and tok/s in JOURNAL. **Each evening before 23:00:** `git status --porcelain` must be empty on the checkout the night job runs from (work on B4/C* happens in commits; uncommitted files make `et run-window` refuse and the night is lost); `ET_DRY_RUN=1 bash scripts/night-studio.sh` prints the fork command.
 - [ ] **Step 4:** When the plan is done: `et eval --forks --prompt-ids …`, `uv run python scripts/collect_forks.py --plan results/forks/plan-pilot.json`, commit the CSV, JOURNAL with measured time per app, and ask Robert for the D2 scale decision (options: stop at pilot, 2 apps per prompt as in spec §8, more). Set `ET_FORK_PLAN=` back (or to the next plan) after his answer.
 
 ---
 
 ## Part C — WP6: analysis of H1–H5
+
+**Open readings of the frozen plan — Robert decides before any Part C result is computed** (defaults below are the builder's recommendation and are what the code implements until he answers; his answer goes into DECISIONS as a dated amendment/clarification **before** C1–C4 are run on real data, because Claude ratings already exist):
+- **R1 (H1 support vs. Holm):** frozen rule "support if ≥ 80 % of apps reject" has no p-value for Holm. Default: `support_frozen` = share ≥ 0.80 as written (the headline); the one-sided binomial p (H0: share ≤ 0.80) enters Holm, and the report states both. No second support rule.
+- **R2 (H3 data scope):** default: all fork sites (10 top-H + 3 random, all code tokens) enter the LRT and ρ — the random controls give the low-H range the question needs; sensitivity: only sites with H ≥ 2.
+- **R3 (late JS surprise):** default: drop JS comment tokens first, then take the last third of the remaining JS code tokens by count, share with S ≥ 4 (most literal reading of "last third of the app's JavaScript … (comments excluded)").
+
+**Design coding for every model (all parts):** `free` domain and `open` openness coincide, so models use one categorical `cell_type` instead of `C(openness) + C(domain)`: `C(domain)` with levels education/game/tool/free plus a `loose` dummy (1 for loose prompts, 0 for tight and free). The loose-vs-tight contrast is identified within the three domains; all 21 prompts stay in every model (no prompts dropped).
 
 All analysis code lives in `src/entropytrail/analysis/` and runs with `uv run --group analysis`. Outputs go to `results/analysis/` (CSV/JSON) and `results/figures/` (SVG). Exploratory outputs carry `exploratory` in their file name.
 
@@ -458,7 +485,7 @@ All analysis code lives in `src/entropytrail/analysis/` and runs with `uv run --
 - Produces: `app_tokens(unit: Path) -> pd.DataFrame` — app-part tokens only, columns `pos, H, S, section, is_code, rel_pos`.
 - Produces: `app_measures(df: pd.DataFrame, n_chars: int, n_lines: int) -> dict` with keys
   `n_app_tokens, mean_H, mean_S, share_H_lt_0_1, fork_share, comment_fork_share, n_forks, fork_surprise, late_js_surprise, path_action, path_action_per_token, H_per_char, H_per_line, median_relpos_top10_forks`, where
-  fork = code ∧ H ≥ 2; `fork_share` = forks / code tokens; `comment_fork_share` = comment tokens with H ≥ 2 / comment tokens; `fork_surprise` = mean S over forks (NaN if none); `path_action` = Σ S over app tokens; **late JS surprise**: take all `js` and JS-comment tokens (the tokens inside `<script>`) in order, the last third by count (index ≥ ⌈2n/3⌉), and among its code tokens the share with S ≥ 4 (NaN if no JS code there); `median_relpos_top10_forks` = median `rel_pos` of the 10 code tokens with highest H among forks (fewer if fewer forks; NaN if none).
+  fork = code ∧ H ≥ 2; `fork_share` = forks / code tokens; `comment_fork_share` = comment tokens with H ≥ 2 / comment tokens; `fork_surprise` = mean S over forks (NaN if none); `path_action` = Σ S over app tokens; **late JS surprise** per R3: JS code tokens (`js` label, JS comments dropped) in order, the last third by count (index ≥ ⌈2n/3⌉), share with S ≥ 4 (NaN if the app has fewer than 3 JS code tokens; the number of NaN apps is reported); `median_relpos_top10_forks` = median `rel_pos` of the 10 code tokens with highest H among forks (fewer if fewer forks; NaN if none).
 - Uses `token_sections(..., detail=True)` (A1) to find JS comments.
 - `results/app-measures.csv`: one row per app with `prompt_id, sample, domain, openness, finish_reason` + all keys.
 
@@ -472,11 +499,11 @@ All analysis code lives in `src/entropytrail/analysis/` and runs with `uv run --
 - Create: `src/entropytrail/analysis/tests_h.py` (functions `h1`, `h2`), `tests/test_hypotheses.py`
 
 **Interfaces:**
-- Produces: `h1(token_frames: dict[str, pd.DataFrame]) -> dict` — per app dip-test p on `log10(H + 1e-3)` (all app tokens), `share_rejecting` (p < 0.05), `support` = share ≥ 0.80, `p_primary` = one-sided binomial test of `share_rejecting` against 0.80 (`scipy.stats.binomtest(k, n, 0.8, alternative="greater")`) — used for Holm; plus secondary code-only share; writes `results/analysis/h1-per-app.csv`.
-- Produces: `h2(ensemble: pd.DataFrame, measures: pd.DataFrame) -> dict` — OLS `ensemble_spread ~ C(openness) + C(domain)` on the **18 tight/loose prompts** (free prompts have openness `open` and domain `free` only, which are collinear; the free cell is reported descriptively), coefficient for loose vs tight, one-sided p (half the two-sided p if the sign is positive, else 1 − half), `support` = p < α after Holm; secondary MixedLM `median_relpos_top10_forks ~ C(openness) + C(domain) + (1|prompt)` on all 21 prompts with openness `open` mapped to its own level.
+- Produces: `h1(token_frames: dict[str, pd.DataFrame]) -> dict` — per app dip-test p on `log10(H + 1e-3)` (all app tokens; `diptest.diptest(x)` with its default table-interpolated p-value, recorded in the output), `share_rejecting` (p < 0.05), `support_frozen` = share ≥ 0.80, `p_primary` = one-sided binomial p per R1 (`scipy.stats.binomtest(k, n, 0.8, alternative="greater")`) — used only for Holm; plus secondary code-only share; writes `results/analysis/h1-per-app.csv`.
+- Produces: `h2(ensemble: pd.DataFrame, measures: pd.DataFrame) -> dict` — OLS `ensemble_spread ~ loose + C(domain)` on all **21** prompts (design coding above), coefficient of `loose`, one-sided p (half the two-sided p if the sign is positive, else 1 − half); secondary MixedLM `median_relpos_top10_forks ~ loose + C(domain)` with prompt groups.
 
 - [ ] **Step 1: Failing tests** with synthetic data: bimodal mixture → `share_rejecting` near 1; unimodal normal → near 0; an ensemble table where loose spreads exceed tight by 0.2 → positive coefficient, one-sided p < 0.05. Run → FAIL; implement; → PASS.
-- [ ] **Step 2:** DECISIONS **D-036** (implementation of the frozen plan, no change of criteria): H1's p-value for Holm is the one-sided binomial test of the rejecting share against 0.80; H2's primary regression uses the 18 tight/loose prompts because `free`/`open` are collinear. Commit `feat: H1 and H2 tests (D-036)`.
+- [ ] **Step 2:** DECISIONS **D-036** records Robert's answers to R1–R3 and the design coding (one `loose` dummy + domain, all 21 prompts). Commit `feat: H1 and H2 tests (D-036)`.
 
 ### Task C3: H3 (fork data)
 
@@ -484,7 +511,7 @@ All analysis code lives in `src/entropytrail/analysis/` and runs with `uv run --
 - Modify: `src/entropytrail/analysis/tests_h.py` (`h3`), `tests/test_hypotheses.py`
 
 **Interfaces:**
-- Produces: `h3(imp: pd.DataFrame) -> dict` — ML-fitted (`reml=False`) MixedLM `importance ~ H` and `importance ~ H + rel_pos + C(section)`, both with app as group; LRT statistic, df = added parameters, `p_primary` = LRT p; Spearman ρ(H, importance) with 95 % bootstrap CI (2000 resamples over apps, seed 0); `support` = LRT significant after Holm ∧ ρ < 0.5. Also reports the random-site controls: mean importance of `kind == "random"` vs `"top"`.
+- Produces: `h3(imp: pd.DataFrame) -> dict` — ML-fitted (`reml=False`) MixedLM `importance ~ H` and `importance ~ H + rel_pos + C(section)`, both with app as group, on the sites defined by R2 (sensitivity: H ≥ 2 only); LRT statistic, df = difference in the number of fixed-effect parameters of the two fitted models (from the realised design: section levels absent in the data add no parameter), `p_primary` = LRT p; Spearman ρ(H, importance) with 95 % bootstrap CI (2000 resamples over apps, seed 0); `support` = LRT significant after Holm ∧ ρ < 0.5. Also reports the random-site controls: mean importance of `kind == "random"` vs `"top"`.
 
 - [ ] **Step 1:** Failing test on synthetic forks where importance depends on section but not H → larger model wins, ρ small. Implement → PASS. Commit `feat: H3 test on fork importance`.
 
@@ -494,12 +521,14 @@ All analysis code lives in `src/entropytrail/analysis/` and runs with `uv run --
 - Modify: `src/entropytrail/analysis/tests_h.py` (`rating_test`, `holm`), `tests/test_hypotheses.py`
 
 **Interfaces:**
-- Produces: `rating_test(df: pd.DataFrame, outcome: str, predictor: str, sign: Literal["+", "-"], min_ratings: int | None) -> dict` — MixedLM `outcome ~ predictor + C(domain) + C(openness) + (1|prompt)`, coefficient, 95 % CI, one-sided p in the direction of `sign`, n apps. H4 = (`usefulness_human`, `late_js_surprise`, "-", 3); H5 = (`novelty_human`, `fork_surprise`, "+", 3). Secondary runs: H4 with `renders` (logistic GLM with prompt as cluster-robust group, or MixedLM on 0/1 — record choice) and with checklist share; H5 with `ensemble_rarity` and with `path_action_per_token` as predictor.
+- Produces: `rating_test(df: pd.DataFrame, outcome: str, predictor: str, sign: Literal["+", "-"], min_ratings: int | None) -> dict` — MixedLM `outcome ~ predictor + loose + C(domain)` with prompt groups, coefficient, 95 % CI, one-sided p in the direction of `sign`, n apps. Human ratings come from `results/ratings-human.csv` (written by the WP7 export; schema fixed here: `prompt_id, sample, n_ratings, usefulness_mean, novelty_mean, works_share`). H4 = (`usefulness_mean`, `late_js_surprise`, "-", 3); H5 = (`novelty_mean`, `fork_surprise`, "+", 3).
+- Secondary runs (fixed now): H4 `renders` → logistic GLM `renders ~ late_js_surprise + loose + C(domain)`, standard errors cluster-robust by prompt; H4 adherence (tight prompts, Claude checklist share, D-034 deviation) → MixedLM as above. H5 `ensemble_rarity` as **outcome** with `fork_surprise` as predictor (MixedLM as above); H5 alternative predictor `path_action_per_token` with the human novelty outcome.
 - Produces: `holm(pvals: dict[str, float], alpha=0.05) -> dict[str, dict]` (adjusted p and reject flag).
 - **Claude-rating runs (exploratory, labelled):** H4 with Claude `functionality`, H5 with `novelty_calibrated`, same model, written to `results/analysis/exploratory-claude-ratings.json`. They never enter `holm`.
-- Sensitivity: every primary test repeated without `finish_reason == "max_tokens"` apps.
+- Produces: `holm(pvals: dict[str, float], alpha=0.05, m: int = 5)` — the family size is always 5 (H1–H5); hypotheses without a p-value yet count as untested, so interim adjusted p-values are never smaller than the final ones would be.
+- Sensitivity (fixed now): every primary test repeated without apps with `finish_reason == "max_tokens"`: H1/H4/H5 drop those apps; H2 recomputes each prompt's spread from its non-truncated apps; H3 drops sites whose **parent** app is truncated.
 
-- [ ] **Step 1:** Failing tests: synthetic ratings with a negative slope → H4 one-sided p < 0.05; Holm on `{a: 0.01, b: 0.04, c: 0.03}` → adjusted `{a: 0.03, b: 0.06, c: 0.06}`, rejects only `a`. Implement → PASS. Commit `feat: H4/H5 rating tests and Holm correction`.
+- [ ] **Step 1:** Failing tests: synthetic ratings with a negative slope → H4 one-sided p < 0.05; Holm with m = 3 on `{a: 0.01, b: 0.04, c: 0.03}` → adjusted `{a: 0.03, b: 0.06, c: 0.06}`, rejects only `a`; Holm with default m = 5 on `{a: 0.01}` → adjusted 0.05, not rejected. Implement → PASS. Commit `feat: H4/H5 rating tests and Holm correction`.
 
 ### Task C5: Analysis run, figures, viewer, report
 
@@ -507,7 +536,7 @@ All analysis code lives in `src/entropytrail/analysis/` and runs with `uv run --
 - Create: `scripts/analyze.py`, `src/entropytrail/analysis/figures.py`, `src/entropytrail/viewer.py`, `tests/test_viewer.py`, `results/analysis/summary.json`, `results/analysis/REPORT.md`, `results/figures/*.svg`
 
 **Interfaces:**
-- `scripts/analyze.py` runs C1–C4 on what exists: H1, H2 now; H3 when an importance CSV exists; H4/H5 primary only when `results/ratings-human.csv` exists (otherwise `"status": "waiting for human ratings (WP7)"`); Holm over the available primary p-values, flagged `"interim": true` until all five exist. `summary.json` = per hypothesis `{status, n, estimate, ci, p_primary, p_holm, support, sensitivity}`.
+- `scripts/analyze.py` runs C1–C4 on what exists: H1, H2 now; H3 when an importance CSV exists; H4/H5 primary only when `results/ratings-human.csv` exists (otherwise `"status": "waiting for human ratings (WP7)"`); Holm with m = 5, flagged `"interim": true` until all five exist. `summary.json` = per hypothesis `{status, n, estimate, ci, p_primary, p_holm, support, sensitivity}` plus top-level provenance `{git_commit, git_dirty, inputs: {path: sha256}, packages: {pandas, scipy, statsmodels, diptest, numpy}, decisions: ["D-036", …], created_at}`.
 - Figures (use the `dataviz` skill and the README figure style from `scripts/make_readme_figures.py`): log-H histogram all apps; fork share by section and cell; entropy profile over relative position by openness; ensemble spread by cell; fork importance vs H (when available).
 - `render_viewer(output_text: str, df: pd.DataFrame, forks: list[int]) -> str` — standalone HTML: the app source with each token in a span coloured by H (warm-gray ramp, 0–3 bits), forks outlined, `title` showing H, S and top-5 alternatives decoded. `tests/test_viewer.py`: output contains one span per non-empty token and escapes `<`.
 - `REPORT.md`: one section per hypothesis with the frozen criterion, result, and plain-language reading; exploratory results in a separate section.
