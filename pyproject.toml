@@ -11,6 +11,10 @@ et = "entropytrail.cli:main"
 
 [dependency-groups]
 dev = ["pytest"]
+eval = [
+    "pillow>=13.0.0",
+    "playwright==1.65.2",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -20,5 +24,8 @@ build-backend = "hatchling.build"
 packages = ["src/entropytrail"]
 
 [tool.pytest.ini_options]
-markers = ["slow: needs Qwen3.5-9B weights"]
-addopts = "-m 'not slow'"
+markers = [
+    "slow: needs Qwen3.5-9B weights or the embedding models",
+    "browser: needs Playwright Chromium (uv run --group eval)",
+]
+addopts = "-m 'not slow and not browser'"

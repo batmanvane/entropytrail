@@ -45,3 +45,12 @@ def tiny_model():
 @pytest.fixture
 def fake_io():
     return {"eos_ids": {999}, "token_texts": lambda ids: [f"<{i}>" for i in ids]}
+
+
+@pytest.fixture(scope="session")
+def browser():
+    sync_api = pytest.importorskip("playwright.sync_api")
+    with sync_api.sync_playwright() as p:
+        b = p.chromium.launch()
+        yield b
+        b.close()
