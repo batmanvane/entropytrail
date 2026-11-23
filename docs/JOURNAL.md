@@ -78,3 +78,6 @@ Final review of plan 2 (fresh reviewer): fixed the parent-token identity check o
 ## 2026-11-22 (WP6: interim analysis H1, H2)
 
 Robert decided R1–R3 (D-036, the recommended readings). `scripts/analyze.py` run on the grid: H1 supported (97.1 % of apps reject unimodality; Holm p 4·10⁻²⁵), H2 supported (loose prompts +0.098 screen spread, CI 0.060–0.137; Holm p 1·10⁻⁴). Secondary: late JS surprise lowers the odds of rendering (OR 0.41 per SD), fork surprise raises ensemble rarity slightly; strongest forks are not earlier in loose prompts. Exploratory Claude-rating models point the same way as H4/H5. Details: `results/analysis/REPORT.md`. Figures follow with the H3 run after the fork pilot.
+
+## 2026-11-23 (fork pilot, night 2026-11-22; automatic morning entry)
+Night runs: 1 (done 197, aborted 1, errors 0). Rollouts finished since 22:00: 228 (mean 16.0 tok/s); plan total 270/975. `et eval --forks` exit 0, collect exit 0; `results/forks/importance-pilot.csv`: 54 sites with importance.
