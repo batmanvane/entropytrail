@@ -14,6 +14,7 @@ from pathlib import Path
 
 from entropytrail.analysis.measures import app_measures, app_tokens
 from entropytrail.evaluate import find_units
+from entropytrail.storage import results_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 ID_FIELDS = ["prompt_id", "sample", "domain", "openness", "finish_reason", "html_extracted"]
@@ -44,9 +45,11 @@ def collect(cond_dir: Path) -> list[dict]:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="/Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b", type=Path)
+    ap.add_argument("--results", default=ROOT / "results", type=Path)
     a = ap.parse_args()
     rows = collect(a.root)
-    out = ROOT / "results" / "app-measures.csv"
+    out = results_dir(a.root, a.results) / "app-measures.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=ID_FIELDS + MEASURES)
         w.writeheader()

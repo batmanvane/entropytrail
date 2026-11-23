@@ -58,3 +58,17 @@ def test_missing_eval_is_an_error(tmp_path):
     (cond / "g1" / "001" / "meta.json").write_text(json.dumps({"status": "done"}))
     with pytest.raises(FileNotFoundError):
         co.collect(cond)
+
+
+def test_sweep_condition_does_not_overwrite_grid_results(tmp_path, monkeypatch):
+    import sys
+    cond = tmp_path / "qwen35-9b-bf16-mlx-t0p7-abcd1234"
+    unit(cond, "g1", 0, [1, 0])
+    unit(cond, "g1", 1, [0, 1])
+    base = tmp_path / "results"
+    base.mkdir()
+    (base / "outcomes.csv").write_text("grid")
+    monkeypatch.setattr(sys, "argv", ["x", "--root", str(cond), "--results", str(base)])
+    co.main()
+    assert (base / "outcomes.csv").read_text() == "grid"
+    assert (base / cond.name / "outcomes.csv").exists() and (base / cond.name / "ensemble.csv").exists()

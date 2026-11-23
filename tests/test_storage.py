@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 
 import numpy as np
@@ -105,3 +106,10 @@ def test_data_root(monkeypatch, tmp_path):
     monkeypatch.setenv("ENTROPYTRAIL_DATA", str(target))
     assert data_root() == target
     assert not target.exists()
+
+
+def test_results_dir_per_condition(tmp_path):
+    from entropytrail.storage import results_dir
+    base = tmp_path / "results"
+    assert results_dir(Path("/x/qwen35-9b-bf16-mlx-1195d88b"), base) == base
+    assert results_dir(Path("/x/qwen35-9b-bf16-mlx-t0p7-abcd1234"), base) == base / "qwen35-9b-bf16-mlx-t0p7-abcd1234"

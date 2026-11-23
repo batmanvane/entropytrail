@@ -26,7 +26,6 @@ from entropytrail.analysis.measures import app_tokens
 from entropytrail.analysis.tests_h import h1, h2, h3, holm, rating_test, renders_test
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "results" / "analysis"
 
 
 def require_readings(decisions: Path) -> None:
@@ -138,15 +137,17 @@ def main():
     ap.add_argument("--root", default="/Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b", type=Path)
     a = ap.parse_args()
     require_readings(ROOT / "docs" / "DECISIONS.md")
-    inputs = [ROOT / "results" / "app-measures.csv", ROOT / "results" / "ensemble.csv",
-              ROOT / "results" / "outcomes.csv"]
+    from entropytrail.storage import results_dir
+    res = results_dir(a.root, ROOT / "results")
+    OUT = res / "analysis"
+    inputs = [res / "app-measures.csv", res / "ensemble.csv", res / "outcomes.csv"]
     meas = pd.read_csv(inputs[0], dtype={"sample": int})
     ens = pd.read_csv(inputs[1])
     outcomes = pd.read_csv(inputs[2], dtype={"sample": int})
     frames = {(p, q): app_tokens(a.root / p / f"{q:03d}") for p, q in zip(meas["prompt_id"], meas["sample"])}
-    imp_files = sorted((ROOT / "results" / "forks").glob("importance-*.csv"))
+    imp_files = sorted((res / "forks").glob("importance-*.csv"))
     importance = pd.concat([pd.read_csv(f) for f in imp_files]) if imp_files else None
-    human_f = ROOT / "results" / "ratings-human.csv"
+    human_f = res / "ratings-human.csv"
     human = pd.read_csv(human_f, dtype={"sample": int}) if human_f.exists() else None
     inputs += imp_files + ([human_f] if human is not None else [])
 
@@ -165,7 +166,7 @@ def main():
     (OUT / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     named = {f"{p}/{q:03d}": f for (p, q), f in frames.items()}
     h1(named)["per_app"].to_csv(OUT / "h1-per-app.csv", index=False)
-    claude_f = ROOT / "results" / "ratings-claude.csv"
+    claude_f = res / "ratings-claude.csv"
     if claude_f.exists():
         claude = pd.read_csv(claude_f, dtype={"sample": int})
         (OUT / "exploratory-claude-ratings.json").write_text(

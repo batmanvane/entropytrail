@@ -129,3 +129,14 @@ def clean_partials(root: Path) -> int:
             shutil.rmtree(p)
             n += 1
     return n
+
+
+# The main series (T = 1.0, D-028); its derived results live directly in results/.
+GRID_CONDITION = "qwen35-9b-bf16-mlx-1195d88b"
+
+
+def results_dir(cond_dir: Path, base: Path) -> Path:
+    """Folder for derived results of a condition: ``base`` for the main series,
+    ``base/<condition_id>`` for every other condition (WP12)."""
+    name = Path(cond_dir).name
+    return Path(base) if name == GRID_CONDITION else Path(base) / name

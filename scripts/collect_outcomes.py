@@ -16,6 +16,7 @@ import numpy as np
 
 from entropytrail.evaluate import find_units
 from entropytrail.fingerprint import fingerprint_distance
+from entropytrail.storage import results_dir
 from entropytrail.outcome import Outcome, cosine_distances, outcome_distances, rarity, spread
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,12 +92,14 @@ def _write(path: Path, fields: list[str], rows: list[dict]) -> None:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="/Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b", type=Path)
-    ap.add_argument("--out", default=ROOT / "results", type=Path)
+    ap.add_argument("--results", default=ROOT / "results", type=Path,
+                    help="results base; non-grid conditions write into <base>/<condition_id>/")
     a = ap.parse_args()
+    out = results_dir(a.root, a.results)
     apps, ens = collect(a.root)
-    _write(a.out / "outcomes.csv", APP_FIELDS, apps)
-    _write(a.out / "ensemble.csv", ENS_FIELDS, ens)
-    print(f"{len(apps)} apps, {len(ens)} prompts -> {a.out}")
+    _write(out / "outcomes.csv", APP_FIELDS, apps)
+    _write(out / "ensemble.csv", ENS_FIELDS, ens)
+    print(f"{len(apps)} apps, {len(ens)} prompts -> {out}")
 
 
 if __name__ == "__main__":

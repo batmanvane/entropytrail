@@ -27,8 +27,11 @@ def rows(root: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="/Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b")
-    ap.add_argument("--out", default=str(Path(__file__).resolve().parents[1] / "results" / "ratings-claude.csv"))
+    ap.add_argument("--out", default=None, help="default: <results dir of the condition>/ratings-claude.csv")
     a = ap.parse_args()
+    if a.out is None:
+        from entropytrail.storage import results_dir
+        a.out = str(results_dir(Path(a.root), Path(__file__).resolve().parents[1] / "results") / "ratings-claude.csv")
     data = list(rows(Path(a.root)))
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     with open(a.out, "w", newline="", encoding="utf-8") as fh:
