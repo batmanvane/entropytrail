@@ -309,3 +309,15 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** The frozen plan (D-028, D-029) leaves these details open; they change the numbers and must be fixed before results exist (Claude ratings already exist). Recommendations and alternatives in plan 2 (Part C) were explained to Robert, who chose the recommended option in all three cases.
 
 **Alternatives:** R1 — support only if the binomial test survives Holm (stricter, changes the frozen rule), or H1 outside the Holm family; R2 — only sites with H ≥ 2 bits (literal "fork", narrow H range, tight apps drop out); R3 — cut the last third over JS code and comment tokens, then drop comments.
+
+## D-037 · 2026-11-23 · Temperature sweep (WP12): temperatures, rating scope, comparison plan
+
+**Decision (Robert, 2026-11-23):**
+- **T1:** first sweep condition T = 0.7 (`configs/conditions/qwen35-9b-bf16-mlx-t0p7.yaml`, condition_id `qwen35-9b-bf16-mlx-t0p7-a31fc218`, all other fields as the T = 1.0 condition). T = 0.5 only after the T = 0.7 comparison, if it shows a clear change.
+- **T2:** all 420 apps per temperature get the Claude Chrome ratings (protocol v1.3) including the novelty calibration pass.
+- **T3:** comparison plan as frozen in METHODS.md "Temperature sweep comparison (frozen 2026-11-23)": C1 renders, C2 ensemble spread, C3 calibrated novelty, Holm across the three.
+- The sweep starts after the fork pilot (D-035) is complete; it uses the day and night windows.
+
+**Reason:** Spec D9 / WP12. At T = 1.0, 132 of 420 apps do not render and late improbable JS tokens go with apps that fail (interim WP6); the sweep measures the trade-off between running apps and variety. 0.7 first so that a null result does not cost a second sweep. Seeds are derived from the new condition_id, i.e. independent of the T = 1.0 samples. Verified 2026-11-23: mlx-lm 0.32.2 computes the log-softmax before the sampler and `categorical_sampling` only scales the logits by 1/T, so the recorded H and S are untempered.
+
+**Alternatives:** 0.7 and 0.5 at once (twice the compute before knowing whether 0.7 changes anything); a rating sample of 5 apps per prompt (cheaper, but C3 and the per-temperature H4/H5 would rest on 105 apps); top-p truncation instead of lower temperature (changes the distribution's support; rejected in D-031 for the main grid).
