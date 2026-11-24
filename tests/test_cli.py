@@ -93,3 +93,13 @@ def test_run_window_fork_plan_parser():
         cli.build_parser().parse_args(base + ["--fork-plan", "plan.json", "--samples", "2"])
     with pytest.raises(SystemExit):
         cli.build_parser().parse_args(base)
+
+
+def test_forks_plan_design_options():
+    a = cli.build_parser().parse_args(["forks-plan", "--root", "/x", "--prompt-ids", "a", "--apps-per-prompt", "2",
+                                       "--seed", "1", "--out", "p.json", "--n-top", "5", "--n-random", "2",
+                                       "--n-same", "6"])
+    assert (a.n_top, a.n_random, a.n_same, a.extend) == (5, 2, 6, None)
+    b = cli.build_parser().parse_args(["forks-plan", "--root", "/x", "--extend", "old.json", "--n-same", "6",
+                                       "--out", "p.json"])
+    assert str(b.extend) == "old.json" and b.prompt_ids is None

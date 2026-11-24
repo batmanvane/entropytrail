@@ -191,3 +191,10 @@ def test_parent_tokens_must_match_plan(tiny_model, fake_io, tmp_path, parent):
     with pytest.raises(IdentityMismatch):
         go_forks(tiny_model, io_of(fake_io), tmp_path, plan)
     assert not (u / "forks").exists()
+
+
+def test_more_same_variants_than_default(tiny_model, fake_io, tmp_path, parent):
+    u, ids = parent
+    v = {"alt1": 7, **{f"same{k}": ids[3] for k in range(1, 7)}}
+    r = go_forks(tiny_model, io_of(fake_io), tmp_path, one_site_plan(make_cond(), 3, ids[3], v))
+    assert r["done"] == 7 and all(is_done(rollout_dir(u, 3, f"same{k}")) for k in range(1, 7))

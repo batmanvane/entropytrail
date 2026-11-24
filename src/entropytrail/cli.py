@@ -55,10 +55,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     f = sub.add_parser("forks-plan", help="select fork sites and write a fork plan (WP5)")
     f.add_argument("--root", required=True, type=Path, help="condition directory")
-    f.add_argument("--prompt-ids", nargs="+", required=True)
-    f.add_argument("--apps-per-prompt", required=True, type=int)
-    f.add_argument("--seed", required=True, type=int)
+    f.add_argument("--prompt-ids", nargs="+", default=None)
+    f.add_argument("--apps-per-prompt", type=int, default=None)
+    f.add_argument("--seed", type=int, default=None)
     f.add_argument("--out", required=True, type=Path)
+    f.add_argument("--n-top", type=int, default=10)
+    f.add_argument("--n-random", type=int, default=3)
+    f.add_argument("--n-same", type=int, default=2)
+    f.add_argument("--extend", type=Path, default=None,
+                   help="keep the sites of this plan and set n_same (D-038)")
 
     b = sub.add_parser("bench", help="single-sequence throughput")
     common(b, prompts=False)
@@ -228,10 +233,18 @@ def cmd_eval(args) -> int:
 
 
 def cmd_forks_plan(args) -> int:
-    from entropytrail.forks import build_plan, choose_apps, write_plan
+    from entropytrail.forks import PARAMS, build_plan, choose_apps, extend_plan, read_plan, write_plan
 
-    apps = choose_apps(args.root, args.prompt_ids, args.apps_per_prompt, args.seed)
-    plan = build_plan(args.root, apps, seed=args.seed)
+    if args.extend is not None:
+        plan = extend_plan(read_plan(args.extend), n_same=args.n_same)
+        apps = [(a["prompt_id"], a["sample"]) for a in plan["apps"]]
+    else:
+        if args.prompt_ids is None or args.apps_per_prompt is None or args.seed is None:
+            print("--prompt-ids, --apps-per-prompt and --seed are required without --extend", file=sys.stderr)
+            return 2
+        params = dict(PARAMS, n_top=args.n_top, n_random=args.n_random, n_same=args.n_same)
+        apps = choose_apps(args.root, args.prompt_ids, args.apps_per_prompt, args.seed)
+        plan = build_plan(args.root, apps, seed=args.seed, params=params)
     write_plan(args.out, plan)
     n_sites = sum(len(a["sites"]) for a in plan["apps"])
     n_roll = sum(len(s["variants"]) for a in plan["apps"] for s in a["sites"])

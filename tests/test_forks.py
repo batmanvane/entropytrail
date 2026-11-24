@@ -90,3 +90,25 @@ def test_plan_roundtrip(tmp_path):
         assert s["variants"]["same1"] == s["variants"]["same2"] == s["actual_id"] == 100 + s["pos"]
         assert s["actual_id"] not in (s["variants"]["alt1"], s["variants"]["alt2"], s["variants"]["alt3"])
         assert s["section"] == "js" and 0 <= s["rel_pos"] < 1
+
+
+def test_extend_plan_adds_same_variants_keeps_sites(tmp_path):
+    from entropytrail.forks import extend_plan
+    plan = {"plan_version": 1, "condition_id": "c", "seed": 1, "params": dict(n_top=10, n_random=3, min_spacing=20,
+            n_alt=3, n_same=2), "apps": [{"prompt_id": "p", "sample": 0, "n_tokens": 50, "sites": [
+            {"pos": 4, "actual_id": 9, "variants": {"alt1": 1, "alt2": 2, "alt3": 3, "same1": 9, "same2": 9}}]}]}
+    ext = extend_plan(plan, n_same=6)
+    s = ext["apps"][0]["sites"][0]
+    assert list(s["variants"]) == ["alt1", "alt2", "alt3"] + [f"same{k}" for k in range(1, 7)]
+    assert all(s["variants"][f"same{k}"] == 9 for k in range(1, 7)) and ext["params"]["n_same"] == 6
+    assert ext["extends"] == {"plan_version": 1, "seed": 1} and plan["params"]["n_same"] == 2
+
+
+def test_build_plan_custom_params(tmp_path):
+    cond = tmp_path / "qwen-x"
+    cond.mkdir()
+    (cond / "condition.json").write_text(json.dumps({"condition_id": "qwen-x"}))
+    _unit(cond, "p1", 0)
+    plan = build_plan(cond, [("p1", 0)], seed=5, params=dict(n_top=2, n_random=1, min_spacing=20, n_alt=3, n_same=6))
+    sites = plan["apps"][0]["sites"]
+    assert len(sites) == 3 and all(len(s["variants"]) == 9 for s in sites)

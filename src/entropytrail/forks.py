@@ -105,6 +105,23 @@ def build_plan(cond_dir: Path, apps: list[tuple[str, int]], *, seed: int, params
             "seed": seed, "params": params, "apps": plan_apps}
 
 
+def extend_plan(plan: dict, *, n_same: int) -> dict:
+    """Same sites, more same-token re-samples per site (D-038). Existing variants keep their
+    names, so their rollouts (seeded by name) are reused unchanged."""
+    import copy
+
+    ext = copy.deepcopy(plan)
+    ext["params"]["n_same"] = n_same
+    ext["extends"] = {"plan_version": plan["plan_version"], "seed": plan["seed"]}
+    ext["created_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    for app in ext["apps"]:
+        for site in app["sites"]:
+            v = {k: x for k, x in site["variants"].items() if k.startswith("alt")}
+            v.update({f"same{k + 1}": int(site["actual_id"]) for k in range(n_same)})
+            site["variants"] = v
+    return ext
+
+
 def write_plan(path: Path, plan: dict) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps(plan, indent=1), encoding="utf-8")
@@ -204,9 +221,7 @@ def run_rollouts(plan: dict, cond, ps, model, tokenizer, root: Path, deadline, *
                 if stop:
                     break
                 pos = int(site["pos"])
-                for variant in VARIANTS:
-                    if variant not in site["variants"]:
-                        continue
+                for variant in site["variants"]:  # alt1..altN, then same1..sameM (plan order)
                     forced = int(site["variants"][variant])
                     seed = _rollout_seed(cid, pid, sample, pos, variant)
                     d = rollout_dir(unit, pos, variant)
