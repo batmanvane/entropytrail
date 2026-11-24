@@ -54,7 +54,60 @@
     }
   },
   "H3": {
-    "status": "waiting for fork experiments (WP5)"
+    "status": "done",
+    "n_sites": 195,
+    "n_apps": 15,
+    "lrt_stat": 6.527544743921453,
+    "lrt_df": 4,
+    "p_primary": 0.16306309450682677,
+    "spearman_rho": -0.14132849676844428,
+    "rho_ci": [
+      -0.2760873654827192,
+      -0.014262565144012302
+    ],
+    "rho_below_0_5": true,
+    "by_kind": {
+      "random": 0.0464852888888889,
+      "top": -0.019038166666666665
+    },
+    "model": "MixedLM (ML) importance ~ H vs ~ H + rel_pos + C(section), (1|app)",
+    "sensitivity": {
+      "H_ge_2": {
+        "n_sites": 120,
+        "n_apps": 14,
+        "lrt_stat": 4.053776042046479,
+        "lrt_df": 4,
+        "p_primary": 0.3987769722944154,
+        "spearman_rho": -0.09506479182304298,
+        "rho_ci": [
+          -0.29142193291939594,
+          0.08036265214038149
+        ],
+        "rho_below_0_5": true,
+        "by_kind": {
+          "top": -0.021819058333333332
+        },
+        "model": "MixedLM (ML) importance ~ H vs ~ H + rel_pos + C(section), (1|app)"
+      },
+      "no_truncated_parent": {
+        "n_sites": 195,
+        "n_apps": 15,
+        "lrt_stat": 6.527544743921453,
+        "lrt_df": 4,
+        "p_primary": 0.16306309450682677,
+        "spearman_rho": -0.14132849676844428,
+        "rho_ci": [
+          -0.2760873654827192,
+          -0.014262565144012302
+        ],
+        "rho_below_0_5": true,
+        "by_kind": {
+          "random": 0.0464852888888889,
+          "top": -0.019038166666666665
+        },
+        "model": "MixedLM (ML) importance ~ H vs ~ H + rel_pos + C(section), (1|app)"
+      }
+    }
   },
   "H4": {
     "status": "waiting for human ratings (WP7)"
@@ -72,6 +125,11 @@
       "p": 2.6436833962266407e-05,
       "p_holm": 0.00010574733584906563,
       "reject": true
+    },
+    "H3": {
+      "p": 0.16306309450682677,
+      "p_holm": 0.4891892835204803,
+      "reject": false
     }
   },
   "interim": true,
@@ -98,12 +156,13 @@
     }
   },
   "provenance": {
-    "git_commit": "d405d61309ea6729d11b399b5dba16dd5f25157a",
+    "git_commit": "1a2ec2c8a1d800b914f91324485801087d0687fc",
     "git_dirty": false,
     "inputs": {
       "results/app-measures.csv": "3ce2422bf5a1e642c7144b7e5b2bb8f43a288871a4bcce845835f9980f5189e5",
       "results/ensemble.csv": "a2c5e0186d9c4c7009dbe45872d52a661683c98cee6982a404194e1e0a1e7b9d",
-      "results/outcomes.csv": "d94db5602471c4a217fab6cc83ad9bf248326019551d6231ad969bfa23c840c3"
+      "results/outcomes.csv": "d94db5602471c4a217fab6cc83ad9bf248326019551d6231ad969bfa23c840c3",
+      "results/forks/importance-pilot.csv": "9a2cfd18bb3278dc9373354ab3a82714246a369c66c026bf5b24da90a81c1a0d"
     },
     "packages": {
       "numpy": "2.5.5",
@@ -119,6 +178,6 @@
       "D-035",
       "D-036"
     ],
-    "created_at": "2026-11-22T11:51:50+01:00"
+    "created_at": "2026-11-24T08:13:27+01:00"
   }
 }

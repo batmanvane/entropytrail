@@ -84,3 +84,7 @@ Night runs: 1 (done 197, aborted 1, errors 0). Rollouts finished since 22:00: 22
 
 ## 2026-11-24 (fork pilot, night 2026-11-23; automatic morning entry)
 Night runs: 1 (done 118, aborted 0, errors 0). Rollouts finished since 22:00: 128 (mean 16.6 tok/s); plan total 975/975. `et eval --forks` exit 0, collect exit 0; `results/forks/importance-pilot.csv`: 195 sites with importance. **fork pilot: complete** — next: H3 run (`scripts/analyze.py`) and the D2 scale decision.
+
+## 2026-11-24 (WP5 pilot complete, H3)
+
+Fork pilot complete: 975/975 rollouts (day and night windows 2026-11-22 to 2026-11-24, no errors; last night ended 03:16). `scripts/analyze.py`: **H3 not supported** — the model with position and section is not better than entropy alone (LRT 6.5, 4 df, p 0.16, Holm 0.49); ρ(H, importance) = −0.14. Fork importance is centred on 0 (SD 0.36); the same-token noise floor (one pair per site) is large and noisy (mean 0.30, 0.13 for Snake, ~0.38 for the loose/open prompts), so the per-site importance is dominated by sampling noise. Details in `results/analysis/REPORT.md`. Fork queue switched off; next: temperature sweep T = 0.7 (D-037), D2 decision by Robert.
