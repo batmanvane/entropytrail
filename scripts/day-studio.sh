@@ -1,5 +1,5 @@
 #!/bin/bash
-# Day run window on the Studio for fork plans (WP5): 07:15-22:45, started by the user
+# Day run window on the Studio for fork plans (WP5) or a grid queue (WP12, ET_DAY_GRID=1): 07:15-22:45, started by the user
 # LaunchAgent de.entropytrail.day. Ollama is left running (idle) as on earlier day runs
 # (D-018). Runs only while ops/night.env sets ET_FORK_PLAN, never while another
 # `et run-window` is active, and kills its own run at 22:50 at the latest so it can never
@@ -22,8 +22,19 @@ fi
 
 # shellcheck disable=SC1091
 source "$REPO/ops/night.env"
-if [ -z "${ET_FORK_PLAN:-}" ]; then
-  log "no ET_FORK_PLAN in ops/night.env, nothing to do"
+if [ -n "${ET_FORK_PLAN:-}" ]; then
+  queue=(--fork-plan "$ET_FORK_PLAN")
+  if [ "${ET_DAY_GRID:-0}" = "1" ]; then
+    log "warning: ET_FORK_PLAN and ET_DAY_GRID are both set; running the fork plan"
+  fi
+elif [ "${ET_DAY_GRID:-0}" = "1" ]; then
+  queue=(--samples "${ET_SAMPLES:-20}")
+  if [ -n "${ET_PROMPT_IDS:-}" ]; then
+    # shellcheck disable=SC2206
+    queue+=(--prompt-ids ${ET_PROMPT_IDS})
+  fi
+else
+  log "neither ET_FORK_PLAN nor ET_DAY_GRID=1 in ops/night.env, nothing to do"
   exit 0
 fi
 for d in "$MODELS_DIR" "$DATA_DIR"; do
@@ -45,12 +56,12 @@ run_step() {
       exec sleep 600 </dev/null >/dev/null 2>&1
     fi
     echo "DRY: uv --directory $REPO run --frozen --offline et run-window --condition $ET_CONDITION" \
-      "--prompts $ET_PROMPTS --fork-plan $ET_FORK_PLAN --until 22:45"
+      "--prompts $ET_PROMPTS ${queue[*]} --until 22:45"
     return 0
   fi
   HF_HOME=/Volumes/Models/huggingface "${ET_UV:-/opt/homebrew/bin/uv}" --directory "$REPO" run --frozen --offline \
     et run-window --condition "$ET_CONDITION" --prompts "$ET_PROMPTS" \
-    --fork-plan "$ET_FORK_PLAN" --until 22:45
+    "${queue[@]}" --until 22:45
 }
 
 if [ -n "${ET_WATCHDOG_SECONDS:-}" ]; then

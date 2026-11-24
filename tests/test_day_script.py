@@ -9,7 +9,7 @@ SCRIPT = ROOT / "scripts" / "day-studio.sh"
 def _run(tmp_path, **extra):
     env = {**os.environ, "ET_DRY_RUN": "1", "ET_REPO": str(ROOT), "ET_MODELS_DIR": str(tmp_path),
            "ET_DATA_DIR": str(tmp_path), "ET_NOW_HOUR": "10", "ET_FORK_PLAN": "results/forks/plan-pilot.json",
-           "ET_PROMPT_IDS": "", "ET_OTHER_RUN_ACTIVE": "0", **extra}
+           "ET_PROMPT_IDS": "", "ET_OTHER_RUN_ACTIVE": "0", "ET_DAY_GRID": "0", **extra}
     return subprocess.run(["/bin/bash", str(SCRIPT)], capture_output=True, text=True, env=env, cwd=tmp_path)
 
 
@@ -58,3 +58,26 @@ def test_watchdog_kills_grandchildren(tmp_path):
     assert "watchdog" in r.stdout
     pid = int(marker.read_text())
     assert subprocess.run(["kill", "-0", str(pid)], capture_output=True).returncode != 0
+
+
+def test_day_grid_queue(tmp_path):
+    r = _run(tmp_path, ET_FORK_PLAN="", ET_DAY_GRID="1", ET_SAMPLES="20")
+    line = [ln for ln in r.stdout.splitlines() if "run-window" in ln][0]
+    assert "--samples 20" in line and "--until 22:45" in line and "--fork-plan" not in line
+
+
+def test_day_grid_with_prompt_ids(tmp_path):
+    r = _run(tmp_path, ET_FORK_PLAN="", ET_DAY_GRID="1", ET_SAMPLES="20", ET_PROMPT_IDS="free-01 free-02")
+    line = [ln for ln in r.stdout.splitlines() if "run-window" in ln][0]
+    assert "--prompt-ids free-01 free-02" in line
+
+
+def test_fork_plan_wins_over_day_grid_with_warning(tmp_path):
+    r = _run(tmp_path, ET_DAY_GRID="1")
+    line = [ln for ln in r.stdout.splitlines() if "run-window" in ln][0]
+    assert "--fork-plan" in line and "--samples" not in line and "warning" in r.stdout
+
+
+def test_neither_queue_does_nothing(tmp_path):
+    r = _run(tmp_path, ET_FORK_PLAN="", ET_DAY_GRID="0")
+    assert r.returncode == 0 and "run-window" not in r.stdout

@@ -63,13 +63,14 @@ commits other files, so a dirty tree still blocks the night (by design). Log:
     launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/de.entropytrail.morning.plist
     # remove: launchctl bootout gui/$(id -u)/de.entropytrail.morning
 
-## Day runs for fork plans
+## Day runs (fork plans or a grid queue)
 
 A user LaunchAgent `de.entropytrail.day` runs `scripts/day-studio.sh` daily at 07:15 (after
 the 06:30 morning job). While `ET_FORK_PLAN` is set it runs `et run-window --fork-plan …
---until 22:45` with Ollama left running but idle (D-018); loading a large Ollama model during
-the day competes for memory with the 9B (~23 GB). It skips outside 07:00-21:59, when no
-fork plan is set, or when another `et run-window` is active, and its own watchdog kills the
+--until 22:45`; otherwise, with `ET_DAY_GRID=1`, it runs the grid queue of `ops/night.env`
+(`--samples`, optional `--prompt-ids`) until 22:45 with Ollama left running but idle (D-018); loading a large Ollama model during
+the day competes for memory with the 9B (~23 GB). It skips outside 07:00-21:59, when neither
+queue is set, or when another `et run-window` is active, and its own watchdog kills the
 run's process tree at 22:50, so it never overlaps the 23:00 night run. Unfinished rollouts
 are discarded and redone, as at night. Log: `~/Library/Logs/entropytrail-day.log`.
 
