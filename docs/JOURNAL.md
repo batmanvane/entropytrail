@@ -81,3 +81,6 @@ Robert decided R1–R3 (D-036, the recommended readings). `scripts/analyze.py` r
 
 ## 2026-11-23 (fork pilot, night 2026-11-22; automatic morning entry)
 Night runs: 1 (done 197, aborted 1, errors 0). Rollouts finished since 22:00: 228 (mean 16.0 tok/s); plan total 270/975. `et eval --forks` exit 0, collect exit 0; `results/forks/importance-pilot.csv`: 54 sites with importance.
+
+## 2026-11-24 (fork pilot, night 2026-11-23; automatic morning entry)
+Night runs: 1 (done 118, aborted 0, errors 0). Rollouts finished since 22:00: 128 (mean 16.6 tok/s); plan total 975/975. `et eval --forks` exit 0, collect exit 0; `results/forks/importance-pilot.csv`: 195 sites with importance. **fork pilot: complete** — next: H3 run (`scripts/analyze.py`) and the D2 scale decision.
