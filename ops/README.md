@@ -1,4 +1,27 @@
-# Night scheduling (Mac Studio)
+# Scheduling on the Mac Studio
+
+## 24/7 queue (since 2026-11-24, D-039)
+
+All generation and evaluation runs through one job queue: the user LaunchAgent
+`de.entropytrail.queue` (RunAtLoad, KeepAlive while unfinished) runs
+`scripts/queue_runner.py`, which works through `ops/queue.txt` top to bottom (format in the
+script's docstring). Jobs repeat until nothing is left, then the next starts; finished units
+are never recomputed. A job never starts while another `et run-window` is active, a job with
+no new finished unit for 2 h is killed and restarted, and a refused attempt (e.g. dirty git
+tree) is retried every 10 min — so keep the tree clean. Append jobs at the end at any time;
+the file is re-read before every job. Ollama stays running and idle.
+
+    cp ops/launchd/de.entropytrail.queue.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/de.entropytrail.queue.plist
+    launchctl kickstart gui/$(id -u)/de.entropytrail.queue     # restart after appending jobs to a finished queue
+    # pause: launchctl bootout gui/$(id -u)/de.entropytrail.queue  (kills the running job; it is redone)
+    tail -f ~/Library/Logs/entropytrail-queue.log
+
+The night daemon and the day agent below are inert while `ET_NIGHT_ENABLED=0` and
+`ET_DAY_GRID=0` (no fork plan) in `ops/night.env`. The night daemon can be removed with
+`sudo launchctl bootout system/de.entropytrail.night`.
+
+# Night scheduling (Mac Studio, until 2026-11-24)
 
 A root LaunchDaemon `de.entropytrail.night` runs `scripts/night-studio.sh` daily at 23:00.
 The script first checks the window (only 23:00-05:59; a missed 23:00 fired by launchd

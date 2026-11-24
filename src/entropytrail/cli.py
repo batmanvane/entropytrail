@@ -39,7 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
     what.add_argument("--samples", type=int, help="grid queue: samples per prompt")
     what.add_argument("--fork-plan", type=Path, help="fork queue: rollouts of this plan (WP5)")
     r.add_argument("--prompt-ids", nargs="+", default=None)
-    r.add_argument("--until", required=True, metavar="HH:MM")
+    r.add_argument("--until", default=None, metavar="HH:MM",
+                   help="stop at the next HH:MM; omit to run until the queue is done (24/7 queue)")
     r.add_argument("--allow-dirty", action="store_true",
                    help="run even if the git working tree has uncommitted changes")
 
@@ -120,7 +121,7 @@ def cmd_generate(args) -> int:
 def cmd_run_window(args) -> int:
     from entropytrail.runner import plan_units
 
-    deadline = next_occurrence(args.until, datetime.now())
+    deadline = next_occurrence(args.until, datetime.now()) if args.until else None
     if args.fork_plan is not None:
         if args.prompt_ids:
             print("--prompt-ids cannot be combined with --fork-plan", file=sys.stderr)

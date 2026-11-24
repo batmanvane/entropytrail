@@ -49,6 +49,19 @@ fi
 # shellcheck disable=SC1091
 source "$REPO/ops/night.env"
 
+if [ "${ET_NIGHT_ENABLED:-1}" != "1" ]; then
+  log "night runs disabled in ops/night.env (24/7 queue, D-039), skipping"
+  exit 0
+fi
+active="${ET_OTHER_RUN_ACTIVE:-}"
+if [ -z "$active" ]; then
+  if pgrep -f "et run-window --condition" >/dev/null; then active=1; else active=0; fi
+fi
+if [ "$active" = "1" ]; then
+  log "another 9B run is already active, skipping (Ollama untouched)"
+  exit 0
+fi
+
 if [ -n "${ET_FORK_PLAN:-}" ] && [ -n "${ET_PROMPT_IDS:-}" ]; then
   log "config error: ET_FORK_PLAN and ET_PROMPT_IDS are both set in ops/night.env, aborting"
   exit 2

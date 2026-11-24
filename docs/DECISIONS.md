@@ -321,3 +321,23 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Spec D9 / WP12. At T = 1.0, 132 of 420 apps do not render and late improbable JS tokens go with apps that fail (interim WP6); the sweep measures the trade-off between running apps and variety. 0.7 first so that a null result does not cost a second sweep. Seeds are derived from the new condition_id, i.e. independent of the T = 1.0 samples. Verified 2026-11-23: mlx-lm 0.32.2 computes the log-softmax before the sampler and `categorical_sampling` only scales the logits by 1/T, so the recorded H and S are untempered.
 
 **Alternatives:** 0.7 and 0.5 at once (twice the compute before knowing whether 0.7 changes anything); a rating sample of 5 apps per prompt (cheaper, but C3 and the per-temperature H4/H5 would rest on 105 apps); top-p truncation instead of lower temperature (changes the distribution's support; rejected in D-031 for the main grid).
+
+## D-038 · 2026-11-24 · Fork experiments redesigned: six same-token re-samples; H3 on the new data (amendment)
+
+**Decision (Robert, 2026-11-24, D2 option 1, before any data of the new design existed):**
+- **Baseline:** 6 same-token re-samples per site (`same1`–`same6`) instead of 2, so the noise floor is a mean over 15 pairs instead of one; 3 alternatives as before. Fork importance and its definition (spec §5.4) are unchanged.
+- **Pilot sites reused:** `results/forks/plan-pilot-s6.json` = the 195 pilot sites with `same3`–`same6` added (780 new rollouts); the 975 pilot rollouts are reused unchanged (seeds depend on site and variant name only).
+- **Scale:** `results/forks/plan-main.json` = 2 apps (seed 2027) for each of the other 18 prompts, 5 top-H + 2 random code sites per app (min spacing 20), 3 alternatives + 6 re-samples per site: 36 apps, 252 sites, 2,268 rollouts.
+- **H3 amendment:** the primary H3 test (frozen model, criterion and Holm slot unchanged; readings of D-036) is computed on the redesigned data: all sites of `plan-pilot-s6` and `plan-main`, importance with six same-token re-samples. The pilot result with two re-samples (2026-11-24: not supported, LRT p 0.16, ρ −0.14) stays reported as the pilot.
+
+**Reason:** In the pilot the noise floor rested on one pair per site and was large and erratic (mean 0.30; whenever one of the two re-samples breaks, the pair distance is 1), so per-site importance was dominated by sampling noise and H3 could not separate "the choice mattered" from noise. More apps with the same design would mostly measure more noise; three prompts are too few for a test about entropy vs consequence across prompt types.
+
+**Alternatives:** scale-up with the pilot design (spec §8, 2 apps per prompt); stop the forks; only extend the pilot sites (≈ 1 day); one app per prompt in the main plan (≈ 3 days in total). The redesigned data as a secondary analysis only, H3 staying "not supported" (rejected: the pilot was meant as a pilot, spec D2).
+
+## D-039 · 2026-11-24 · 24/7 job queue instead of day and night windows
+
+**Decision (Robert, 2026-11-24: the Studio may be used around the clock):** a user LaunchAgent `de.entropytrail.queue` (KeepAlive) runs `scripts/queue_runner.py`, which works through `ops/queue.txt` in order without time windows: T = 0.7 sweep generation, its `et eval`, fork plans `plan-pilot-s6` and `plan-main`, `et eval --forks` of the T = 1.0 condition. Each job repeats until nothing is left (finished units are never recomputed); a job never starts while another `et run-window` runs; a job without a new finished unit for 2 hours is killed and restarted; a refused attempt (dirty tree) is retried every 10 min. Night (`ET_NIGHT_ENABLED=0`) and day (`ET_DAY_GRID=0`, no fork plan) scripts stay installed but inert; the night script additionally refuses to run while another 9B run is active. Ollama stays running and idle (D-018).
+
+**Reason:** No windows needed; one queue is simpler and removes the hand-over at 22:45/23:00 and the morning switch. Evaluation runs as a queue job between generation jobs, so it never shares memory with the 9B.
+
+**Alternatives:** keep day + night windows (more moving parts, gaps); stop Ollama permanently (needs root; not needed while it is idle). Removing the night LaunchDaemon needs sudo: `sudo launchctl bootout system/de.entropytrail.night` (optional).

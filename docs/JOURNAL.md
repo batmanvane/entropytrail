@@ -92,3 +92,7 @@ Fork pilot complete: 975/975 rollouts (day and night windows 2026-11-22 to 2026-
 ## 2026-11-24 (WP12: temperature sweep T = 0.7 started)
 
 Plan 3 Task 2 (day window runs a grid queue, `ET_DAY_GRID`) and Task 4 done: `ops/night.env` now queues condition `qwen35-9b-bf16-mlx-t0p7-a31fc218` (T = 0.7, D-037) in the day (07:15–22:45) and night windows; fork queue off. Smoke unit game-tight-01/000 at T = 0.7: 2,676 tokens, EOS, 17.4 tok/s; mean S 0.072 bits vs 0.176 for the T = 1.0 sample 000 (3 vs 20 tokens with S ≥ 4 bits), mean H 0.108 vs 0.164 bits — H stays on the untempered scale as expected. New `condition.json` created; the T = 1.0 `condition.json` unchanged (sha256 checked). Day run started 08:17. Expected ~2 days for 420 units. Progress is checked by the session check-ins (the 06:30 morning job only handles fork plans and now does nothing).
+
+## 2026-11-24 (D2 decided, 24/7 queue)
+
+Robert chose the fork redesign (D-038: six same-token re-samples; pilot sites extended, 18 further prompts with 2 apps each; H3 primary on the new data) and around-the-clock use of the Studio (D-039). Day and night windows replaced by the queue in `ops/queue.txt`: T = 0.7 sweep (120/420 done at switch time) → its evaluation → `plan-pilot-s6` (780 new rollouts) → `plan-main` (2,268) → fork evaluation. Expected ≈ 1 day for the rest of the sweep and ≈ 5–6 days for the forks.

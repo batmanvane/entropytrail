@@ -103,3 +103,8 @@ def test_forks_plan_design_options():
     b = cli.build_parser().parse_args(["forks-plan", "--root", "/x", "--extend", "old.json", "--n-same", "6",
                                        "--out", "p.json"])
     assert str(b.extend) == "old.json" and b.prompt_ids is None
+
+
+def test_run_window_without_deadline():
+    a = cli.build_parser().parse_args(["run-window", "--condition", "c.yaml", "--prompts", "p.yaml", "--samples", "2"])
+    assert a.until is None

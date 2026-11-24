@@ -112,3 +112,7 @@ Approved by Robert on 2026-11-23 (D-037), before any app of a sweep condition ex
 - The H1, H2, H4 and H5 analyses of the frozen plan repeated per temperature (H4/H5 with Claude functionality and calibrated novelty).
 - Distributions by temperature: app length, fork share, late JS surprise, fork surprise, path action per token, Claude functionality/ui/ux, checklist share of tight prompts.
 - Novelty calibration is per prompt **within** a temperature; C3 compares calibrated scales across temperatures and is read with that caveat (calibrated novelty is relative to the 20 apps a calibration agent saw).
+
+## Amendment 2026-11-24 (D-038): data of the primary H3 test
+
+Before any data of the new design existed: the primary H3 test (model, criterion, Holm slot and the D-036 readings unchanged) uses the redesigned fork data — all sites of `results/forks/plan-pilot-s6.json` and `results/forks/plan-main.json`, fork importance with **six** same-token re-samples per site (noise floor = mean distance over the 15 pairs). The pilot result with two re-samples (not supported; LRT p 0.16, ρ −0.14) is kept and reported as the pilot.
