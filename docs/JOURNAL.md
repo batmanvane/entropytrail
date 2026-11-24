@@ -88,3 +88,7 @@ Night runs: 1 (done 118, aborted 0, errors 0). Rollouts finished since 22:00: 12
 ## 2026-11-24 (WP5 pilot complete, H3)
 
 Fork pilot complete: 975/975 rollouts (day and night windows 2026-11-22 to 2026-11-24, no errors; last night ended 03:16). `scripts/analyze.py`: **H3 not supported** — the model with position and section is not better than entropy alone (LRT 6.5, 4 df, p 0.16, Holm 0.49); ρ(H, importance) = −0.14. Fork importance is centred on 0 (SD 0.36); the same-token noise floor (one pair per site) is large and noisy (mean 0.30, 0.13 for Snake, ~0.38 for the loose/open prompts), so the per-site importance is dominated by sampling noise. Details in `results/analysis/REPORT.md`. Fork queue switched off; next: temperature sweep T = 0.7 (D-037), D2 decision by Robert.
+
+## 2026-11-24 (WP12: temperature sweep T = 0.7 started)
+
+Plan 3 Task 2 (day window runs a grid queue, `ET_DAY_GRID`) and Task 4 done: `ops/night.env` now queues condition `qwen35-9b-bf16-mlx-t0p7-a31fc218` (T = 0.7, D-037) in the day (07:15–22:45) and night windows; fork queue off. Smoke unit game-tight-01/000 at T = 0.7: 2,676 tokens, EOS, 17.4 tok/s; mean S 0.072 bits vs 0.176 for the T = 1.0 sample 000 (3 vs 20 tokens with S ≥ 4 bits), mean H 0.108 vs 0.164 bits — H stays on the untempered scale as expected. New `condition.json` created; the T = 1.0 `condition.json` unchanged (sha256 checked). Day run started 08:17. Expected ~2 days for 420 units. Progress is checked by the session check-ins (the 06:30 morning job only handles fork plans and now does nothing).
