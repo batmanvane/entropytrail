@@ -341,3 +341,9 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** No windows needed; one queue is simpler and removes the hand-over at 22:45/23:00 and the morning switch. Evaluation runs as a queue job between generation jobs, so it never shares memory with the 9B.
 
 **Alternatives:** keep day + night windows (more moving parts, gaps); stop Ollama permanently (needs root; not needed while it is idle). Removing the night LaunchDaemon needs sudo: `sudo launchctl bootout system/de.entropytrail.night` (optional).
+
+## D-040 · 2026-11-25 · Temperature sweep continues with T = 0.5
+
+**Decision (Robert, 2026-11-25, plan 3 Task 6 checkpoint):** after the T = 0.7 comparison (C1 and C2 supported, C3 not; `results/temperature-sweep/REPORT.md`) the sweep continues with T = 0.5. Condition `configs/conditions/qwen35-9b-bf16-mlx-t0p5.yaml` (identical to the T = 0.7 file except name and `temperature: 0.5`; id `qwen35-9b-bf16-mlx-t0p5-c9bce32f`). Same protocol as T = 0.7 (D-037): 420 apps, WP4 eval, Claude ratings v1.2 + v1.3 calibration for all apps, comparison C1–C3 against T = 1.0 as a second family (Holm m = 3), then the comparison rerun with three temperatures.
+
+**Scheduling:** appended to `ops/queue.txt` after the fork jobs (D-038), so the forks are not delayed: grid generation (≈ 1.5 days at the T = 0.7 pace) and its evaluation.

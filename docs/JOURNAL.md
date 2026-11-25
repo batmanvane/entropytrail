@@ -108,3 +108,7 @@ Robert approved the Chrome ratings for T = 0.7 (plan 3 T2: all apps, protocol v1
 ## 2026-11-25 (WP12: temperature comparison T = 0.7 vs 1.0)
 
 `scripts/compare_temperatures.py` (frozen C1–C3, Holm m = 3): **C1 supported** — 90.7 % vs 68.6 % of apps render (+1.60 log-odds, Holm p 2·10⁻²⁴); **C2 supported** — ensemble screen spread 0.123 vs 0.159 (−0.037, CI −0.047 to −0.026, Holm p 6·10⁻⁷); **C3 not supported** — Claude calibrated novelty 1.80 vs 1.83 (−0.03, CI −0.16 to 0.09, p 0.30; read with the within-temperature calibration caveat). Per-temperature analysis at T = 0.7: H1 and H2 hold as at T = 1.0 (H2 loose effect +0.074 vs +0.098). Report: `results/temperature-sweep/REPORT.md`. Next (plan 3 Task 6): checkpoint with Robert — T = 0.5 or not.
+
+## 2026-11-25 (WP12: T = 0.5 decided)
+
+Robert decided to run T = 0.5 as well (D-040). Condition `qwen35-9b-bf16-mlx-t0p5-c9bce32f`; queued after the fork jobs (grid + eval). Ratings and the comparison follow the T = 0.7 procedure once the eval is complete.
