@@ -347,3 +347,13 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Decision (Robert, 2026-11-25, plan 3 Task 6 checkpoint):** after the T = 0.7 comparison (C1 and C2 supported, C3 not; `results/temperature-sweep/REPORT.md`) the sweep continues with T = 0.5. Condition `configs/conditions/qwen35-9b-bf16-mlx-t0p5.yaml` (identical to the T = 0.7 file except name and `temperature: 0.5`; id `qwen35-9b-bf16-mlx-t0p5-c9bce32f`). Same protocol as T = 0.7 (D-037): 420 apps, WP4 eval, Claude ratings v1.2 + v1.3 calibration for all apps, comparison C1–C3 against T = 1.0 as a second family (Holm m = 3), then the comparison rerun with three temperatures.
 
 **Scheduling:** appended to `ops/queue.txt` after the fork jobs (D-038), so the forks are not delayed: grid generation (≈ 1.5 days at the T = 0.7 pace) and its evaluation.
+
+## D-041 · 2026-11-25 · Cross-temperature blind novelty pass (exploratory)
+
+**Decision (Robert, 2026-11-25):** after the T = 0.5 Claude ratings, one more novelty pass scores **all** apps of a prompt from all three temperatures (60 per prompt) on one common scale, blind to temperature: the pool is shuffled per prompt (seed 41) and served under blind ids by `scripts/serve_apps.py --port 8771 --blind-key /Volumes/Data/entropytrail/_novelty-cross/key.json`; one sonnet agent per prompt (`docs/novelty-cross-brief.md`) surveys all apps (idea line + screenshot each), then scores 1–5 relative to the whole pool; scores are kept apart from the per-app rating files. Analysis (`scripts/novelty_cross.py collect`): MixedLM `novelty_cross ~ temperature (ref 1.0) + loose + C(domain) + (1|prompt)`, one-sided p for lower novelty at lower T, reported with means per temperature.
+
+**Status:** exploratory. It was defined after the frozen C3 result (calibrated novelty within temperature, D-037) was seen, so it is not part of any Holm family; C3 stays the primary comparison and is reported unchanged.
+
+**Reason:** the within-temperature calibration makes C3 compare two relative scales; a common scale shows whether lower temperatures produce fewer distinct ideas. Running once after T = 0.5 keeps one scale for all three temperatures.
+
+**Cost and billing:** ≈ 21 agents × 5–10 min; runs inside Claude Code on Robert's Claude subscription (the shell's `ANTHROPIC_API_KEY` is rejected in Claude Code), not the API.

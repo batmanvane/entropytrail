@@ -112,3 +112,7 @@ Robert approved the Chrome ratings for T = 0.7 (plan 3 T2: all apps, protocol v1
 ## 2026-11-25 (WP12: T = 0.5 decided)
 
 Robert decided to run T = 0.5 as well (D-040). Condition `qwen35-9b-bf16-mlx-t0p5-c9bce32f`; queued after the fork jobs (grid + eval). Ratings and the comparison follow the T = 0.7 procedure once the eval is complete.
+
+## 2026-11-25 (D-041: cross-temperature novelty pass prepared)
+
+Robert agreed to a blind cross-temperature novelty pass after the T = 0.5 ratings (D-041, exploratory): key builder, blind server mode (`serve_apps.py --blind-key`), collector and analysis (`src/entropytrail/novelty_cross.py`, `scripts/novelty_cross.py`, tests), agent brief `docs/novelty-cross-brief.md`. Checked billing: Claude Code uses the subscription login (the shell's API key is on Claude Code's rejected list).

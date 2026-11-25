@@ -1,0 +1,13 @@
+# Brief for a cross-temperature novelty agent (one prompt per agent, D-041)
+
+You score the **novelty** of all apps of one prompt on one common scale, in one sitting. The apps come from several generation runs that are pooled and shuffled; you are not told which app comes from which run, and you must not try to find out.
+
+1. Read the novelty anchors and the section "Novelty calibration pass" in /Users/robert/projects/entropytrail/docs/RATING-CLAUDE.md first; the anchors are binding: 1 = the standard solution most apps of this prompt chose; 5 = a surprising idea seen in no other app of this prompt. Novelty is about the idea, not polish or whether it works. `null` only if nothing of the idea is observable at all (blank page and no readable idea in the source).
+2. Apps: http://127.0.0.1:8771/<prompt_id>/<id>/ with the blind ids given in the dispatch message (000 … N−1). Read an app's source only through the server: `curl -s http://127.0.0.1:8771/<prompt_id>/<id>/`. **Do not read anything under /Volumes/Data** (no app files, no key, no ratings, no tokens) and no files under results/.
+3. Chrome (Claude in Chrome; load in ONE ToolSearch call: browser_batch, tabs_context_mcp, tabs_create_mcp, tabs_close_mcp, navigate, computer, javascript_tool, get_page_text). One tab, screenshots at scale 0.4–0.5. Do not start servers, do not grant mic/camera permissions. If a tab freezes, close it and open a fresh one.
+4. Step A — survey (in the survey order given): for every app, skim its source (title, headings, main functions) and take a start-screen screenshot; after one or two interactions where it helps, a second one. Write down a one-line description of its core idea **before moving on** (keep the list in a scratch file under /private/tmp).
+5. Step B — score: only after all apps are surveyed, read your full list of idea lines and assign every app a novelty score (1–5 or null) **relative to all apps of this prompt in the pool**. Check the scale once more against the anchors: the most common idea is 1; reserve 5 for ideas seen nowhere else in the pool.
+6. Step C — write exactly one file, /Volumes/Data/entropytrail/_novelty-cross/scores/<prompt_id>.json (this one write is the only exception to rule 2), with a small Python script: `{"prompt_id": "...", "agent_model": "claude-sonnet-5-5", "at": "<actual ISO time, Europe/Berlin>", "scores": {"000": {"novelty": <int or null>, "idea": "<one line>"}, ...}}` — one entry for every blind id.
+7. Close your tab. Do not dispatch subagents.
+
+Final reply: the distribution of scores, the 3–5 most novel ideas with their ids, and any problems (apps that did not load, ids you could not judge).
