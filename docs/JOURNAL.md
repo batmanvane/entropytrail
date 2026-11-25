@@ -96,3 +96,7 @@ Plan 3 Task 2 (day window runs a grid queue, `ET_DAY_GRID`) and Task 4 done: `op
 ## 2026-11-24 (D2 decided, 24/7 queue)
 
 Robert chose the fork redesign (D-038: six same-token re-samples; pilot sites extended, 18 further prompts with 2 apps each; H3 primary on the new data) and around-the-clock use of the Studio (D-039). Day and night windows replaced by the queue in `ops/queue.txt`: T = 0.7 sweep (120/420 done at switch time) → its evaluation → `plan-pilot-s6` (780 new rollouts) → `plan-main` (2,268) → fork evaluation. Expected ≈ 1 day for the rest of the sweep and ≈ 5–6 days for the forks.
+
+## 2026-11-25 (WP12: T = 0.7 sweep generated and evaluated)
+
+Queue: T = 0.7 generation complete 08:30 (420/420; overnight run 161 units, no errors), `et eval` 08:30–08:45 (420 done, 0 failed). Collected into `results/qwen35-9b-bf16-mlx-t0p7-a31fc218/` (outcomes, ensemble, app-measures); precheck: 10 apps with JavaScript syntax errors rated automatically. First look vs T = 1.0 (descriptive, not the C1–C3 comparison): renders 90.7 % vs 68.6 %, timeouts 1 vs 10, median 3,576 vs 3,998 tokens, mean screen spread 0.123 vs 0.159 (tight 0.070/0.092, loose 0.144/0.190, open 0.218/0.271). The queue moved on to `plan-pilot-s6` at 08:45. Next: Chrome ratings for T = 0.7 (waiting for Robert).
