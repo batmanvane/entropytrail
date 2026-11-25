@@ -1,0 +1,124 @@
+{
+  "H1": {
+    "status": "done",
+    "n": 420,
+    "share_rejecting": 0.9642857142857143,
+    "support_frozen": true,
+    "p_primary": 2.869884121361666e-23,
+    "share_rejecting_code_only": 0.9142857142857143,
+    "dip_p_method": "diptest.diptest table interpolation",
+    "sensitivity": {
+      "n": 419,
+      "share_rejecting": 0.964200477326969,
+      "support_frozen": true,
+      "p_primary": 3.4606767607051676e-23,
+      "share_rejecting_code_only": 0.9140811455847255,
+      "dip_p_method": "diptest.diptest table interpolation"
+    }
+  },
+  "H2": {
+    "status": "done",
+    "n": 21,
+    "estimate": 0.07411600000000002,
+    "ci": [
+      0.041536808087618934,
+      0.1066951919123811
+    ],
+    "p_two_sided": 0.0001874620201347642,
+    "p_primary": 9.37310100673821e-05,
+    "model": "OLS ensemble_spread ~ loose + C(domain)",
+    "secondary_relpos": {
+      "n": 418,
+      "estimate": -0.01306362203007902,
+      "p_two_sided": 0.7861496816398265,
+      "p_one_sided_earlier": 0.39307484081991323,
+      "model": "MixedLM median_relpos_top10_forks ~ loose + C(domain) + (1|prompt)"
+    },
+    "sensitivity": {
+      "n": 21,
+      "estimate": 0.07386139621376042,
+      "ci": [
+        0.04128290923027988,
+        0.10643988319724096
+      ],
+      "p_two_sided": 0.00019385589771970323,
+      "p_primary": 9.692794885985161e-05,
+      "model": "OLS ensemble_spread ~ loose + C(domain)",
+      "secondary_relpos": {
+        "n": 417,
+        "estimate": -0.011780510296728795,
+        "p_two_sided": 0.8051446445054345,
+        "p_one_sided_earlier": 0.4025723222527173,
+        "model": "MixedLM median_relpos_top10_forks ~ loose + C(domain) + (1|prompt)"
+      }
+    }
+  },
+  "H3": {
+    "status": "waiting for fork experiments (WP5)"
+  },
+  "H4": {
+    "status": "waiting for human ratings (WP7)"
+  },
+  "H5": {
+    "status": "waiting for human ratings (WP7)"
+  },
+  "holm": {
+    "H1": {
+      "p": 2.869884121361666e-23,
+      "p_holm": 1.434942060680833e-22,
+      "reject": true
+    },
+    "H2": {
+      "p": 9.37310100673821e-05,
+      "p_holm": 0.0003749240402695284,
+      "reject": true
+    }
+  },
+  "interim": true,
+  "secondary": {
+    "H4_renders": {
+      "n": 420,
+      "estimate": -123.59922067857036,
+      "p_two_sided": 0.005544790780554579,
+      "p_one_sided": 0.0027723953902772896,
+      "model": "Logit renders ~ late_js_surprise + loose + C(domain), cluster-robust SE by prompt"
+    },
+    "H5_rarity_outcome": {
+      "n": 418,
+      "n_prompts": 21,
+      "estimate": 0.00712559028629907,
+      "ci": [
+        -0.0010076761616655142,
+        0.015258856734263655
+      ],
+      "p_two_sided": 0.08595487130272468,
+      "p_primary": 0.04297743565136234,
+      "sign": "+",
+      "model": "MixedLM ensemble_rarity ~ fork_surprise + loose + C(domain) + (1|prompt)"
+    }
+  },
+  "provenance": {
+    "git_commit": "858490fceabd2ec3cf2c9669786c3389ffaab800",
+    "git_dirty": false,
+    "inputs": {
+      "results/qwen35-9b-bf16-mlx-t0p7-a31fc218/app-measures.csv": "3dd8d7c504faafaa277dbaeec2f695ee6a7f15c3ff9155e0113df369f99d3ff6",
+      "results/qwen35-9b-bf16-mlx-t0p7-a31fc218/ensemble.csv": "3ac53d58714b01cc79b0dd815534d3050746344fc539a21510403bcdc6a02787",
+      "results/qwen35-9b-bf16-mlx-t0p7-a31fc218/outcomes.csv": "ff4c7a85d68de87efc2d6c2d8dfb6b394c012af18d5389acb61de51139308768"
+    },
+    "packages": {
+      "numpy": "2.5.5",
+      "pandas": "3.1.1",
+      "scipy": "1.18.1",
+      "statsmodels": "0.15.0",
+      "diptest": "0.12.0"
+    },
+    "decisions": [
+      "D-028",
+      "D-029",
+      "D-034",
+      "D-035",
+      "D-036"
+    ],
+    "created_at": "2026-11-25T11:42:24+01:00"
+  }
+}
