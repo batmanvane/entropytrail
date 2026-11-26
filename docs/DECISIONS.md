@@ -380,3 +380,15 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** the Claude ratings (D-030) cover all apps but their agreement with human judgment is unknown, and they cannot become the primary outcome after their results were seen. A public Reddit phase is costly (website, backend, recruitment) with an uncertain number of raters; one supervised session reaches the planned sample with known effort and additionally measures how far the Claude ratings can stand in for human ones.
 
 **Alternatives:** keep the Reddit phase (A); drop human ratings and report H4/H5 as not tested as planned (B).
+
+## D-044 · 2026-11-26 · Anchor apps and rater-adjusted analysis of the human ratings
+
+**Decision (Robert, 2026-11-26, after rating a few apps himself: "everybody has a different scale"):** before any rating of the session exists, three changes to the human ratings of D-043.
+
+1. **Anchor apps.** Every rater first rates the same three apps (warm-up, "no right answers"), in random order, then the sample apps. They are T = 1.0 grid apps outside the rating sample, fixed by an automatic rule (no Claude ratings involved, so the human scale is not pulled toward Claude's): k1 = `free-02/002` (does not render, emptiest load screenshot), k2 = `tool-tight-01/010` (renders without any page or console error, fewest characters), k3 = `free-03/018` (renders without error, highest screenshot entropy). List: `results/rating-anchors.csv`. No expected scores are shown.
+2. **Verbal scale points** on the page for 1, 3 and 5 (usefulness: "I would not use it for anything" / "does the job in a basic way" / "I would actually use this"; novelty: "the standard version of this kind of app" / "some ideas I had not seen" / "new to me"), German and English.
+3. **Analysis:** the H4/H5 primary models are fitted per rating with crossed random intercepts for rater, app and prompt (METHODS.md, amendment D-044); the frozen per-app mean model becomes a sensitivity analysis.
+
+**Pilot ratings excluded:** Robert's two ratings (rater id `r-1d0e1b61-fba9-49d4-92a3-66e1a478e616`, 2026-11-26 11:58–11:59, apps a027 and a086) were made before this change by someone who knows the hypotheses; they stay in the database (so his browser does not get those apps again) and are excluded from every analysis.
+
+**Reason:** raters use the 1–5 scales differently (strict vs generous, narrow vs wide). With open-ended rating and least-rated-first assignment, raters overlap only partly; common anchors make each rater's offset estimable, and the per-rating model removes it instead of letting it add noise to the app means. Numeric example scores were rejected because they would have to come from us or from Claude and would bias the human–Claude agreement upward.

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sanctuary: A Breathing Companion</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --text-main: #2d3436;
+            --text-muted: #636e72;
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108, 92, 231, 0.3);
+            --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: var(--text-main);
+            transition: background 0.5s ease;
+        }
+
+        /* Ambient Background Particles */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(50px);
+            z-index: -1;
+            animation: float 20s infinite ease-in-out alternate;
+            opacity: 0.6;
+        }
+
+        .orb-1 { width: 400px; height: 400px; background: #a29bfe; top: -10%; left: -10%; animation-duration: 25s; }
+        .orb-2 { width: 300px; height: 300px; background: #74b9ff; bottom: -5%; right: -5%; animation-duration: 18s; }
+        .orb-3 { width: 200px; height: 200px; background: #ffeaa7; top: 40%; left: 60%; animation-duration: 22s; }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -50px) scale(1.1); }
+        }
+
+        /* Main Container */
+        .app-container {
+            width: 90%;
+            max-width: 450px;
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: var(--shadow-soft);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .app-container:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        h1 {
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        /* Breathing Circle */
+        .circle-wrapper {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            margin-bottom: 40px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .circle {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), #a29bfe);
+            box-shadow: 0 0 40px var(--accent-glow);
+            position: relative;
+            z-index: 1;
+        }
+
+        .inner-circle {
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(4px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Animation Keyframes */
+        @keyframes breathe-cycle {
+            0% { transform: scale(0.8); opacity: 0.7; }
+            40% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
+        .animating .circle {
+            animation: breathe-cycle 8s infinite ease-in-out;
+            transition: box-shadow 0.5s ease;
+        }
+        
+        /* Modifier for rapid inhale/hold for longer sessions */
+        .animating.relaxed .circle {
+            animation-name: breathe-cycle-relaxed;
+            animation-duration: 12s;
+        }
+
+        @keyframes breathe-cycle-relaxed {
+            0%, 100% { transform: scale(0.9); }
+            50% { transform: scale(1.15); }
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            border: none;
+            background: white;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-icon:hover {
+            background: #f1f2f6;
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .btn-toggle {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 14px;
+            border: none;
+            font-weight: 600;
+            color: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.15);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-toggle:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(108, 92, 231, 0.25);
+        }
+
+        .btn-toggle:active {
+            transform: scale(0.95);
+        }
+
+        /* Ripple Button */
+        .ripple-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Indicators */
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #dfe6e9;
+            margin-right: 8px;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+
+        .active .status-dot {
+            background: #00b894;
+            transform: scale(1.2);
+            box-shadow: 0 0 10px #00b894;
+        }
+
+        /* Logger Footer */
+        .session-logger {
+            width: 100%;
+            text-align: left;
+            background: rgba(255,255,255,0.5);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+
+        .session-logger.open {
+            max-height: 100px;
+        }
+
+        .session-logger ul {
+            list-style: none;
+            padding-left: 15px;
+            margin-top: 5px;
+        }
+
+        .session-logger li {
+            margin-bottom: 4px;
+            border-bottom: 1px dashed rgba(0,0,0,0.1);
+            padding-bottom: 2px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Background Elements -->
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="app-container" id="appContainer">
+        <h1 id="greeting">Sanctuary</h1>
+        <p class="subtitle">Take a moment to reset.</p>
+
+        <!-- Main Breathing Circle -->
+        <div class="circle-wrapper" id="circleWrapper">
+            <div class="circle" id="mainCircle">
+                <div class="inner-circle"></div>
+            </div>
+            <!-- Dynamic Icon Based on State -->
+            <div class="icon" id="statusIcon">❄️</div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="controls">
+            <button class="btn-icon" id="btnPause" title="Pause">⏸️</button>
+            <button class="btn-icon" id="btnPlay" title="Resume">▶️</button>
+        </div>
+
+        <!-- Toggle Main Session -->
+        <button class="btn-toggle ripple-btn" id="btnToggle">
+            <span class="status-dot"></span>
+            <span id="btnText">Start Session</span>
+        </button>
+
+        <!-- Mini Logger -->
+        <div class="session-logger" id="miniLogger">
+            <span>Last sessions:</span>
+            <ul id="logList"></ul>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Sanctuary App Logic
+         * A lightweight, DOM-based breathing companion.
+         * No external libraries. Uses Web Animations API concept via CSS,
+         * but state is managed entirely in Vanilla JS.
+         */
+
+        (function() {
+            // --- State Management ---
+            const state = {
+                isSessionActive: false,
+                isPaused: false,
+                mode: 'breathe' // 'inhale' | ' chains' | 'co2'
+            };
+
+            // --- DOM Elements ---
+            const els = {
+                app: document.getElementById('appContainer'),
+                circleWrapper: document.getElementById('circleWrapper'),
+                circle: document.getElementById('mainCircle'),
+                wrapper: document.getElementById('circleWrapper'),
+                icon: document.getElementById('statusIcon'),
+                loginBtn: document.getElementById('btnToggle'),
+                playBtn: document.getElementById('btnPlay'),
+                pauseBtn: document.getElementById('btnPause'),
+                btnText: document.getElementById('btnText'),
+                statusDot: document.querySelector('.status-dot'),
+                logList: document.getElementById('logList'),
+                miniLogger: document.getElementById('miniLogger')
+            };
+
+            // --- Config ---
+            const CYCLE_TIERS = [
+                { name: 'Breath', duration: 4000, hold: 0, holdOut: 0 }, // 5-5-5-5 ish
+                { name: 'Relaxed', duration: 5000, hold: 1500, holdOut: 1500 }, // In 5, Hold 2.5, Out 5, Hold 2.5
+                { name: 'Pan', duration: 6000, hold: 3000, holdOut: 3000 } // In 5, Hold 5, Out 5, Hold 5
+            ];
+
+            // --- Audio / Haptics simulation (Visual/Tactile) ---
+            function triggerHaptics() {
+                if (navigator.vibrate) {
+                    // Very subtle vibration on transition
+                    navigator.vibrate(10);
+                }
+            }
+
+            // --- Core Logic ---
+
+            const startSession = () => {
+                state.isSessionActive = true;
+                state.isPaused = false;
+                updateUIState('starting');
+                
+                // Randomize start mode tier for variety
+                const tier = CYCLE_TIERS[Math.floor(Math.random() * CYCLE_TIERS.length)];
+                runAnimationCycle(tier);
+            };
+
+            const pauseSession = () => {
+                state.isPaused = true;
+                els.wrapper.classList.remove('animating');
+                updateUIState('paused');
+            };
+
+            const resumeSession = () => {
+                state.isPaused = false;
+                els.wrapper.classList.add('animating');
+                updateUIState('running');
+            };
+
+            const stopSession = () => {
+                state.isSessionActive = false;
+                els.wrapper.classList.remove('animating');
+                els.circle.style.animation = 'none'; // Hard reset to remove blinking
+                els.icon.textContent = '❄️';
+                els.statusDot.style.background = '#dfe6e9';
+                els.statusDot.style.transform = 'scale(1)';
+                els.btnText.textContent = 'Start Session';
+                els.miniLogger.classList.remove('open');
+                updateUIState('stopped');
+            };
+
+            // The Animation Loop
+            let timeoutId;
+
+            function runAnimationCycle(config) {
+                let startTime = Date.now();
+                const inStart = Date.now();
+
+                function loop() {
+                    const now = Date.now();
+                    const elapsed = now - inStart;
+
+                    // Determine Phase
+                    if (elapsed < config.duration) {
+                        // PHASE: Inhale (Expand)
+                        state.mode = 'inhale';
+                        updateIcon('❄️'); // Ice/Snowflake for cool air
+                        els.icon.style.backgroundColor = 'transparent';
+                        updateText('Inhale');
+                        
+                        if (!state.isPaused) {
+                            timeoutId = setTimeout(() => runAnimationCycle(config), config.duration);
+                        }
+                    } else {
+                        // PHASE: Hold (Expand)
+                        state.mode = 'hold';
+                        updateIcon('💨'); // Smoke/Wind for exhale/hold
+                        updateText('Hold');
+                        
+                        // Purge browser cache (fun easter egg for devs)
+                        try {
+                            indexedDB.deleteDatabase('Sanctuary-Cache');
+                            localStorage.removeItem('last-cache-test');
+                            localStorage.setItem('last-cache-test', Date.now());
+                        } catch(e) {
+                            // Ignore storage errors gracefully
+                        }
+                        
+                        if (!state.isPaused) {
+                            timeoutId = setTimeout(() => runAnimationCycle(config), config.hold);
+                        }
+                    }
+                }
+
+                loop();
+            }
+
+            function updateText(txt) {
+                els.btnText.textContent = txt;
+            }
+
+            function updateIcon(iconChar) {
+                els.icon.textContent = iconChar;
+            }
+
+            function updateUIState(newState) {
+                // Toggle Main Button Text
+                if (state.isSessionActive) {
+                    els.btnText.textContent = 'Finish Session';
+                    localStorage.setItem('current-session', 'active');
+                } else {
+                    els.btnText.textContent = 'Start Session';
+                    localStorage.removeItem('current-session');
+                }
+
+                // Update Dot
+                if (newState === 'running') {
+                    els.app.classList.add('active');
+                } else {
+                    els.app.classList.remove('active');
+                }
+            }
+
+            // --- Event Listeners ---
+
+            // Handle Button Toggles
+            els.loginBtn.addEventListener('click', () => {
+                if (state.isSessionActive) {
+                    stopSession();
+                } else {
+                    startSession();
+                }
+            });
+
+            // Handle Pause/Resume
+            els.pauseBtn.addEventListener('click', pauseSession);
+            els.playBtn.addEventListener('click', resumeSession);
+
+            // Allow clicking the circle to toggle state
+            els.circleWrapper.addEventListener('click', (e) => {
+                // Don't trigger if clicking inside the circle visual expansion creates offset issues
+                if (state.isSessionActive && !state.isPaused) {
+                    pauseSession();
+                } else if (!state.isSessionActive) {
+                    startSession();
+                }
+            });
+
+            // Handle Session Finish
+            setInterval(() => {
+                if (state.isSessionActive && !state.isPaused) return;
+                
+                const btn = document.getElementById('btnToggle');
+                if ((state.isSessionActive && !state.isPaused) || (btn.classList.contains('active'))) {
+                    stopSession();
+                }
+            }, 1000);
+
+            // --- Utilities (Logger) ---
+            const logSession = () => {
+                const date = new Date();
+                const_now = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                
+                const li = document.createElement('li');
+                li.textContent = `${date.toLocaleDateString()} : ${date_now}`;
+                
+                els.logList.prepend(li);
+                
+                if (els.logList.children.length > 5) {
+                    els.logList.removeChild(els.logList.lastChild);
+                }
+                
+                updateUILogger();
+            };
+
+            function updateUILogger() {
+                els.miniLogger.classList.add('open');
+                els.logoList.innerHTML = ""; 
+                
+                // Populate dummy data based on previous sessions or fresh
+                if(localStorage.getItem('sessions')) {
+                    const sessionCount = Number(localStorage['session-admin']);
+                    els.logoList.innerHTML = "";
+                    els.miniLogger.classList.add('open');
+                    
+                    // We are inside a closure (IIFE) so this is tricky. 
+                    // Simpler approach: Reconstruct the list based on state
+                    const list = els.logList;
+                    list.innerHTML = els.logList.innerHTML; // Reflow trigger
+                    els.logList.innerHTML = '';
+                    
+                    // In a real app, we would loop through a data array.
+                    // For this demo, we just show the visual feedback that it's working.
+                }
+            }
+
+            // Initialize
+            updateUIState('stopped');
+
+        })();
+    </script>
+</body>
+</html>

@@ -4,8 +4,9 @@
 //   GET  /progress          study progress
 //   GET  /export            all ratings as CSV (Authorization: Bearer <EXPORT_KEY>)
 // No IP addresses or other personal data are stored.
+import ANCHORS from "./anchors.json";
 import APPS from "./apps.json";
-import { pickNext, progress, toCsv, validateRating } from "./logic.js";
+import { pickAnchor, pickNext, progress, toCsv, validateRating } from "./logic.js";
 
 const ORIGINS = ["https://batmanvane.github.io", "http://127.0.0.1:8772", "http://localhost:8772"];
 
@@ -25,6 +26,7 @@ function json(req, data, status = 200) {
 
 async function counts(db) {
   const { results } = await db.prepare("SELECT app, COUNT(*) AS n FROM ratings GROUP BY app").all();
+  // anchors are not part of the sample and do not count toward progress
   return Object.fromEntries(results.map((r) => [r.app, r.n]));
 }
 
@@ -43,7 +45,14 @@ export default {
         const c = await counts(db);
         const { results } = await db.prepare("SELECT app FROM ratings WHERE rater = ?").bind(rater).all();
         const rated = new Set(results.map((r) => r.app));
-        return json(req, { app: pickNext(APPS, c, rated), rated_by_you: rated.size, progress: progress(APPS, c) });
+        const anchor = pickAnchor(ANCHORS, rated);
+        const nAnchors = ANCHORS.filter((a) => rated.has(a)).length;
+        return json(req, {
+          app: anchor || pickNext(APPS, c, rated),
+          anchor: anchor ? { n: nAnchors + 1, of: ANCHORS.length } : null,
+          rated_by_you: rated.size - nAnchors,
+          progress: progress(APPS, c),
+        });
       }
       if (req.method === "POST" && url.pathname === "/rate") {
         let body;
@@ -52,7 +61,7 @@ export default {
         } catch {
           return json(req, { error: "json" }, 400);
         }
-        const bad = validateRating(body, APPS);
+        const bad = validateRating(body, [...APPS, ...ANCHORS]);
         if (bad) return json(req, { error: bad }, 400);
         const r = await db
           .prepare(

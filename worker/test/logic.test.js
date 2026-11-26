@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { pickNext, progress, toCsv, validateRating } from "../src/logic.js";
+import { pickAnchor, pickNext, progress, toCsv, validateRating } from "../src/logic.js";
 
 const APPS = ["a001", "a002", "a003"];
 
@@ -43,4 +43,15 @@ test("validateRating", () => {
 
 test("toCsv quotes", () => {
   assert.equal(toCsv([{ id: 1, app: "a,1" }]).split("\n")[1], '1,"a,1",,,,,,,');
+});
+
+test("anchors come first, each once", () => {
+  const K = ["k1", "k2", "k3"];
+  const rated = new Set();
+  for (let i = 0; i < 3; i++) {
+    const a = pickAnchor(K, rated);
+    assert.ok(K.includes(a) && !rated.has(a));
+    rated.add(a);
+  }
+  assert.equal(pickAnchor(K, rated), null);
 });

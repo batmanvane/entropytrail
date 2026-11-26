@@ -97,6 +97,14 @@ Human inter-rater reliability per question: ICC(1,k) with k = mean number of rat
 
 **Also reported:** H4/H5 models fitted with the Claude ratings restricted to the sample apps, side by side with the human result (exploratory).
 
+### Amendment D-044 (2026-11-26, before any session rating): rater adjustment
+
+- **Data:** all ratings except the pilot rater (`r-1d0e1b61-fba9-49d4-92a3-66e1a478e616`, D-044). Anchor apps k1–k3 (`results/rating-anchors.csv`) are rated by everyone first.
+- **H4/H5 primary (replaces the per-app mean model):** linear mixed model per rating, `rating ~ predictor + domain + openness + (1 | prompt) + (1 | app) + (1 | rater)` (statsmodels MixedLM, crossed random intercepts as variance components), fitted on the ratings of the sample apps **and** the anchor apps (the anchors are T = 1.0 grid apps with their own landscape measures; they link the raters). Predictor, direction, one-sided test and Holm slot unchanged. The ≥ 3 ratings rule applies to the sample apps.
+- **Sensitivity:** (a) the frozen per-app mean model (sample apps with ≥ 3 ratings); (b) the per-rating model without anchor ratings.
+- **Agreement with Claude:** the human value per app is the rater-adjusted app score, i.e. the app's random intercept plus the intercept from `rating ~ 1 + (1 | app) + (1 | rater)` fitted on sample and anchor ratings; the plain mean per app is reported alongside. Statistics and the ρ ≥ 0.5 reading unchanged. Anchor apps are excluded from the agreement correlation.
+- **Reliability:** ICC as before, plus the rater variance share from the per-rating model.
+
 ## Implementation notes (WP6, 2026-11-22)
 
 Code: `src/entropytrail/analysis/measures.py`; table: `results/app-measures.csv` (one row per app).

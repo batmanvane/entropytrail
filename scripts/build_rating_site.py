@@ -12,6 +12,12 @@ id (a001 ... in a seeded random order, so ids reveal neither prompt nor sample),
     results/rating-sample-ids.csv  id -> prompt_id, sample (used when the ratings are analysed)
 
 Refuses to change existing ids: if rating-sample-ids.csv exists, its mapping is reused.
+
+Anchor apps (D-044): three grid apps outside the sample, rated first by every rater so that
+rater scale use can be estimated. Fixed by an automatic rule on the non-sample T = 1.0 apps:
+k1 = does not render and has the emptiest load screenshot (grayscale image entropy, ties by
+prompt id and sample); k2 = renders without any page or console error and has the fewest
+characters; k3 = renders without any error and has the highest screenshot entropy.
 """
 import csv
 import json
@@ -24,6 +30,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path("/Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b")
 SEED = 43
+ANCHORS = [("k1", "free-02", 2), ("k2", "tool-tight-01", 10), ("k3", "free-03", 18)]
 
 
 def assign_ids(sample: list[dict], seed: int = SEED) -> list[dict]:
@@ -48,11 +55,19 @@ def main() -> None:
     apps_dir.mkdir(parents=True, exist_ok=True)
     for m in mapping:
         shutil.copyfile(DATA / m["prompt_id"] / f"{m['sample']:03d}" / "app.html", apps_dir / f"{m['id']}.html")
+    anchors = [{"id": a, "prompt_id": p, "sample": s} for a, p, s in ANCHORS]
+    for m in anchors:
+        shutil.copyfile(DATA / m["prompt_id"] / f"{m['sample']:03d}" / "app.html", apps_dir / f"{m['id']}.html")
+    with (ROOT / "results" / "rating-anchors.csv").open("w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["id", "prompt_id", "sample"])
+        w.writeheader()
+        w.writerows(anchors)
     (ROOT / "site" / "apps.json").write_text(json.dumps(
-        [{"id": m["id"], "prompt": prompts[m["prompt_id"]]} for m in sorted(mapping, key=lambda m: m["id"])],
+        [{"id": m["id"], "prompt": prompts[m["prompt_id"]]} for m in sorted(mapping + anchors, key=lambda m: m["id"])],
         indent=1, ensure_ascii=False))
     (ROOT / "worker" / "src").mkdir(parents=True, exist_ok=True)
     (ROOT / "worker" / "src" / "apps.json").write_text(json.dumps(sorted(m["id"] for m in mapping)))
+    (ROOT / "worker" / "src" / "anchors.json").write_text(json.dumps([a for a, _, _ in ANCHORS]))
     print(len(mapping), "apps")
 
 

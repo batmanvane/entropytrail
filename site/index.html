@@ -60,8 +60,10 @@ legend { font-weight: 600; margin-bottom: 6px; }
 .scale input:checked + span, .choices input:checked + span { font-weight: 600; }
 .scale label:has(input:checked), .choices label:has(input:checked) { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .scale label:has(input:focus-visible), .choices label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink2); margin-top: 4px; gap: 8px; }
+.ends { display: grid; grid-template-columns: 1fr 1fr 1fr; font-size: 12px; line-height: 1.3; color: var(--ink2); margin-top: 4px; gap: 6px; }
+.ends span:nth-child(2) { text-align: center; }
 .ends span:last-child { text-align: right; }
+.warmup { background: var(--accent-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 14px; }
 .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 8px 0; }
 .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .4s; }
 .thanks { max-width: 560px; margin: 48px auto; text-align: center; }
@@ -101,6 +103,7 @@ legend { font-weight: 600; margin-bottom: 6px; }
 
   <section id="rate" class="rate hidden">
     <div>
+      <div class="warmup hidden" id="warmup"></div>
       <div class="brief"><div class="label" data-t="asked"></div><div class="text" id="brief"></div></div>
       <div class="frame">
         <iframe id="app" title="app" sandbox="allow-scripts allow-same-origin allow-modals allow-pointer-lock allow-forms"></iframe>
@@ -111,12 +114,12 @@ legend { font-weight: 600; margin-bottom: 6px; }
       <fieldset>
         <legend data-t="q_use"></legend>
         <div class="scale" id="usefulness"></div>
-        <div class="ends"><span data-t="use1"></span><span data-t="use5"></span></div>
+        <div class="ends"><span data-t="use1"></span><span data-t="use3"></span><span data-t="use5"></span></div>
       </fieldset>
       <fieldset>
         <legend data-t="q_new"></legend>
         <div class="scale" id="novelty"></div>
-        <div class="ends"><span data-t="new1"></span><span data-t="new5"></span></div>
+        <div class="ends"><span data-t="new1"></span><span data-t="new3"></span><span data-t="new5"></span></div>
       </fieldset>
       <fieldset>
         <legend data-t="q_works"></legend>
@@ -160,8 +163,9 @@ const T = {
     privacy: "Anonymous: no names, e-mail or IP addresses are stored; your browser gets a random id so you never see the same app twice. Ratings are published as open data for research.",
     start: "Start rating", asked: "The model was asked to build:",
     keyhint: "Click into the app first if it needs the keyboard.", reload: "Reload app",
-    q_use: "How useful is this app?", use1: "not useful", use5: "very useful",
-    q_new: "Have you seen something like this before?", new1: "seen something like this before", new5: "this is new to me",
+    q_use: "How useful is this app?", use1: "1 = I would not use it for anything", use3: "3 = does the job in a basic way", use5: "5 = I would actually use this",
+    q_new: "Have you seen something like this before?", new1: "1 = the standard version of this kind of app", new3: "3 = some ideas I had not seen", new5: "5 = this is new to me",
+    warmup: (n, of) => `Warm-up ${n} of ${of}: everyone rates the same ${of} apps first. They help us understand how you use the scales; there are no right answers.`,
     q_works: "Does it work?", works: { yes: "yes", partly: "partly", no: "no" },
     submit: "Save and continue", stop: "Stop here", next: "Next app",
     you: (n) => n === 1 ? "You have rated 1 app. Thank you!" : `You have rated ${n} apps. Thank you!`,
@@ -183,8 +187,9 @@ const T = {
     privacy: "Anonym: Es werden keine Namen, E-Mail- oder IP-Adressen gespeichert; Ihr Browser erhält eine Zufallskennung, damit Sie keine App zweimal sehen. Die Bewertungen werden als offene Forschungsdaten veröffentlicht.",
     start: "Bewertung starten", asked: "Das Modell sollte bauen:",
     keyhint: "Erst in die App klicken, wenn sie die Tastatur braucht.", reload: "App neu laden",
-    q_use: "Wie nützlich ist diese App?", use1: "nicht nützlich", use5: "sehr nützlich",
-    q_new: "Haben Sie so etwas schon einmal gesehen?", new1: "so etwas schon gesehen", new5: "das ist neu für mich",
+    q_use: "Wie nützlich ist diese App?", use1: "1 = würde ich für nichts nutzen", use3: "3 = erfüllt den Zweck in einfacher Form", use5: "5 = würde ich wirklich nutzen",
+    q_new: "Haben Sie so etwas schon einmal gesehen?", new1: "1 = die übliche Version dieser Art App", new3: "3 = einige Ideen, die ich noch nicht kannte", new5: "5 = das ist neu für mich",
+    warmup: (n, of) => `Einstieg ${n} von ${of}: Alle bewerten zuerst dieselben ${of} Apps. Sie helfen uns zu verstehen, wie Sie die Skalen nutzen; es gibt keine richtigen Antworten.`,
     q_works: "Funktioniert sie?", works: { yes: "ja", partly: "teilweise", no: "nein" },
     submit: "Speichern und weiter", stop: "Hier aufhören", next: "Nächste App",
     you: (n) => n === 1 ? "Sie haben 1 App bewertet. Vielen Dank!" : `Sie haben ${n} Apps bewertet. Vielen Dank!`,
@@ -201,7 +206,8 @@ function store(k, v) { try { if (v === undefined) return localStorage.getItem(k)
 let lang = store("et-lang") || ((navigator.language || "").toLowerCase().startsWith("de") ? "de" : "en");
 let rater = store("et-rater");
 if (!rater) { rater = "r-" + (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); store("et-rater", rater); }
-let briefs = {}, current = null, shownAt = 0, ratedByYou = 0;
+let briefs = {}, current = null, shownAt = 0, ratedByYou = 0, warm = null;
+function showWarm() { $("warmup").textContent = warm ? T[lang].warmup(warm.n, warm.of) : ""; $("warmup").classList.toggle("hidden", !warm); }
 const $ = (id) => document.getElementById(id);
 const show = (id) => ["intro", "rate", "thanks", "done"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
 
@@ -218,6 +224,7 @@ function applyLang() {
   buildScale("works", ["yes", "partly", "no"], ["yes", "partly", "no"].map((k) => t.works[k]));
   if (w) document.querySelector(`input[name="works"][value="${w.value}"]`).checked = true;
   $("count").textContent = t.count(ratedByYou);
+  if (typeof showWarm === "function" && $("warmup")) showWarm();
 }
 $("lang-btn").onclick = () => { lang = lang === "en" ? "de" : "en"; store("et-lang", lang); applyLang(); };
 buildScale("usefulness", [1, 2, 3, 4, 5]);
@@ -236,11 +243,13 @@ async function loadNext() {
   let d;
   try { d = await api(`/next?rater=${encodeURIComponent(rater)}`); } catch (e) { netError(true); return; }
   ratedByYou = d.rated_by_you; $("count").textContent = T[lang].count(ratedByYou);
+  warm = d.anchor;
   if (!d.app) { $("done-text").textContent = T[lang].allDone; show("done"); return; }
   current = d.app;
   $("brief").textContent = briefs[current] || "";
   $("form").reset(); $("submit").disabled = true; $("form-error").classList.add("hidden");
   $("app").src = `${API}/apps/${current}.html`;
+  showWarm();
   shownAt = performance.now();
   show("rate");
   window.scrollTo(0, 0);
@@ -261,6 +270,7 @@ $("form").addEventListener("submit", async (e) => {
     $("form-error").textContent = T[lang].saveErr; $("form-error").classList.remove("hidden"); $("submit").disabled = false; return;
   }
   $("app").src = "about:blank";
+  if (warm) { loadNext(); return; }
   ratedByYou += 1;
   $("count").textContent = T[lang].count(ratedByYou);
   $("thanks-n").textContent = ratedByYou;

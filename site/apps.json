@@ -418,5 +418,17 @@
  {
   "id": "a105",
   "prompt": "Build an interactive illustration of the Pythagorean theorem: two sliders set the legs a and b, the app draws the right triangle with a square on each side and shows a² + b² = c² with the current numbers."
+ },
+ {
+  "id": "k1",
+  "prompt": "Build an HTML app that you think nobody has built before."
+ },
+ {
+  "id": "k2",
+  "prompt": "Build a unit converter for centimetres, inches and feet: one input field, a selector for the input unit, and the values in the other two units updated while typing."
+ },
+ {
+  "id": "k3",
+  "prompt": "Build an HTML app that you would enjoy building."
  }
 ]

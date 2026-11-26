@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entropy Garden</title>
+<style>
+    :root {
+        --bg: #050505;
+        --grid: #1a1a1a;
+        --accent: #00ffcc;
+        --text: #e0e0e0;
+        --accent-glow: rgba(0, 255, 204, 0.4);
+        --decay: #ff3366;
+    }
+
+    body {
+        margin: 0;
+        background-color: var(--bg);
+        color: var(--text);
+        font-family: 'Courier New', Courier, monospace;
+        overflow: hidden;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        user-select: none;
+    }
+
+    #ui-layer {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        pointer-events: none;
+    }
+
+    h1 {
+        font-size: 14px;
+        opacity: 0.7;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin: 0 0 10px 0;
+    }
+
+    .stat-box {
+        background: rgba(0,0,0,0.5);
+        border: 1px solid #333;
+        padding: 10px;
+        font-size: 12px;
+        pointer-events: auto;
+    }
+
+    #canvas-container {
+        flex-grow: 1;
+        position: relative;
+        cursor: crosshair;
+    }
+
+    canvas {
+        display: block;
+    }
+
+    #overlay {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        color: #555;
+        font-size: 10px;
+        animation: pulse 3s infinite;
+    }
+
+    @keyframes pulse {
+        0% { opacity: 0.3; }
+        50% { opacity: 0.8; }
+        100% { opacity: 0.3; }
+    }
+
+    /* CRT Scanline Effect */
+    .scanlines {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        background-size: 100% 2px, 3px 100%;
+        pointer-events: none;
+        z-index: 90;
+        opacity: 0.4;
+    }
+</style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<div id="ui-layer">
+    <h1>Entropy Garden // v1.0</h1>
+    <div class="stat-box">
+        PHOTOSYNTHESIS SYNAPSES: <span id="score">0</span><br>
+        DECAY RATE: <span id="decay-rate">Low</span><br>
+        [Click/Drag & Hold to Branch]<br>
+        [Release to Transmit Data]
+    </div>
+</div>
+
+<div id="canvas-container">
+    <canvas id="garden"></canvas>
+    <div id="overlay">INTERACTING WITH THE FIELD...</div>
+</div>
+
+<script>
+/**
+ * Entropy Garden
+ * A generative simulator of evolving neural fungal networks.
+ * 
+ * Concept: 
+ * Instead of drawing lines, we treat the "pen" as a liquid-like packet of energy.
+ * Movement creates physical responses in the grid. Releasing the trigger
+ * sends a shockwave that deconstructs the grid into an ordered (useful) structure,
+ * before it inevitably decays back into chaos.
+ */
+
+const canvas = document.getElementById('garden');
+const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on canvas bg
+const scoreEl = document.getElementById('score');
+const decayEl = document.getElementById('decay-rate');
+
+let width, height;
+let mouse = { x: 0, y: 0, isDown: false, prevX: 0, prevY: 0 };
+let lastTime = 0;
+
+// Configuration
+const CONFIG = {
+    baseSpeed: 4,
+    branchChance: 0.05,
+    maxAgents: 150,
+    decayRate: 0.0005,
+    gridSize: 80,
+    gridDim: 40,
+    dataPackets: []
+};
+
+// State
+let agents = [];
+let particles = [];
+let grid = {}; // Hash map for grid data
+let frameCount = 0;
+let renderMode = 0; // 0: Chaos, 1: Order, 2: Decay
+
+class Agent {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = 0;
+        this.friction = 0.94;
+        this.life = 200;
+        this.history = [{x, y}];
+        this.length = 0;
+        this.maxLen = 15;
+        this.color = `hsl(${Math.random() * 60 + 200}, 100%, 50%)`; // Cyan/Mula spectrum
+        this.gap = Math.random() * 20;
+    }
+
+    update() {
+        // Movement
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // Natural drift
+        this.vx += (Math.random() - 0.5) * 0.05;
+        
+        // Friction
+        this.vx *= this.friction;
+
+        // Interaction
+        if (mouse.isDown && this.length < this.maxLen) {
+            // Tap into mouse stream
+            this.x += mouse.vx || 0;
+            this.y += mouse.vy || 0;
+        } else if (mouse.isDown) {
+            // Snap to mouse
+            this.x = mouse.x;
+            this.y = mouse.y;
+        }
+
+        // Headless state (if not connected to mouse)
+        if (!mouse.isDown) {
+            this.x += this.vx;
+            this.y += this.vy;
+        }
+
+        // Update History
+        this.history.push({x: this.x, y: this.y});
+        if (this.history.length > this.maxLen) this.history.shift();
+
+        this.life--;
+    }
+
+    draw(ctx, imageData) {
+        if (this.length < 2) return;
+
+        const prev = this.history[this.history.length - 2];
+        const curr = this.history[this.history.length - 1];
+
+        const dx = curr.x - prev.x;
+        const dy = curr.y - prev.y;
+        const lenOfStep = Math.sqrt(dx*dx + dy*dy);
+
+        if (lenOfStep > 1) {
+            // Create Data Packet
+            for(let i=0; i<2; i++) {
+                if (Math.random() > 0.5) {
+                    this.generatePacket(curr.x, curr.y);
+                }
+            }
+
+            // Draw Visuals
+            this.drawFlow(ctx, prev.x, prev.y, curr.x, curr.y);
+            
+            // Force point into grid
+            this.forceToGrid(curr.x, curr.y, 0.9);
+        }
+    }
+
+    generatePacket(x, y) {
+        // Logic: Create a temporary "Ordered" node
+        // These nodes will eventually decay
+        const p = {
+            x: x,
+            y: y,
+            vx: 0,
+            vy: 0,
+            life: 300, // Hungry for life
+            color: '#fff',
+            type: 'packet'
+        };
+        p.gridX = Math.floor(x / CONFIG.gridSize);
+        p.gridY = Math.floor(y / CONFIG.gridSize);
+        
+        if (dataPackets.length < 500) {
+            dataPackets.push(p);
+        }
+    }
+
+    drawFlow(ctx, x1, y1, x2, y2) {
+        // Draw connect texture
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = `rgba(0, 240, 255, ${this.life / 200})`;
+        ctx.lineWidth = this.length * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    forceToGrid(x, y, strength) {
+        const gx = Math.floor(x / CONFIG.gridSize);
+        const gy = Math.floor(y / CONFIG.gridSize);
+        const key = `${gx},${gy}`;
+
+        if (grid[key]) {
+            // Collision with existing data
+            const existing = grid[key];
+            this.x += (existing.x - x) * 0.1;
+            this.y += (existing.y - y) * 0.1;
+            existing.vx = (this.x - existing.x);
+            existing.vy = (this.y - existing.y);
+            
+            // Visual pop
+            createExplosion(x, y, 5);
+        } else {
+            grid[key] = { x, y };
+        }
+    }
+}
+
+class Packet {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = 0;
+        this.vy = 0;
+        this.life = 100;
+        this.decay = Math.random() * CONFIG.decayRate + 0.001;
+    }
+
+    update() {
+        // Explosion logic
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.9;
+        this.vy *= 0.9;
+
+        // Push against grid
+        const gx = Math.floor(this.x / CONFIG.gridSize);
+        const gy = Math.floor(this.y / CONFIG.gridSize);
+        const key = `${gx},${gy}`;
+
+        if (grid[key]) {
+            const existing = grid[key];
+            this.vx += (Math.random() - 0.5) * 10;
+            this.vy += (Math.random() - 0.5) * 10;
+            // "Infuse" existing with energy
+            existing.vx = this.vx * 0.5;
+            existing.vy = this.vy * 0.5;
+        }
+
+        // Render Effect
+        // Determine magnitude
+        let mag = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+        if (mag < 0.1) mag = 0;
+        
+        // Draw "electricity" trail
+        if (mag > 0.1 || (this.life > 50 && mag < 0.01)) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${mag * 0.5})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, mag, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        // Decay
+        this.life--;
+        if (this.life <= 0) {
+            return null;
+        }
+        return this;
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = this.size() > 0 ? this.color() : '#000';
+    }
+    
+    // Virtual methods to keep it clean
+    size(){ return 10;}
+    color(){ return '#fff';}
+}
+
+function createExplosion(x, y, count) {
+    for(let i=0; i<count; i++) {
+        dataPackets.push(new Packet(x, y));
+    }
+}
+
+function initGrid() {
+    grid = {};
+    for(let x=0; x<CONFIG.gridDim; x++) {
+        for(let y=0; y<CONFIG.gridDim; y++) {
+            // Initial "Noise" in the universe
+            if (Math.random() > 0.02) {
+                grid[`${x},${y}`] = { x: x * CONFIG.gridSize + CONFIG.gridSize/2, y: y * CONFIG.gridSize + CONFIG.gridSize/2 };
+                // Assign a random "identity"
+                const hue = Math.random() * 360;
+            }
+        }
+    }
+}
+
+function draw() {
+    // 1. Background: Heavy trails
+    // Instead of clearing rect, draw semi-transparent rect to keep tails
+    // But we want the "Clearing" mechanic to be the burst.
+    
+    // Move to offscreen buffer? No, simpler:
+    // If mode is 1 (Ordered), we draw by filling rects.
+    // If mode is 0 (Chaos), we just clear and let trails do the work.
+    
+    if (renderMode === 1) {
+        ctx.fillStyle = '#555';
+        ctx.fillRect(0,0,width,height);
+    } else {
+        // Standard composite
+    }
+
+    ctx.globalCompositeOperation = renderMode === 1 ? 'copy' : 'lighter';
+
+    // Draw Agents
+    for (let i = agents.length - 1; i >= 0; i--) {
+        const agent = agents[i];
+        
+        // Decay agent
+        if (frameCount % Math.floor(60 / CONFIG.decayRate) === 0) {
+            // Sometimes agents die
+            if(Math.random() > 0.98) {
+                agents.splice(i, 1);
+                createExplosion(agent.x, agent.y, 3);
+                continue;
+            }
+        }
+
+        agent.update();
+        if (agent.life <= 0) {
+            agents.splice(i, 1);
+            createExplosion(agent.x, agent.y, 2);
+            continue;
+        }
+        agent.draw(ctx);
+    }
+
+    // Draw Packets
+    for (let i = dataPackets.length - 1; i >= 0; i--) {
+        const p = dataPackets[i];
+        const next = p.update();
+        if (!next) dataPackets.splice(i, 1);
+        else p.draw(ctx);
+    }
+
+    // Draw Grid (The "Structure")
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.shadowBlur = 2;
+    ctx.shadowColor = '#00ffcc';
+    
+    for (let key in grid) {
+        const cell = grid[key];
+        const x = cell.x;
+        const y = cell.y;
+        
+        // Pulsing effect based on time
+        const pulse = Math.sin(frameCount * 0.1) * 3;
+        
+        ctx.fillStyle = `rgba(0, 255, 204, ${Math.abs(pulse) * 0.5})`;
+        ctx.fillRect(x, y, 1, 1); // Point light
+        
+        // Draw connective mesh between living cells
+        if (frameCount % 2 === 0) {
+             // Check random neighbors to optimize performance? 
+             // For now, simple check
+        }
+    }
+    ctx.shadowBlur = 0;
+}
+
+function loop(timestamp) {
+    const dt = timestamp - lastTime;
+    lastTime = timestamp;
+
+    requestAnimationFrame(loop);
+
+    // Logic
+    if (mouse.isDown) {
+        // Add agent
+        if (frameCount % 2 === 0 || agents.length === 0) {
+             // Spawn an agent at head of nearest one, or new one
+             if (agents.length < CONFIG.maxAgents) {
+                 agents.push(new Agent(mouse.x, mouse.y));
+             }
+        }
+    }
+
+    frameCount++;
+
+    // Render
+    draw();
+
+    // Update UI
+    scoreEl.innerText = dataPackets.length + agents.length;
+    if (Math.random() < 0.05) {
+        decayEl.innerText = (CONFIG.decayRate * 1000).toFixed(1);
+    }
+}
+
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Calculate Grid Dimensions based on screen size
+    CONFIG.gridDim = Math.max(10, Math.floor(width / CONFIG.gridSize));
+    
+    // Reset Grid on resize to prevent index out of bounds
+    initGrid();
+}
+
+// Input Handling
+window.addEventListener('mousedown', (e) => {
+    mouse.isDown = true;
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.prevX = mouse.x;
+    mouse.prevY = mouse.y;
+});
+
+window.addEventListener('mousemove', (e) => {
+    mouse.prevX = mouse.x;
+    mouse.prevY = mouse.y;
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+    mouse.vx = mouse.x - mouse.prevX;
+    mouse.vy = mouse.y - mouse.prevY;
+});
+
+window.addEventListener('mouseup', (e) => {
+    mouse.isDown = false;
+    if (e.clientX === e.target.clientX) {
+        // Drag ended
+        // Trigger "Order" mechanism
+        reverseGrid(grid, false); // Reverse the movement to anchored
+        // But don't delete packets yet
+    }
+});
+
+window.addEventListener('touchstart', (e) => {
+    mouse.isDown = true;
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+}, {passive: false});
+
+window.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Stop scroll
+    mouse.x = e.touches[0].clientX;
+    mouse.y = e.touches[0].clientY;
+}, {passive: false});
+
+window.addEventListener('touchend', () => {
+    mouse.isDown = false;
+    reverseGrid(grid, true); // Drop
+});
+
+// The "Magic" Logic
+function reverseGrid(grid, drop) {
+    // 1. Stop all moving particles
+    // 2. Turn loose particles into grid cells
+    // 3. Force existing grid cells to stop moving
+    // 4. Draw them bright white (Order).
+    
+    Object.keys(grid).forEach(key => {
+        const cell = grid[key];
+        if (cell.vx || cell.vy) {
+            cell.vx = 0; cell.vy = 0; // Stop
+        }
+        if (drop) {
+            // Penalize particles that are just hanging out
+            // (Already handled in update loop)
+        }
+    });
+
+    // Increase decay rate temporarily to encourage remaining disorder to leave
+    CONFIG.decayRate = 0.05;
+    
+    // Visual Sweep
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(0, 0, width, height);
+}
+
+// Start
+window.addEventListener('resize', resize);
+resize();
+initGrid();
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

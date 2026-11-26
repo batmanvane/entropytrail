@@ -14,6 +14,13 @@ export function pickNext(apps, counts, rated, rand = Math.random) {
   return best[Math.floor(rand() * best.length)];
 }
 
+// Anchor apps first (D-044): a rater gets the anchors they have not rated, in random order,
+// before any sample app.
+export function pickAnchor(anchors, rated, rand = Math.random) {
+  const open = anchors.filter((a) => !rated.has(a));
+  return open.length ? open[Math.floor(rand() * open.length)] : null;
+}
+
 export function validateRating(body, apps) {
   if (!body || typeof body !== "object") return "body";
   const { app, rater, usefulness, novelty, works, seconds, lang } = body;
