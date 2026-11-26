@@ -66,6 +66,22 @@ def _check_manifest(path: Path, manifest: dict) -> None:
         )
 
 
+def check_condition(root: Path, cond: Condition, ps: PromptSet, fingerprint: str, prov: dict,
+                    started: datetime) -> tuple[str, str]:
+    """Create or verify ``<root>/<condition_id>/condition.json``; return (system prompt, its sha256)."""
+    system = ps.system_prompts[cond.system_prompt_version]
+    system_sha = _sha256(system)
+    _check_manifest(Path(root) / cond.condition_id / "condition.json", {
+        "condition": dataclasses.asdict(cond), "condition_id": cond.condition_id,
+        "weights_fingerprint": fingerprint,
+        "system_prompt_version": cond.system_prompt_version,
+        "system_prompt_sha256": system_sha,
+        "mlx": prov["mlx"], "mlx_lm": prov["mlx_lm"],
+        "created_at": started.isoformat(),
+    })
+    return system, system_sha
+
+
 def _check_done_unit(final: Path, prompt: Prompt) -> None:
     meta = json.loads((final / "meta.json").read_text(encoding="utf-8"))
     stored = meta.get("prompt_text_sha256")
@@ -114,16 +130,7 @@ def run_units(
         return deadline is not None and now() >= deadline
 
     try:
-        system = ps.system_prompts[cond.system_prompt_version]
-        system_sha = _sha256(system)
-        _check_manifest(root / cid / "condition.json", {
-            "condition": dataclasses.asdict(cond), "condition_id": cid,
-            "weights_fingerprint": fingerprint,
-            "system_prompt_version": cond.system_prompt_version,
-            "system_prompt_sha256": system_sha,
-            "mlx": prov["mlx"], "mlx_lm": prov["mlx_lm"],
-            "created_at": started.isoformat(),
-        })
+        system, system_sha = check_condition(root, cond, ps, fingerprint, prov, started)
         clean_partials(root / cid)
         eos_ids, token_texts = io if io is not None else tokenizer_io(tokenizer)
         if prompt_ids_fn is None:

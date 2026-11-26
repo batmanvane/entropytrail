@@ -49,6 +49,24 @@ fi
 # shellcheck disable=SC1091
 source "$REPO/ops/night.env"
 
+if [ "${ET_NIGHT_ENABLED:-1}" != "1" ]; then
+  log "night runs disabled in ops/night.env (24/7 queue, D-039), skipping"
+  exit 0
+fi
+active="${ET_OTHER_RUN_ACTIVE:-}"
+if [ -z "$active" ]; then
+  if pgrep -f "et run-window --condition" >/dev/null; then active=1; else active=0; fi
+fi
+if [ "$active" = "1" ]; then
+  log "another 9B run is already active, skipping (Ollama untouched)"
+  exit 0
+fi
+
+if [ -n "${ET_FORK_PLAN:-}" ] && [ -n "${ET_PROMPT_IDS:-}" ]; then
+  log "config error: ET_FORK_PLAN and ET_PROMPT_IDS are both set in ops/night.env, aborting"
+  exit 2
+fi
+
 for d in "$MODELS_DIR" "$DATA_DIR"; do
   if [ ! -d "$d" ]; then
     log "required volume $d not mounted, aborting"
@@ -65,10 +83,12 @@ if [ "${ET_DRY_RUN:-0}" = "1" ] && [ "${ET_FAIL_RUN:-0}" = "1" ]; then
   exit 1
 fi
 
-ids=()
-if [ -n "${ET_PROMPT_IDS:-}" ]; then
+queue=(--samples "${ET_SAMPLES:-20}")
+if [ -n "${ET_FORK_PLAN:-}" ]; then
+  queue=(--fork-plan "$ET_FORK_PLAN")
+elif [ -n "${ET_PROMPT_IDS:-}" ]; then
   # shellcheck disable=SC2206
-  ids=(--prompt-ids ${ET_PROMPT_IDS})
+  queue+=(--prompt-ids ${ET_PROMPT_IDS})
 fi
 
 run_step() {
@@ -79,7 +99,7 @@ run_step() {
   x sudo -u robert -H env HF_HOME=/Volumes/Models/huggingface \
     /opt/homebrew/bin/uv --directory "$REPO" run --frozen --offline et run-window \
     --condition "$ET_CONDITION" --prompts "$ET_PROMPTS" \
-    --samples "${ET_SAMPLES:-20}" ${ids[@]+"${ids[@]}"} --until 06:00
+    "${queue[@]}" --until 06:00
 }
 
 # Watchdog: `--until 06:00` is only checked between tokens. A run blocked elsewhere

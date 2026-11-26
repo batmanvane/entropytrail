@@ -1,4 +1,27 @@
-# Night scheduling (Mac Studio)
+# Scheduling on the Mac Studio
+
+## 24/7 queue (since 2026-11-24, D-039)
+
+All generation and evaluation runs through one job queue: the user LaunchAgent
+`de.entropytrail.queue` (RunAtLoad, KeepAlive while unfinished) runs
+`scripts/queue_runner.py`, which works through `ops/queue.txt` top to bottom (format in the
+script's docstring). Jobs repeat until nothing is left, then the next starts; finished units
+are never recomputed. A job never starts while another `et run-window` is active, a job with
+no new finished unit for 2 h is killed and restarted, and a refused attempt (e.g. dirty git
+tree) is retried every 10 min — so keep the tree clean. Append jobs at the end at any time;
+the file is re-read before every job. Ollama stays running and idle.
+
+    cp ops/launchd/de.entropytrail.queue.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/de.entropytrail.queue.plist
+    launchctl kickstart gui/$(id -u)/de.entropytrail.queue     # restart after appending jobs to a finished queue
+    # pause: launchctl bootout gui/$(id -u)/de.entropytrail.queue  (kills the running job; it is redone)
+    tail -f ~/Library/Logs/entropytrail-queue.log
+
+The night daemon and the day agent below are inert while `ET_NIGHT_ENABLED=0` and
+`ET_DAY_GRID=0` (no fork plan) in `ops/night.env`. The night daemon can be removed with
+`sudo launchctl bootout system/de.entropytrail.night`.
+
+# Night scheduling (Mac Studio, until 2026-11-24)
 
 A root LaunchDaemon `de.entropytrail.night` runs `scripts/night-studio.sh` daily at 23:00.
 The script first checks the window (only 23:00-05:59; a missed 23:00 fired by launchd
@@ -38,6 +61,46 @@ space-separated). It is read at every start; no launchd reload needed.
 
 Manual start for a test: `sudo launchctl kickstart system/de.entropytrail.night`.
 Dry run (no side effects): `ET_DRY_RUN=1 bash scripts/night-studio.sh`.
+
+## Fork queue (WP5)
+
+Set `ET_FORK_PLAN=results/forks/plan-pilot.json` (path relative to the repo) in
+`ops/night.env` to run the rollouts of a fork plan instead of the grid; `ET_PROMPT_IDS`
+must then be empty. The plan file must be committed (the run refuses a dirty tree).
+Progress: `grep '"kind": "forks"' /Volumes/Data/entropytrail/runlog.jsonl | tail`.
+Set `ET_FORK_PLAN=` again to return to the grid queue.
+
+## Morning job after fork nights
+
+A user LaunchAgent `de.entropytrail.morning` runs `scripts/morning_forks.py` daily at 06:30
+(after the night's 06:00 end and the 06:05 watchdog). While `ET_FORK_PLAN` is set it runs
+`et eval --forks` for the plan's prompts, rewrites `results/forks/importance-<plan>.csv`,
+appends an automatic entry to `docs/JOURNAL.md` and commits exactly these two files (no
+push). It skips if a night run is still active, does not commit if either file had
+uncommitted changes, and stops once it has written "fork <plan>: complete". It never
+commits other files, so a dirty tree still blocks the night (by design). Log:
+`~/Library/Logs/entropytrail-morning.log`. Test without writing: `ET_MORNING_DRY=1 uv run
+--group eval --group analysis python scripts/morning_forks.py`.
+
+    cp ops/launchd/de.entropytrail.morning.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/de.entropytrail.morning.plist
+    # remove: launchctl bootout gui/$(id -u)/de.entropytrail.morning
+
+## Day runs (fork plans or a grid queue)
+
+A user LaunchAgent `de.entropytrail.day` runs `scripts/day-studio.sh` daily at 07:15 (after
+the 06:30 morning job). While `ET_FORK_PLAN` is set it runs `et run-window --fork-plan …
+--until 22:45`; otherwise, with `ET_DAY_GRID=1`, it runs the grid queue of `ops/night.env`
+(`--samples`, optional `--prompt-ids`) until 22:45 with Ollama left running but idle (D-018); loading a large Ollama model during
+the day competes for memory with the 9B (~23 GB). It skips outside 07:00-21:59, when neither
+queue is set, or when another `et run-window` is active, and its own watchdog kills the
+run's process tree at 22:50, so it never overlaps the 23:00 night run. Unfinished rollouts
+are discarded and redone, as at night. Log: `~/Library/Logs/entropytrail-day.log`.
+
+    cp ops/launchd/de.entropytrail.day.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/de.entropytrail.day.plist
+    launchctl kickstart gui/$(id -u)/de.entropytrail.day      # start now
+    # pause: launchctl bootout gui/$(id -u)/de.entropytrail.day
 
 ## Watchdog
 

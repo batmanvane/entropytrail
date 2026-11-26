@@ -35,3 +35,14 @@ def extract_html(text: str) -> str | None:
     if end >= start.start():
         return text[start.start():end + len("</html>")].strip()
     return text[start.start():].strip()
+
+
+def app_span(output: str) -> tuple[int, int] | None:
+    """Character span of the extracted HTML document inside ``output``, or None."""
+    html = extract_html(output)
+    if html is None:
+        return None
+    start = output.find(html)
+    if start < 0:
+        return None
+    return start, start + len(html)

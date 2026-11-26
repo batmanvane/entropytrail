@@ -14,6 +14,9 @@ def _run(tmp_path, **extra):
         "ET_MODELS_DIR": str(tmp_path),
         "ET_DATA_DIR": str(tmp_path),
         "ET_NOW_HOUR": "23",
+        "ET_FORK_PLAN": "",  # grid queue unless a test sets a plan
+        "ET_NIGHT_ENABLED": "1",
+        "ET_OTHER_RUN_ACTIVE": "0",
         **extra,
     }
     return subprocess.run(
@@ -104,3 +107,29 @@ def test_watchdog_deadline_is_0605_next_morning(tmp_path):
     r = _run(tmp_path)
     assert r.returncode == 0, r.stderr
     assert "watchdog armed until" in r.stdout and "06:05" in r.stdout
+
+
+def test_fork_plan_queue(tmp_path):
+    r = _run(tmp_path, ET_FORK_PLAN="results/forks/plan-pilot.json")
+    assert r.returncode == 0, r.stderr
+    lines = _cmd_lines(r.stdout)
+    assert "bootout system/com.robert.ollama" in lines[0]
+    assert "--fork-plan results/forks/plan-pilot.json" in lines[1] and "--until 06:00" in lines[1]
+    assert "--samples" not in lines[1] and "--prompt-ids" not in lines[1]
+    assert "bootstrap system" in lines[-1] and len(lines) == 3
+
+
+def test_fork_plan_with_prompt_ids_is_a_config_error(tmp_path):
+    r = _run(tmp_path, ET_FORK_PLAN="results/forks/plan-pilot.json", ET_PROMPT_IDS="free-01")
+    assert r.returncode != 0
+    assert _cmd_lines(r.stdout) == []
+
+
+def test_night_disabled_does_not_touch_ollama(tmp_path):
+    r = _run(tmp_path, ET_NIGHT_ENABLED="0")
+    assert r.returncode == 0 and _cmd_lines(r.stdout) == [] and "disabled" in r.stdout
+
+
+def test_other_run_active_skips_without_touching_ollama(tmp_path):
+    r = _run(tmp_path, ET_OTHER_RUN_ACTIVE="1")
+    assert r.returncode == 0 and _cmd_lines(r.stdout) == [] and "already active" in r.stdout

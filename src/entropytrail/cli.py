@@ -35,9 +35,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     r = sub.add_parser("run-window", help="run units until a deadline")
     common(r)
-    r.add_argument("--samples", required=True, type=int)
+    what = r.add_mutually_exclusive_group(required=True)
+    what.add_argument("--samples", type=int, help="grid queue: samples per prompt")
+    what.add_argument("--fork-plan", type=Path, help="fork queue: rollouts of this plan (WP5)")
     r.add_argument("--prompt-ids", nargs="+", default=None)
-    r.add_argument("--until", required=True, metavar="HH:MM")
+    r.add_argument("--until", default=None, metavar="HH:MM",
+                   help="stop at the next HH:MM; omit to run until the queue is done (24/7 queue)")
     r.add_argument("--allow-dirty", action="store_true",
                    help="run even if the git working tree has uncommitted changes")
 
@@ -45,6 +48,30 @@ def build_parser() -> argparse.ArgumentParser:
     common(v)
     v.add_argument("--tokens", type=int, default=1500)
     v.add_argument("--chunk", type=int, default=512, help="teacher-forcing chunk size")
+
+    e = sub.add_parser("eval", help="render, fingerprint and embed units (WP4); day job")
+    e.add_argument("--root", required=True, type=Path, help="condition directory")
+    e.add_argument("--prompt-ids", nargs="+", default=None)
+    e.add_argument("--forks", action="store_true", help="also evaluate fork rollouts")
+
+    f = sub.add_parser("forks-plan", help="select fork sites and write a fork plan (WP5)")
+    f.add_argument("--root", required=True, type=Path, help="condition directory")
+    f.add_argument("--prompt-ids", nargs="+", default=None)
+    f.add_argument("--apps-per-prompt", type=int, default=None)
+    f.add_argument("--seed", type=int, default=None)
+    f.add_argument("--out", required=True, type=Path)
+    f.add_argument("--n-top", type=int, default=10)
+    f.add_argument("--n-random", type=int, default=3)
+    f.add_argument("--n-same", type=int, default=2)
+    f.add_argument("--extend", type=Path, default=None,
+                   help="keep the sites of this plan and set n_same (D-038)")
+
+    rs = sub.add_parser("rescore", help="teacher-forced stop probability and tempered entropy (D-042)")
+    common(rs)
+    rs.add_argument("--prompt-ids", nargs="+", default=None)
+    rs.add_argument("--chunk", type=int, default=256, help="forcing chunk (memory: chunk x vocab float32)")
+    rs.add_argument("--allow-dirty", action="store_true",
+                    help="run even if the git working tree has uncommitted changes")
 
     b = sub.add_parser("bench", help="single-sequence throughput")
     common(b, prompts=False)
@@ -71,7 +98,7 @@ def _load(args, need_prompts=True):
     return cond, ps, model, tok, weights_fingerprint(cond.model_repo)
 
 
-def _run(args, units_fn, deadline) -> int:
+def _run(args, units_fn, deadline, run_fn=None) -> int:
     from entropytrail.model import provenance
     from entropytrail.runner import run_units
     from entropytrail.storage import data_root
@@ -82,7 +109,10 @@ def _run(args, units_fn, deadline) -> int:
               "--allow-dirty", file=sys.stderr)
         return 2
     cond, ps, model, tok, fp = _load(args)
-    res = run_units(units_fn(ps), cond, ps, model, tok, data_root(), deadline, fingerprint=fp)
+    if run_fn is not None:
+        res = run_fn(cond, ps, model, tok, data_root(), deadline, fp)
+    else:
+        res = run_units(units_fn(ps), cond, ps, model, tok, data_root(), deadline, fingerprint=fp)
     print(json.dumps(res))
     return 0
 
@@ -98,8 +128,28 @@ def cmd_generate(args) -> int:
 def cmd_run_window(args) -> int:
     from entropytrail.runner import plan_units
 
-    deadline = next_occurrence(args.until, datetime.now())
+    deadline = next_occurrence(args.until, datetime.now()) if args.until else None
+    if args.fork_plan is not None:
+        if args.prompt_ids:
+            print("--prompt-ids cannot be combined with --fork-plan", file=sys.stderr)
+            return 2
+        return _run(args, None, deadline, run_fn=_fork_runner(args.fork_plan))
     return _run(args, lambda ps: plan_units(ps, args.samples, args.prompt_ids), deadline)
+
+
+def _fork_runner(path: Path):
+    import hashlib
+
+    from entropytrail.forks import read_plan, run_rollouts
+
+    raw = Path(path).read_bytes()
+    plan = read_plan(path)
+
+    def run(cond, ps, model, tok, root, deadline, fp):
+        return run_rollouts(plan, cond, ps, model, tok, root, deadline, fingerprint=fp,
+                            plan_name=str(path), plan_sha256=hashlib.sha256(raw).hexdigest())
+
+    return run
 
 
 def cmd_validate(args) -> int:
@@ -176,6 +226,82 @@ def cmd_bench(args) -> int:
     return 0
 
 
+def cmd_eval(args) -> int:
+    from entropytrail.embed import CodeEmbedder, ImageEmbedder
+    from entropytrail.evaluate import eval_units, find_units
+    from entropytrail.render import IsolatedRenderer
+
+    units = find_units(args.root, prompt_ids=args.prompt_ids, forks=args.forks)
+    print(f"{len(units)} units", flush=True)
+    with IsolatedRenderer() as render_fn:
+        res = eval_units(units, render_fn=render_fn, image_embedder=ImageEmbedder(),
+                         code_embedder=CodeEmbedder())
+    print(json.dumps(res))
+    return 0 if res["failed"] == 0 else 1
+
+
+def cmd_forks_plan(args) -> int:
+    from entropytrail.forks import PARAMS, build_plan, choose_apps, extend_plan, read_plan, write_plan
+
+    if args.extend is not None:
+        plan = extend_plan(read_plan(args.extend), n_same=args.n_same)
+        apps = [(a["prompt_id"], a["sample"]) for a in plan["apps"]]
+    else:
+        if args.prompt_ids is None or args.apps_per_prompt is None or args.seed is None:
+            print("--prompt-ids, --apps-per-prompt and --seed are required without --extend", file=sys.stderr)
+            return 2
+        params = dict(PARAMS, n_top=args.n_top, n_random=args.n_random, n_same=args.n_same)
+        apps = choose_apps(args.root, args.prompt_ids, args.apps_per_prompt, args.seed)
+        plan = build_plan(args.root, apps, seed=args.seed, params=params)
+    write_plan(args.out, plan)
+    n_sites = sum(len(a["sites"]) for a in plan["apps"])
+    n_roll = sum(len(s["variants"]) for a in plan["apps"] for s in a["sites"])
+    tokens = sum((a["n_tokens"] - s["pos"]) * len(s["variants"]) for a in plan["apps"] for s in a["sites"])
+    print(json.dumps({"apps": len(apps), "sites": n_sites, "rollouts": n_roll,
+                      "rollout_tokens_upper_estimate": tokens,
+                      "hours_at_17_tok_s": round(tokens / 17 / 3600, 1)}))
+    return 0
+
+
+def cmd_rescore(args) -> int:
+    import hashlib
+
+    from entropytrail.model import build_prompt_ids, provenance, tokenizer_io
+    from entropytrail.rescore import grid_units, is_rescored, rescore_unit
+    from entropytrail.storage import data_root
+
+    prov = provenance()
+    if prov["git_dirty"] and not args.allow_dirty:
+        print("refusing to run: the git working tree has uncommitted changes; commit first or pass "
+              "--allow-dirty", file=sys.stderr)
+        return 2
+    cond, ps, model, tok, fp = _load(args)
+    system = ps.system_prompts[cond.system_prompt_version]
+    by_id = {p.id: p for p in ps.prompts}
+    eos_ids, _ = tokenizer_io(tok)
+    done = skipped = failed = 0
+    for unit in grid_units(data_root() / cond.condition_id, args.prompt_ids):
+        if is_rescored(unit):
+            skipped += 1
+            continue
+        try:
+            meta = json.loads((unit / "meta.json").read_text())
+            prompt = by_id[unit.parent.name]
+            if meta.get("prompt_text_sha256") != hashlib.sha256(prompt.text.encode("utf-8")).hexdigest():
+                raise ValueError("prompt text differs from the one the unit was generated with")
+            ids = build_prompt_ids(tok, system, prompt.text, cond.thinking)
+            res = rescore_unit(unit, model, ids, eos_ids, cond.temperature,
+                               dict(prov, condition_id=cond.condition_id, weights_fingerprint=fp),
+                               chunk=args.chunk)
+            done += 1
+            print(f"{unit.parent.name}/{unit.name} n={res['n_tokens']} max|dH|={res['max_abs_dH']:.4f}", flush=True)
+        except Exception as e:  # noqa: BLE001 - keep going, report at the end
+            failed += 1
+            print(f"FAILED {unit}: {e!r}", flush=True)
+    print(json.dumps({"done": done, "skipped": skipped, "failed": failed}))
+    return 0 if failed == 0 else 1
+
+
 class _BenchArgs:
     def __init__(self, a):
         self.condition = a.condition
@@ -185,5 +311,10 @@ def main(argv: list[str] | None = None) -> None:
     _setup_env()
     args = build_parser().parse_args(argv)
     fn = {"generate": cmd_generate, "run-window": cmd_run_window,
-          "validate": cmd_validate, "bench": cmd_bench}[args.cmd]
+          "validate": cmd_validate, "bench": cmd_bench, "eval": cmd_eval,
+          "forks-plan": cmd_forks_plan, "rescore": cmd_rescore}[args.cmd]
     sys.exit(fn(args))
+
+
+if __name__ == "__main__":
+    main()

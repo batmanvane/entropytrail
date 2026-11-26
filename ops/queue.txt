@@ -1,0 +1,10 @@
+# 24/7 job queue (D-039), run in order by scripts/queue_runner.py (LaunchAgent de.entropytrail.queue).
+# A job repeats until nothing is left, then the next starts. Append jobs at the end at any time;
+# edit or reorder lines only when the queue is not on them (see ops/README.md).
+grid configs/conditions/qwen35-9b-bf16-mlx-t0p7.yaml 20
+eval /Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-t0p7-a31fc218
+forks configs/conditions/qwen35-9b-bf16-mlx.yaml results/forks/plan-pilot-s6.json
+forks configs/conditions/qwen35-9b-bf16-mlx.yaml results/forks/plan-main.json
+eval-forks /Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b
+grid configs/conditions/qwen35-9b-bf16-mlx-t0p5.yaml 20
+eval /Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-t0p5-c9bce32f

@@ -8,7 +8,7 @@ Full design: [docs/superpowers/specs/2026-11-19-entropytrail-design.md](docs/sup
 
 ### 1. Let the model write, and record every step
 
-A language model writes one token at a time. At every step it holds a probability distribution over its whole vocabulary (248,320 tokens for Qwen3.5-9B): the *landscape* of what could come next. The model draws one token from it, the token becomes part of the text, and the landscape for the next step is reshaped. We do not change how the model writes (temperature 1.0, no truncation of the distribution); we only record the landscape at every step.
+A language model writes one token at a time. At every step it holds a probability distribution over its whole vocabulary (248,320 tokens for Qwen3.5-9B): the *landscape* of what could come next. The model draws one token from it, the token becomes part of the text, and the landscape for the next step is reshaped. We do not change how the model writes (temperature 1.0, no truncation of the distribution); we only record the landscape at every step. A temperature sweep (T = 0.7 and 0.5) repeats the grid with less sampling noise.
 
 ```mermaid
 flowchart LR
@@ -60,13 +60,13 @@ Adding up the surprisal along the trail gives the **path action** Σ S_t, the ne
 One recording shows where the model *was* undecided. Two further steps show what was *reachable*:
 
 - **Ensembles.** Every prompt is run 20 times with different seeds. The spread of the 20 finished apps shows how wide the landscape is for that prompt.
-- **Fork experiments.** At selected forks we rewind, force each of the top-3 alternative tokens, and let the model finish the app from there. As a baseline, the same fork is re-run twice with the original token, because sampling alone makes runs drift apart. A fork *matters* if the alternatives lead further away than the baseline does.
+- **Fork experiments.** At selected forks we rewind, force each of the top-3 alternative tokens, and let the model finish the app from there. As a baseline, the same fork is re-run six times with the original token, because sampling alone makes runs drift apart (the pilot used two re-runs, which turned out too noisy; D-038). A fork *matters* if the alternatives lead further away than the baseline does.
 
 ```mermaid
 flowchart LR
     F(("fork<br/>H ≥ 2 bits")) -->|original token| A0["original app"]
     F -->|original token, new seed| B1["baseline 1"]
-    F -->|original token, new seed| B2["baseline 2"]
+    F -->|original token, new seed| B2["baseline 2 … 6"]
     F -->|alternative 1| C1["variant 1"]
     F -->|alternative 2| C2["variant 2"]
     F -->|alternative 3| C3["variant 3"]
@@ -76,7 +76,7 @@ Fork importance = (distance from the variants to the original) − (distance fro
 
 ### 5. Judging the outcome independently
 
-Every app is rendered in a headless browser: does it load, are there console errors, what does it look like. Novelty is measured as the distance of an app to its 19 siblings. Usefulness and novelty are also rated by people on a public, blind rating page. The analysis then asks whether the landscape measures from steps 2–4 predict these independent judgments. The tests are fixed in advance in [docs/METHODS.md](docs/METHODS.md) (analysis plan, frozen 2026-11-20).
+Every app is rendered in a headless browser: does it load, are there console errors, what does it look like. Novelty is measured as the distance of an app to its 19 siblings. Usefulness and novelty are also rated by people on a public, blind rating page. In addition, Claude (in Chrome) opens and tries every app and rates functionality and novelty; these ratings are exploratory and do not replace the human ones. The analysis then asks whether the landscape measures from steps 2–4 predict these independent judgments. The tests are fixed in advance in [docs/METHODS.md](docs/METHODS.md) (analysis plan, frozen 2026-11-20).
 
 ## Study design
 
@@ -87,9 +87,34 @@ Every app is rendered in a headless browser: does it load, are there console err
 | Tool | unit converter · Pomodoro timer · tip calculator | everyday helper · planning tool · repetitive task |
 | Free | *app of your choice* · *app nobody has built before* · *app you would enjoy building* | |
 
-21 prompts × 20 samples = 420 apps, generated at night on a Mac Studio (M2 Max, 32 GB). The exact prompts are in [prompts/prompts.yaml](prompts/prompts.yaml); the hypotheses H1–H6 are in section 6 of the [design](docs/superpowers/specs/2026-11-19-entropytrail-design.md).
+21 prompts × 20 samples = 420 apps per temperature, generated on a Mac Studio (M2 Max, 32 GB) by a job queue that runs around the clock. The exact prompts are in [prompts/prompts.yaml](prompts/prompts.yaml); the hypotheses H1–H6 are in section 6 of the [design](docs/superpowers/specs/2026-11-19-entropytrail-design.md).
 
-## First observations (exploratory)
+## Results so far (interim)
+
+Main grid at T = 1.0, 420 apps; full numbers in [results/analysis/REPORT.md](results/analysis/REPORT.md). The tests are the frozen ones from [docs/METHODS.md](docs/METHODS.md).
+
+- **H1, the landscape is two-peaked:** in 97 % of the apps the token entropies split into a large near-certain group and a minority of open positions (criterion ≥ 80 %). Supported.
+- **H2, loose briefs give more varied apps:** the 20 apps of a loose brief spread further apart on screen than those of a tight brief (+0.10 on a spread scale where tight briefs lie at 0.03–0.15). Supported.
+- **H3, entropy ≠ consequence:** in the pilot (15 apps, 195 forks) forcing a different token at a fork changed the app no more than re-sampling with the same token did (not supported in the pilot). The baseline rested on two re-samples and was too noisy to separate the two; the redesigned fork runs with six re-samples per fork are running now (D-038).
+- **H4, H5 (usefulness, novelty):** wait for the human ratings. Secondary measures point the expected way: improbable tokens late in the JavaScript go with apps that fail to run, and surprising choices at forks go with apps that look different from their siblings.
+
+### Temperature sweep: T = 0.7 against T = 1.0
+
+![Four panels: apps that run, functionality, spread of the 20 apps per prompt, and novelty, at T = 1.0 and T = 0.7](docs/figures/temperature-sweep-v1.svg)
+
+With less sampling noise far more apps run (91 % vs 69 %) and the 20 apps of a brief look more alike (spread 0.123 vs 0.159, lower for 20 of 21 prompts); both comparisons are significant after Holm correction. Claude's novelty score does not move (1.80 vs 1.83). It is calibrated within each temperature, though, so a blind pass that scores all temperatures on one scale follows after T = 0.5 (D-041). Details: [results/temperature-sweep/REPORT.md](results/temperature-sweep/REPORT.md).
+
+## How to read it: a process on a tree, apps as its projection
+
+Generation is a random process whose state is the prefix (prompt plus tokens so far). Every step appends one token, so the states form a tree, and the end token stops the process. At any temperature above 0 every token sequence is reachable, so the reachable set says nothing; what carries information is the *distribution* over finished sequences. On the tree that distribution is simple: probability only splits, and the summed per-token entropy ΣH estimates the entropy of the whole sequence.
+
+Many sequences give the same app, though: different spellings, names, layouts of the same idea. Mapping sequences to apps (text → code → screen → behaviour → idea) merges them, and only there does the distribution concentrate. The figure shows the gap for the main grid:
+
+![Per prompt: token entropy of one app against the spread of its 20 apps, by brief type](docs/figures/entropy-vs-spread-v1.svg)
+
+One app carries hundreds to thousands of bits of token entropy, yet 20 samples can tell apart at most log₂ 20 ≈ 4.3 bits of different apps. Most of the entropy is spent on how something is written, not on what is built: the Pythagoras brief spends 4,600 bits per app on apps that look much alike, while the open brief spends 1,200 bits on apps that differ a lot. The question of the project, whether a token's entropy says anything about the consequence, is the question of which of those bits survive the projection. Background: [docs/THEORY.md](docs/THEORY.md).
+
+## Before the grid: first observations (exploratory)
 
 Before the main grid, the model built the same tight brief (a cm/inch/feet converter) 20 times. These are early numbers from one prompt, not tests of the hypotheses.
 
@@ -101,7 +126,7 @@ Most tokens are close to certain (72 % below 0.1 bits), a second, smaller group 
 
 Most forks are not in the code: comments are 8 % of the tokens but hold 64 % of the forks, because how to word a comment is far more open than what the code must say. The analysis plan was therefore amended before the main grid: forks are counted in code only, and comment forks are reported separately (D-029 in [docs/DECISIONS.md](docs/DECISIONS.md)).
 
-The figures are generated from the small data files in `docs/figures/data/` with `uv run --with matplotlib python scripts/make_readme_figures.py`.
+The figures are generated from the small data files in `docs/figures/data/` with `uv run --with matplotlib python scripts/make_readme_figures.py` (add `--group analysis` and `--refresh-data` to re-extract the sweep and entropy data from `results/`).
 
 ## Setup
 
@@ -138,5 +163,6 @@ uv run pytest -m slow      # tests that need the Qwen3.5-9B weights
 
 - [docs/DECISIONS.md](docs/DECISIONS.md): decision log
 - [docs/METHODS.md](docs/METHODS.md): definitions of the recorded quantities
+- [docs/THEORY.md](docs/THEORY.md): reading frame — generation as a process on a tree, apps as its projection
 - [docs/DATA.md](docs/DATA.md): data formats
 - [docs/JOURNAL.md](docs/JOURNAL.md): dated project journal

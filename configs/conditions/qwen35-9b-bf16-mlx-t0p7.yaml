@@ -1,0 +1,11 @@
+name: qwen35-9b-bf16-mlx-t0p7
+model_repo: Qwen/Qwen3.5-9B
+precision: bf16
+runtime: mlx-lm
+runtime_version: 0.32.2
+temperature: 0.7
+max_tokens: 16000
+thinking: false
+system_prompt_version: sys-v1
+machine: mac-studio-m2max
+logits_precision: float32

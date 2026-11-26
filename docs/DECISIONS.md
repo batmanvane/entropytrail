@@ -262,3 +262,109 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** Novelty is relative to the apps a rater has seen. First-pass raters saw different subsets per batch and drifted (tool-tight-03: novelty 1 for nearly all apps in the first batch, 2 for similar apps in the second). Functionality, UI and UX are tied to absolute anchors and are not affected. Approved by Robert.
 
 **Alternatives:** Keep the first-pass novelty (inconsistent within prompts); re-rate everything in one pass per prompt (far more expensive).
+
+## D-033 · 2026-11-22 · WP4 runs on the Mac Studio
+
+**Decision:** The automatic evaluation (render, screenshots, fingerprints, embeddings) runs on the Mac Studio as a day job (`et eval`), never at the same time as a 9B run. The desktop stays available if Studio time gets short.
+
+**Reason:** Spec §8 assigned WP4 to the desktop so that it does not mix with the main series. Outcome measures are not part of the landscape condition, so the "one condition = one machine" rule does not apply to them. The data, a matching Chromium build (Playwright 1.65.2, Chromium 159.0.8154.6) and the WP5 rollouts are all on the Studio; evaluating there avoids a sync step per rollout batch. Measured: ~0.3 s per app to render, ~1.5 s (median) to 10 s (16k tokens) per code embedding.
+
+**Alternatives:** Desktop with a Studio → desktop sync (spec §8; more moving parts, same results up to float noise of the embedding models).
+
+## D-034 · 2026-11-22 · Outcome measures (render procedure v1, embeddings, outcome distance)
+
+**Decision:**
+- *Render v1* (`src/entropytrail/render.py`): headless Chromium, new context per unit, viewport 1024×768, scale 1; `Math.random` replaced by mulberry32 seed 12345; Playwright fake clock paused at 2026-01-01T12:00:00Z, page time advances only by `run_for` (1.5 s before `load.png`); blocking dialogs logged instead; all requests except the app file aborted; 15 s load timeout. Interaction: click the first visible button (else the first canvas), press ArrowRight, ArrowUp, Space, Enter (150 ms page time each), type 42 into the first visible text/number input, 1 s page time, `interact.png`. Screenshots with `animations="disabled"`. `renders` = loaded and no uncaught error up to `load.png`. Each unit is rendered in a worker process; if the page blocks the renderer for more than 35 s (15 s timeout + 20 s grace; first seen on free-02/012, a busy loop after load), the worker is killed and the unit counts as hung (`timeout` true, `renders` false, `hung_killed` true).
+- *Embeddings:* screenshots with `google/siglip2-base-patch16-384` (snapshot f775b65a), code with `Qwen/Qwen3-Embedding-0.6B` (snapshot 97b0c614, no instruction prefix, max 16,384 tokens); both L2-normalised, MPS.
+- *Screen embedding* of an app = normalised mean of its two screenshot embeddings. *Outcome distance* (spec §5.4) = 1 if exactly one of the two apps renders, else screen cosine distance clipped to [0, 1]. *Ensemble spread / rarity* (frozen plan) = mean pairwise / mean-to-others screen cosine distance **without** the render rule; the render-rule variant is reported alongside.
+- **Deviation, labelled:** prompt adherence for tight prompts (H4 secondary, spec §5.5 "hand-written checklist") is taken from the Claude Chrome checklist (D-030) instead of a second, automatic checklist. A Claude-derived measure thus enters a pre-registered secondary test; it is reported as "adherence (Claude checklist)" and never pooled with human ratings.
+
+**Reason:** Screens must be comparable between grid apps and fork rollouts, and same-vs-same rollout distances (the noise floor of fork importance) must come from the model, not the renderer. Check on 30 random grid apps rendered twice: 29 byte-identical screenshot pairs, one pair differed once (CSS animation timing race; four further renders identical). Without the paused clock and disabled animations, animated apps differed on every run.
+
+**Alternatives:** Real time and real randomness (noisy screens); a hand-written automatic adherence checklist per tight prompt (duplicates the Claude checklist, which already exists for all 180 tight apps); CLIP ViT-B/32 (older, 224 px).
+
+## D-035 · 2026-11-22 · Fork experiment pilot (D2)
+
+**Decision:**
+- *Pilot* (spec D2 proposal): 3 prompts × 5 apps — `game-tight-01` (tight game), `tool-loose-01` (loose tool), `free-01` (open) — apps drawn with seed 2026 among apps with extracted HTML (`results/forks/plan-pilot.json`: 15 apps, 195 sites, 975 rollouts, ≤ 26 h decoding at 17 tok/s). Scale-up is decided by Robert after the pilot.
+- *Sites:* 10 highest-H code tokens (A1 sections html/css/js/text, D-029) greedily at least 20 tokens apart, plus 3 random code tokens (seeded per app) also 20 apart; the last token is never a site. Sites are not required to have H ≥ 2 (in tight apps the top code tokens are often below 2 bits; see R2 in plan 2).
+- *Variants:* the top-3 alternatives ≠ actual token from the recorded top-20 (EOS allowed: the app then ends at the prefix), one rollout each; two same-token rollouts.
+- *Rollouts:* recorder and condition of the grid; the prefix is prefilled anew per rollout (no KV-cache sharing; the distribution at the site may differ from the recorded one by bf16 chunk noise, D-021, irrelevant because the token is forced); budget `max_tokens − pos − 1` (cap counted from the start of generation); seed per rollout derived from condition, parent, position and variant.
+- *Importance:* primary as spec §5.4 (alternatives vs the two same-token rollouts, minus their distance). Secondary `importance_incl_original`: the parent app is added as a third same-token outcome (better noise floor, but sites were chosen with knowledge of the parent's later tokens).
+- *Night queue:* `ET_FORK_PLAN` in `ops/night.env` switches the night run to `et run-window --fork-plan`; combined with `ET_PROMPT_IDS` it is a configuration error and the night is skipped without touching Ollama.
+
+**Reason:** Spec §5.4 and D2; the pilot measures real cost and noise floor before committing ~13+ nights.
+
+**Alternatives:** KV-cache sharing across the 5 rollouts of a site (faster prefill, more code, cache copy for the hybrid linear-attention layers); 2 apps per prompt for all 21 prompts directly (spec §8; decided after the pilot).
+
+## D-036 · 2026-11-22 · Readings of the frozen analysis plan (R1–R3) and model coding
+
+**Decision (Robert, 2026-11-22, before any confirmatory test was computed):**
+- **R1 (H1):** support is decided by the frozen rule "≥ 80 % of apps reject unimodality" (`support_frozen`). For the Holm family H1 enters with the one-sided binomial p-value of the rejecting share against 0.80 (H0: share ≤ 0.80). Both are reported; a disagreement between them is stated, not resolved.
+- **R2 (H3):** all fork sites of the fork plans enter the H3 test (10 top-H code tokens and 3 random code tokens per app, D-035). Sensitivity runs: sites with H ≥ 2 bits only, and sites whose parent app is not truncated.
+- **R3 (H4):** late JS surprise = share of tokens with S ≥ 4 bits among the last third (by count, index ≥ ⌈2n/3⌉) of the app's JavaScript **code** tokens, JS comments removed before the cut.
+- **Model coding (all models):** `loose` dummy (1 = loose prompt) plus `C(domain)` with levels education/game/tool/free, all 21 prompts, because openness `open` and domain `free` coincide. Holm always with m = 5; until all five p-values exist results are flagged interim and the multiplier uses the rank among the available p-values (never smaller than the final adjustment).
+- **Fixed secondaries:** H4 renders → logistic GLM with cluster-robust SE by prompt; H4 adherence from the Claude checklist (D-034 deviation); H5 ensemble rarity as outcome with fork surprise as predictor; H5 alternative predictor path action per token. Sensitivity of every primary test without truncated apps (H2: spread recomputed from the non-truncated apps of each prompt).
+
+**Reason:** The frozen plan (D-028, D-029) leaves these details open; they change the numbers and must be fixed before results exist (Claude ratings already exist). Recommendations and alternatives in plan 2 (Part C) were explained to Robert, who chose the recommended option in all three cases.
+
+**Alternatives:** R1 — support only if the binomial test survives Holm (stricter, changes the frozen rule), or H1 outside the Holm family; R2 — only sites with H ≥ 2 bits (literal "fork", narrow H range, tight apps drop out); R3 — cut the last third over JS code and comment tokens, then drop comments.
+
+## D-037 · 2026-11-23 · Temperature sweep (WP12): temperatures, rating scope, comparison plan
+
+**Decision (Robert, 2026-11-23):**
+- **T1:** first sweep condition T = 0.7 (`configs/conditions/qwen35-9b-bf16-mlx-t0p7.yaml`, condition_id `qwen35-9b-bf16-mlx-t0p7-a31fc218`, all other fields as the T = 1.0 condition). T = 0.5 only after the T = 0.7 comparison, if it shows a clear change.
+- **T2:** all 420 apps per temperature get the Claude Chrome ratings (protocol v1.3) including the novelty calibration pass.
+- **T3:** comparison plan as frozen in METHODS.md "Temperature sweep comparison (frozen 2026-11-23)": C1 renders, C2 ensemble spread, C3 calibrated novelty, Holm across the three.
+- The sweep starts after the fork pilot (D-035) is complete; it uses the day and night windows.
+
+**Reason:** Spec D9 / WP12. At T = 1.0, 132 of 420 apps do not render and late improbable JS tokens go with apps that fail (interim WP6); the sweep measures the trade-off between running apps and variety. 0.7 first so that a null result does not cost a second sweep. Seeds are derived from the new condition_id, i.e. independent of the T = 1.0 samples. Verified 2026-11-23: mlx-lm 0.32.2 computes the log-softmax before the sampler and `categorical_sampling` only scales the logits by 1/T, so the recorded H and S are untempered.
+
+**Alternatives:** 0.7 and 0.5 at once (twice the compute before knowing whether 0.7 changes anything); a rating sample of 5 apps per prompt (cheaper, but C3 and the per-temperature H4/H5 would rest on 105 apps); top-p truncation instead of lower temperature (changes the distribution's support; rejected in D-031 for the main grid).
+
+## D-038 · 2026-11-24 · Fork experiments redesigned: six same-token re-samples; H3 on the new data (amendment)
+
+**Decision (Robert, 2026-11-24, D2 option 1, before any data of the new design existed):**
+- **Baseline:** 6 same-token re-samples per site (`same1`–`same6`) instead of 2, so the noise floor is a mean over 15 pairs instead of one; 3 alternatives as before. Fork importance and its definition (spec §5.4) are unchanged.
+- **Pilot sites reused:** `results/forks/plan-pilot-s6.json` = the 195 pilot sites with `same3`–`same6` added (780 new rollouts); the 975 pilot rollouts are reused unchanged (seeds depend on site and variant name only).
+- **Scale:** `results/forks/plan-main.json` = 2 apps (seed 2027) for each of the other 18 prompts, 5 top-H + 2 random code sites per app (min spacing 20), 3 alternatives + 6 re-samples per site: 36 apps, 252 sites, 2,268 rollouts.
+- **H3 amendment:** the primary H3 test (frozen model, criterion and Holm slot unchanged; readings of D-036) is computed on the redesigned data: all sites of `plan-pilot-s6` and `plan-main`, importance with six same-token re-samples. The pilot result with two re-samples (2026-11-24: not supported, LRT p 0.16, ρ −0.14) stays reported as the pilot.
+
+**Reason:** In the pilot the noise floor rested on one pair per site and was large and erratic (mean 0.30; whenever one of the two re-samples breaks, the pair distance is 1), so per-site importance was dominated by sampling noise and H3 could not separate "the choice mattered" from noise. More apps with the same design would mostly measure more noise; three prompts are too few for a test about entropy vs consequence across prompt types.
+
+**Alternatives:** scale-up with the pilot design (spec §8, 2 apps per prompt); stop the forks; only extend the pilot sites (≈ 1 day); one app per prompt in the main plan (≈ 3 days in total). The redesigned data as a secondary analysis only, H3 staying "not supported" (rejected: the pilot was meant as a pilot, spec D2).
+
+## D-039 · 2026-11-24 · 24/7 job queue instead of day and night windows
+
+**Decision (Robert, 2026-11-24: the Studio may be used around the clock):** a user LaunchAgent `de.entropytrail.queue` (KeepAlive) runs `scripts/queue_runner.py`, which works through `ops/queue.txt` in order without time windows: T = 0.7 sweep generation, its `et eval`, fork plans `plan-pilot-s6` and `plan-main`, `et eval --forks` of the T = 1.0 condition. Each job repeats until nothing is left (finished units are never recomputed); a job never starts while another `et run-window` runs; a job without a new finished unit for 2 hours is killed and restarted; a refused attempt (dirty tree) is retried every 10 min. Night (`ET_NIGHT_ENABLED=0`) and day (`ET_DAY_GRID=0`, no fork plan) scripts stay installed but inert; the night script additionally refuses to run while another 9B run is active. Ollama stays running and idle (D-018).
+
+**Reason:** No windows needed; one queue is simpler and removes the hand-over at 22:45/23:00 and the morning switch. Evaluation runs as a queue job between generation jobs, so it never shares memory with the 9B.
+
+**Alternatives:** keep day + night windows (more moving parts, gaps); stop Ollama permanently (needs root; not needed while it is idle). Removing the night LaunchDaemon needs sudo: `sudo launchctl bootout system/de.entropytrail.night` (optional).
+
+## D-040 · 2026-11-25 · Temperature sweep continues with T = 0.5
+
+**Decision (Robert, 2026-11-25, plan 3 Task 6 checkpoint):** after the T = 0.7 comparison (C1 and C2 supported, C3 not; `results/temperature-sweep/REPORT.md`) the sweep continues with T = 0.5. Condition `configs/conditions/qwen35-9b-bf16-mlx-t0p5.yaml` (identical to the T = 0.7 file except name and `temperature: 0.5`; id `qwen35-9b-bf16-mlx-t0p5-c9bce32f`). Same protocol as T = 0.7 (D-037): 420 apps, WP4 eval, Claude ratings v1.2 + v1.3 calibration for all apps, comparison C1–C3 against T = 1.0 as a second family (Holm m = 3), then the comparison rerun with three temperatures.
+
+**Scheduling:** appended to `ops/queue.txt` after the fork jobs (D-038), so the forks are not delayed: grid generation (≈ 1.5 days at the T = 0.7 pace) and its evaluation.
+
+## D-041 · 2026-11-25 · Cross-temperature blind novelty pass (exploratory)
+
+**Decision (Robert, 2026-11-25):** after the T = 0.5 Claude ratings, one more novelty pass scores **all** apps of a prompt from all three temperatures (60 per prompt) on one common scale, blind to temperature: the pool is shuffled per prompt (seed 41) and served under blind ids by `scripts/serve_apps.py --port 8771 --blind-key /Volumes/Data/entropytrail/_novelty-cross/key.json`; one sonnet agent per prompt (`docs/novelty-cross-brief.md`) surveys all apps (idea line + screenshot each), then scores 1–5 relative to the whole pool; scores are kept apart from the per-app rating files. Analysis (`scripts/novelty_cross.py collect`): MixedLM `novelty_cross ~ temperature (ref 1.0) + loose + C(domain) + (1|prompt)`, one-sided p for lower novelty at lower T, reported with means per temperature.
+
+**Status:** exploratory. It was defined after the frozen C3 result (calibrated novelty within temperature, D-037) was seen, so it is not part of any Holm family; C3 stays the primary comparison and is reported unchanged.
+
+**Reason:** the within-temperature calibration makes C3 compare two relative scales; a common scale shows whether lower temperatures produce fewer distinct ideas. Running once after T = 0.5 keeps one scale for all three temperatures.
+
+**Cost and billing:** ≈ 21 agents × 5–10 min; runs inside Claude Code on Robert's Claude subscription (the shell's `ANTHROPIC_API_KEY` is rejected in Claude Code), not the API.
+
+## D-042 · 2026-11-26 · Stopping probabilities and semantic entropy (exploratory)
+
+**Decision (Robert, 2026-11-26, after the theory notes "Entropie-Trail – Notizen zur Theorie"):** two exploratory additions, not part of any Holm family; the frozen analyses (H1–H5, C1–C3) are unchanged.
+
+1. **Teacher-forced rescoring** (`et rescore`, `src/entropytrail/rescore.py`): every grid unit of the three temperatures is fed back through the model once; per output position it stores log2 P(stop) (all end ids) under the model and under the sampling distribution at the condition temperature, and the entropy of the sampling distribution `H_T` (the recorder keeps only the untempered H and top-20). Forced H is checked against the recorded H. Queue jobs `rescore <condition.yaml>` for T = 1.0, 0.7, 0.5, appended once the current queue is complete (the running queue process predates the new job kind) — ≈ 1,260 units, several hours of prefill. Analysis `scripts/stopping_analysis.py` (`src/entropytrail/analysis/stopping.py`): length distribution and finish reasons per temperature, probability of stopping while the HTML document is still open (premature stop), stop probability after `</html>`, and entropy over relative position **per section** (html, css, js, text; JS also on its own position axis; JS slope with and without the last 10 %) — the control for closing boilerplate when reading falling entropy as lock-in.
+2. **Semantic entropy** (`src/entropytrail/analysis/semantic.py`, `scripts/semantic_entropy.py`): after D-041, one sonnet agent per prompt clusters the 60 pooled idea lines (blind ids, no temperatures, no app access; `docs/semantic-cluster-brief.md`) into "same core idea" classes; semantic entropy per prompt and temperature = entropy of the class distribution of its 20 apps (plug-in and Miller–Madow), compared with T = 1.0 by a paired one-sided Wilcoxon test over prompts.
+
+**Reason:** the notes ask whether entropy falls because of lock-in or because of boilerplate, when the model considers an app finished, and whether token entropy reflects differences in meaning; both additions answer this from existing data without new sampling.
+
+**Billing:** the cluster agents run inside Claude Code on Robert's subscription, not the API.

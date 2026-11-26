@@ -10,7 +10,21 @@ dependencies = ["mlx-lm==0.32.2", "numpy", "pyarrow", "pyyaml"]
 et = "entropytrail.cli:main"
 
 [dependency-groups]
+analysis = [
+    "diptest>=0.12.0",
+    "matplotlib>=3.11.2",
+    "pandas>=3.1.1",
+    "scipy>=1.18.1",
+    "statsmodels>=0.15.0",
+]
 dev = ["pytest"]
+eval = [
+    "pillow>=13.0.0",
+    "playwright==1.65.2",
+    "sentence-transformers>=6.3.0",
+    "torch>=2.15.0",
+    "transformers>=5.23.0",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -20,5 +34,8 @@ build-backend = "hatchling.build"
 packages = ["src/entropytrail"]
 
 [tool.pytest.ini_options]
-markers = ["slow: needs Qwen3.5-9B weights"]
-addopts = "-m 'not slow'"
+markers = [
+    "slow: needs Qwen3.5-9B weights or the embedding models",
+    "browser: needs Playwright Chromium (uv run --group eval)",
+]
+addopts = "-m 'not slow and not browser'"

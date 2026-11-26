@@ -20,6 +20,16 @@ All information quantities are in bits (log base 2). Let p be the full next-toke
 
 Recorded values are the exact sampling distribution: the transformer body runs in bf16, the head (float32 copy of `lm_head`) and the log-softmax in float32. A chunked teacher-forced recomputation (chunk > 1) differs from the recorded values because the bf16 body kernels round differently for different chunk sizes; measured on 1500 tokens of the smoke app (chunk 512): p99 |dH| 0.044, p99 |dS| 0.083, max |dH| 0.095, max |dS| 0.254 bits. Compare against recorded values only by recomputing token by token (chunk = 1), which reproduces them exactly (decision D-021).
 
+## Outcome measures (WP4, defined 2026-11-22, before any fork rollout existed)
+
+See D-034 for the render procedure and models. With e_load, e_interact the L2-normalised image embeddings of an app's two screenshots:
+
+- **screen embedding** s = (e_load + e_interact) / ‖e_load + e_interact‖
+- **screen distance** d_s(a, b) = clip(1 − s_a·s_b, 0, 1)
+- **outcome distance** d(a, b) = 1 if exactly one of a, b renders, else d_s(a, b) (spec §5.4; used for fork importance)
+- **ensemble spread** of a prompt = mean of d_s over all pairs of its apps; **ensemble rarity** of an app = mean d_s to the other apps of its prompt (no render rule, as worded in the frozen plan; the render-rule variant is reported alongside)
+- code and fingerprint spread/rarity: the same with the cosine distance of code embeddings and with `fingerprint_distance` (mean of tag-histogram cosine distance and Jaccard distances of JS function names and CSS colours)
+
 ## Analysis plan (frozen 2026-11-20)
 
 Approved by Robert on 2026-11-20 (D-028); amended the same day before any grid data existed (D-029: forks counted in code only, comments reported separately). Committed before the main grid (prompt set v1) was generated — light pre-registration per spec §6. Changes after this date need a dated DECISIONS.md entry; the original stays visible in git history.
@@ -68,3 +78,41 @@ Thresholds (2 bits, 4 bits, last third) are fixed here so they cannot be tuned a
 - Null results are reported with effect sizes and confidence intervals.
 - Changes after freezing get a dated entry in DECISIONS.md with the reason, and the original stays visible in git.
 - Ratings: apps shown in random order, blind (spec §9); the rating sample is stratified by prompt (≈ 5 apps per prompt → ≈ 100 apps, D4). If fewer than 3 ratings per app are reached, the sample is reduced stratified by prompt rather than relaxing the ≥ 3 rule; the reduction is logged in DECISIONS.md.
+
+## Implementation notes (WP6, 2026-11-22)
+
+Code: `src/entropytrail/analysis/measures.py`; table: `results/app-measures.csv` (one row per app).
+
+- **App part:** tokens whose first character lies in the extracted HTML (`extract.app_span`); `rel_pos` = index among app tokens / number of app tokens.
+- **Sections:** `sections.token_sections(..., detail=True)`; code = html, css, js, text; comment = js-comment, css-comment, html-comment (D-029 rule: label of the token's first character; comment markers inside JS strings are code; regex literals are not detected).
+- **late JS surprise** (reading R3, confirmed by Robert, D-036): take the JS **code** tokens (label `js`, JS comments dropped first) in order, keep the last third by count (index ≥ ⌈2n/3⌉), share with S ≥ 4 bits; undefined (NaN) if the app has fewer than 3 JS code tokens (0 of the 420 grid apps).
+- **fork surprise:** mean S over forks; NaN if the app has no fork. **median_relpos_top10_forks:** median `rel_pos` of the (up to) 10 forks with the highest H.
+- **path action:** Σ S over app tokens; also per token. **H per char / per line:** Σ H over app tokens divided by characters / lines of `app.html`.
+- Check: the 20 smoke apps give 71.7 % of app tokens with H < 0.1 bits and 4.5 % with H ≥ 2 bits, as in JOURNAL 2026-11-20.
+
+## Temperature sweep comparison (frozen 2026-11-23)
+
+Approved by Robert on 2026-11-23 (D-037), before any app of a sweep condition existed. Changes need a dated DECISIONS.md entry.
+
+### Data and units
+
+- Reference: condition `qwen35-9b-bf16-mlx-1195d88b` (T = 1.0, the main grid). Sweep: `qwen35-9b-bf16-mlx-t0p7-a31fc218` (T = 0.7); T = 0.5 (`qwen35-9b-bf16-mlx-t0p5-…`) only if Robert decides so after the T = 0.7 comparison.
+- Same prompt set v1, 20 samples per prompt, same system prompt, recorder, measures (WP4 render v1, D-034) and Claude rating protocol v1.3 incl. the novelty calibration pass, for all 420 apps of each temperature.
+- The recorder logs the untempered distribution (log-softmax before the sampler; temperature only scales the sampling logits), so H, S and all landscape measures are on the same scale at every temperature.
+- Unit: the app. Prompts are a random effect (or cluster); `temperature` is a categorical fixed effect with T = 1.0 as reference; design coding as D-036 (`loose` + `C(domain)`).
+
+### Primary comparisons (one family per added temperature, Holm across C1–C3, α = 0.05, one-sided as stated)
+
+- **C1 – apps that run:** `renders` ~ temperature + loose + C(domain), logistic GLM, SE cluster-robust by prompt, both temperatures' apps (840). Expected: more apps render at the lower temperature (coefficient of the lower temperature > 0).
+- **C2 – ensemble spread:** per-prompt screen spread (frozen definition) of both temperatures (42 values) ~ temperature + C(prompt) (paired by prompt). Expected: lower spread at the lower temperature.
+- **C3 – novelty:** MixedLM `novelty_calibrated` ~ temperature + loose + C(domain) + (1 | prompt), apps whose core is observable (novelty not null). Expected: lower at the lower temperature. Claude ratings (D-030, D-032); the sweep has no human ratings.
+
+### Secondary (labelled, not in the family)
+
+- The H1, H2, H4 and H5 analyses of the frozen plan repeated per temperature (H4/H5 with Claude functionality and calibrated novelty).
+- Distributions by temperature: app length, fork share, late JS surprise, fork surprise, path action per token, Claude functionality/ui/ux, checklist share of tight prompts.
+- Novelty calibration is per prompt **within** a temperature; C3 compares calibrated scales across temperatures and is read with that caveat (calibrated novelty is relative to the 20 apps a calibration agent saw).
+
+## Amendment 2026-11-24 (D-038): data of the primary H3 test
+
+Before any data of the new design existed: the primary H3 test (model, criterion, Holm slot and the D-036 readings unchanged) uses the redesigned fork data — all sites of `results/forks/plan-pilot-s6.json` and `results/forks/plan-main.json`, fork importance with **six** same-token re-samples per site (noise floor = mean distance over the 15 pairs). The pilot result with two re-samples (not supported; LRT p 0.16, ρ −0.14) is kept and reported as the pilot.

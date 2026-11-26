@@ -165,3 +165,98 @@ seed 0, `--tokens` tokens, single sequence).
 | `prefill_tokens_per_s` | float | tokens/s | `prompt_tokens / prefill_s` |
 | `decode_s` | float | s | time from first to last token |
 | `decode_tokens_per_s` | float | tokens/s | `(tokens - 1) / decode_s` |
+
+## eval/ (automatic outcomes, WP4)
+
+`<unit>/eval/`, written by `et eval` (`src/entropytrail/evaluate.py`) for every done unit:
+grid apps (`<prompt_id>/NNN/`) and, with `--forks`, fork rollouts
+(`<prompt_id>/NNN/forks/PPPPP/<variant>/`). Written atomically via `eval.partial/`, which is
+renamed to `eval/` when complete; a unit is evaluated iff `eval/eval.json` has
+`status: "done"` and the current `render_version`, `image_model` and `code_model` (otherwise
+it is redone). `et eval` is a day job: the night run's `clean_partials` deletes `eval.partial`
+folders, so both must never run at the same time (D-033).
+
+| file | content |
+|---|---|
+| `load.png` | screenshot 1024×768 after load and 1.5 s of page time; blank white if the unit has no `app.html` or the page hung |
+| `interact.png` | screenshot after the fixed interaction (D-034); blank white if not reached |
+| `render.json` | render record, see below |
+| `fingerprint.json` | `tags` (start-tag counts), `js_functions` (sorted names), `css_colors` (sorted, normalised) |
+| `embeddings.npz` | float32 L2-normalised vectors: `img_load`, `img_interact` (image model), `screen` (normalised mean of the two), `code` (code model, of `app.html`, or of `output.txt` if no HTML was extracted) |
+| `eval.json` | `status`, `render_version`, `image_model`, `code_model`, `code_truncated` (input longer than 16,384 tokens of the code model), `git_commit`, `evaluated_at` |
+
+### render.json
+
+| key | type | definition |
+|---|---|---|
+| `renders` | bool | `app.html` exists, the page fired `load` within 15 s, and no uncaught page error occurred up to the first screenshot |
+| `timeout` | bool | the page did not load in time or hung (e.g. an endless loop) |
+| `n_page_errors` | int | uncaught exceptions (`pageerror`) over the whole session |
+| `n_console_errors` | int | `console.error` messages over the whole session |
+| `page_errors`, `console_errors` | list<string> | first 20 messages, each cut at 300 chars |
+| `n_page_errors_after_interaction` | int | uncaught exceptions during the interaction |
+| `interaction_failed` | list<string> | interaction steps that could not be done (`click`, `keys`, `fill`, `wait`), e.g. a covered button |
+| `hung_killed` | bool | the page blocked the renderer (e.g. a busy loop started by a timer after load) for longer than 35 s; the render worker was killed, `timeout` is true and `renders` false |
+| `body_text_chars` | int | length of `document.body.innerText` after load |
+| `blocked_requests` | int | network requests aborted (everything except the app file) |
+| `first_random` | float | first value returned by the seeded `Math.random` (NaN if never called) |
+| `viewport`, `random_seed`, `clock_start`, `render_version` | | fixed procedure parameters |
+| `playwright`, `chromium` | string | versions |
+
+## results/outcomes.csv and results/ensemble.csv
+
+Written by `scripts/collect_outcomes.py` from the `eval/` folders of the grid apps.
+`outcomes.csv`, one row per app: `prompt_id, sample, domain, openness, n_tokens,
+finish_reason, html_extracted, n_chars, n_lines` (of `app.html`, 0 if none), the render keys
+`renders, timeout, n_page_errors, n_console_errors, n_page_errors_after_interaction`, and
+`ensemble_rarity` (mean screen cosine distance to the other apps of the prompt, no render
+rule), `code_rarity` (same with code embeddings), `fingerprint_rarity` (same with
+`fingerprint_distance`). `ensemble.csv`, one row per prompt: `prompt_id, domain, openness,
+n_apps, n_renders, ensemble_spread` (mean pairwise screen cosine distance),
+`ensemble_spread_render_rule` (same with outcome distance, D-034), `code_spread`,
+`fingerprint_spread`.
+
+## Fork experiments (WP5)
+
+### results/forks/plan-&lt;name&gt;.json (committed)
+
+Written by `et forks-plan`. Keys: `plan_version` (1), `condition_id`, `created_at`, `seed`,
+`params` (`n_top` 10, `n_random` 3, `min_spacing` 20, `n_alt` 3, `n_same` 2), `apps`: list of
+`{prompt_id, sample, n_tokens, sites}`; each site: `pos` (token index in the parent's
+`tokens.parquet`), `kind` (`top` = among the 10 highest-H code tokens, `random` = control),
+`H`, `S` (bits, as recorded), `section` (A1 label of the token), `rel_pos` ((pos − first app
+token) / number of app tokens), `actual_id`, `variants` (`alt1..alt3`: the top-3 alternatives
+≠ actual token, in descending probability; `same1`, `same2`: the actual token).
+
+### Rollout units
+
+`<prompt_id>/<sample:03d>/forks/<pos:05d>/<variant>/`, a unit directory as above (atomic
+`.partial` rename, `status: "done"`, stale directories renamed). The rollout continues the
+parent app from the prefix `prompt_ids + parent tokens[:pos] + [forced token]` with the same
+condition (T = 1.0, no truncation) and at most `max_tokens − pos − 1` new tokens, so the
+16,000-token cap counts from the start of generation as for the grid apps.
+
+- `output.txt` / `app.html`: the **full** app text (parent prefix + forced token + continuation).
+- `tokens.parquet`: the **continuation** tokens only (same columns as above); `char_offset`
+  is relative to `fork.continuation_char_offset`. A forced EOS (or a zero budget) gives an
+  empty table.
+- `meta.json`: the keys of an app unit (`n_tokens` counts continuation tokens, `seconds` is
+  the continuation time, `prompt_ids` is the chat prompt) plus `seed` =
+  `derive_seed(condition_id, "<prompt_id>/<sample:03d>/<pos:05d>/<variant>", 0)` and
+  `fork`: `parent` (`<prompt_id>/<sample:03d>`), `pos`, `kind`, `variant`,
+  `forced_token_id`, `actual_token_id`, `H` (recorded entropy at the site),
+  `prefix_len` (= len(prompt_ids) + pos + 1, input length for a chunk=1 re-check, D-021),
+  `continuation_char_offset`, `plan` (plan path), `plan_sha256`.
+
+On resume a done rollout is skipped only if its `parent`, `pos`, `variant`,
+`forced_token_id` and `seed` equal the plan's; otherwise the run aborts. `runlog.jsonl`
+entries of fork runs carry `"kind": "forks"` and `plan`.
+
+### results/forks/importance-&lt;plan&gt;.csv
+
+Written by `scripts/collect_forks.py`, one row per site with ≥ 1 evaluated alternative and
+2 evaluated same-token rollouts: `prompt_id, sample, domain, openness, pos, kind, H, S,
+section, rel_pos` (from the plan), `n_alt, n_same, n_alt_renders, n_same_renders`,
+`alt_same` (mean outcome distance alternative vs same-token rollouts), `noise_floor` (mean
+distance among same-token rollouts), `importance` = `alt_same − noise_floor` (spec §5.4),
+`importance_incl_original` (same with the parent app as a third same-token outcome, D-035).

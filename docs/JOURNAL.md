@@ -60,3 +60,71 @@ All 420 units of prompt set v1 (21 prompts × 20 samples, condition `qwen35-9b-b
 ## 2026-11-21 (novelty calibration complete)
 
 Calibration pass (D-032, protocol v1.3) done for all 21 prompts: 420/420 files carry `novelty_calibrated` (1: 194, 2: 129, 3: 73, 4: 22, 5: 2; no null). First-pass vs calibrated novelty: r = 0.49, 54 % identical (n = 253 with both values) — confirms the rater drift that motivated the pass. Exploratory, not a test of H5: Spearman ρ(functionality, novelty_calibrated) = −0.25; share of apps with functionality ≥ 3 falls from 43 % (novelty 1) to 28 % (2), 25 % (3) and 9 % (4). The first calibration agent (edu-tight-01) judged from source only; the brief was tightened to require a screenshot per app for all later prompts. `results/ratings-claude.csv` updated.
+
+## 2026-11-22 (WP4: automatic outcomes of the grid)
+
+`et eval` (render v1, SigLIP2 screenshots, Qwen3-Embedding code, fingerprints; D-033, D-034) on all 420 grid apps on the Studio, day run, Ollama idle: 420 done, 0 failed. The first attempt stalled for ~35 min on free-02/012 (a busy loop started by a timer after load blocks Playwright calls without timeout); fixed by rendering each unit in a killable worker process (35 s limit), then resumed (144 skipped, 276 done). Results in `results/outcomes.csv` and `results/ensemble.csv`.
+
+- 288/420 apps render (load without uncaught error), 10 time out or hang. Agreement with the Claude first-pass rating (functionality ≥ 2): 82 %. Disagreements are mostly apps that load but whose core is broken (57 render, functionality 1), and 20 apps with an uncaught load error that still partly work.
+- Visual check of 8 random apps (load and interaction screenshots against the Claude `what_it_is` line): all match; the fixed interaction visibly acts (input filled, puzzle tile moved, game started/over).
+- Sanity check required by plan 2 (A6), descriptive only, not the H2 test: the most uniform prompts (tip calculator, unit converter, times-table trainer, memory) have the lowest screen spread (0.03–0.08); the free prompts and loose tools the highest (0.25–0.29).
+
+## 2026-11-22 (WP5: fork rollouts smoke test, pilot queued)
+
+Day smoke test of the rollout runner on the 9B (Ollama idle, D-018): one site of the pilot plan (game-tight-01/000, position 1873, a colour constant, H 1.9 bits), 5 rollouts in 1 min 48 s (229–283 tokens each, 7–15 tok/s including prefill of the ~2,000-token prefix), all end with EOS, prefixes identical to the parent up to the forced token. `et eval --forks`: all 5 render; importance 0.010 (noise floor ≈ 0), i.e. the colour choice barely changes the screen. These rollouts are identical to what the pilot run would produce (same code, seeds and forced tokens) and are kept.
+
+Final review of plan 2 (fresh reviewer): fixed the parent-token identity check of the fork runner, the classification of render-worker crashes, and section labels for regex literals and CSS strings (16 of 420 apps change in `results/app-measures.csv`; pilot plan regenerated, free-01/004 sites changed). The night queue now runs `results/forks/plan-pilot.json` (`ET_FORK_PLAN` in `ops/night.env`), expected ~4 nights.
+
+## 2026-11-22 (WP6: interim analysis H1, H2)
+
+Robert decided R1–R3 (D-036, the recommended readings). `scripts/analyze.py` run on the grid: H1 supported (97.1 % of apps reject unimodality; Holm p 4·10⁻²⁵), H2 supported (loose prompts +0.098 screen spread, CI 0.060–0.137; Holm p 1·10⁻⁴). Secondary: late JS surprise lowers the odds of rendering (OR 0.41 per SD), fork surprise raises ensemble rarity slightly; strongest forks are not earlier in loose prompts. Exploratory Claude-rating models point the same way as H4/H5. Details: `results/analysis/REPORT.md`. Figures follow with the H3 run after the fork pilot.
+
+## 2026-11-23 (fork pilot, night 2026-11-22; automatic morning entry)
+Night runs: 1 (done 197, aborted 1, errors 0). Rollouts finished since 22:00: 228 (mean 16.0 tok/s); plan total 270/975. `et eval --forks` exit 0, collect exit 0; `results/forks/importance-pilot.csv`: 54 sites with importance.
+
+## 2026-11-24 (fork pilot, night 2026-11-23; automatic morning entry)
+Night runs: 1 (done 118, aborted 0, errors 0). Rollouts finished since 22:00: 128 (mean 16.6 tok/s); plan total 975/975. `et eval --forks` exit 0, collect exit 0; `results/forks/importance-pilot.csv`: 195 sites with importance. **fork pilot: complete** — next: H3 run (`scripts/analyze.py`) and the D2 scale decision.
+
+## 2026-11-24 (WP5 pilot complete, H3)
+
+Fork pilot complete: 975/975 rollouts (day and night windows 2026-11-22 to 2026-11-24, no errors; last night ended 03:16). `scripts/analyze.py`: **H3 not supported** — the model with position and section is not better than entropy alone (LRT 6.5, 4 df, p 0.16, Holm 0.49); ρ(H, importance) = −0.14. Fork importance is centred on 0 (SD 0.36); the same-token noise floor (one pair per site) is large and noisy (mean 0.30, 0.13 for Snake, ~0.38 for the loose/open prompts), so the per-site importance is dominated by sampling noise. Details in `results/analysis/REPORT.md`. Fork queue switched off; next: temperature sweep T = 0.7 (D-037), D2 decision by Robert.
+
+## 2026-11-24 (WP12: temperature sweep T = 0.7 started)
+
+Plan 3 Task 2 (day window runs a grid queue, `ET_DAY_GRID`) and Task 4 done: `ops/night.env` now queues condition `qwen35-9b-bf16-mlx-t0p7-a31fc218` (T = 0.7, D-037) in the day (07:15–22:45) and night windows; fork queue off. Smoke unit game-tight-01/000 at T = 0.7: 2,676 tokens, EOS, 17.4 tok/s; mean S 0.072 bits vs 0.176 for the T = 1.0 sample 000 (3 vs 20 tokens with S ≥ 4 bits), mean H 0.108 vs 0.164 bits — H stays on the untempered scale as expected. New `condition.json` created; the T = 1.0 `condition.json` unchanged (sha256 checked). Day run started 08:17. Expected ~2 days for 420 units. Progress is checked by the session check-ins (the 06:30 morning job only handles fork plans and now does nothing).
+
+## 2026-11-24 (D2 decided, 24/7 queue)
+
+Robert chose the fork redesign (D-038: six same-token re-samples; pilot sites extended, 18 further prompts with 2 apps each; H3 primary on the new data) and around-the-clock use of the Studio (D-039). Day and night windows replaced by the queue in `ops/queue.txt`: T = 0.7 sweep (120/420 done at switch time) → its evaluation → `plan-pilot-s6` (780 new rollouts) → `plan-main` (2,268) → fork evaluation. Expected ≈ 1 day for the rest of the sweep and ≈ 5–6 days for the forks.
+
+## 2026-11-25 (WP12: T = 0.7 sweep generated and evaluated)
+
+Queue: T = 0.7 generation complete 08:30 (420/420; overnight run 161 units, no errors), `et eval` 08:30–08:45 (420 done, 0 failed). Collected into `results/qwen35-9b-bf16-mlx-t0p7-a31fc218/` (outcomes, ensemble, app-measures); precheck: 19 apps with JavaScript syntax errors rated automatically (401 left for the Chrome raters). First look vs T = 1.0 (descriptive, not the C1–C3 comparison): renders 90.7 % vs 68.6 %, timeouts 1 vs 10, median 3,576 vs 3,998 tokens, mean screen spread 0.123 vs 0.159 (tight 0.070/0.092, loose 0.144/0.190, open 0.218/0.271). The queue moved on to `plan-pilot-s6` at 08:45. Next: Chrome ratings for T = 0.7 (waiting for Robert).
+
+## 2026-11-25 (WP12: Claude ratings T = 0.7)
+
+Robert approved the Chrome ratings for T = 0.7 (plan 3 T2: all apps, protocol v1.2 first pass + v1.3 novelty calibration, same briefs as T = 1.0 with the data directory switched; app server restarted on the T = 0.7 directory). 21 rating agents (sonnet, one per prompt, sequential) 09:05–11:11 and 21 calibration agents 11:11–11:39; 401 apps tested in Chrome, 19 auto-rated by the syntax pre-check; all 420 have `novelty_calibrated`. Collected into `results/qwen35-9b-bf16-mlx-t0p7-a31fc218/ratings-claude.csv`. Notes: from the 4th prompt on, agents wrote each file right after its test; game agents got a hint for holding keys via dispatched key events (the T = 1.0 raters did the same); calibration depth matched T = 1.0 (≈ 1–2 min per prompt, mostly start screen + source). Descriptive first look vs T = 1.0: functionality mean 2.75 vs 2.14, functionality ≥ 4 in 30.0 % vs 15.5 %, functionality 1 in 15.7 % vs 40.2 %; calibrated novelty 1.80 vs 1.83 (tight 1.39/1.63, loose 1.98/2.01, open 2.45/1.92). The comparison C1–C3 follows with `scripts/compare_temperatures.py`.
+
+## 2026-11-25 (WP12: temperature comparison T = 0.7 vs 1.0)
+
+`scripts/compare_temperatures.py` (frozen C1–C3, Holm m = 3): **C1 supported** — 90.7 % vs 68.6 % of apps render (+1.60 log-odds, Holm p 2·10⁻²⁴); **C2 supported** — ensemble screen spread 0.123 vs 0.159 (−0.037, CI −0.047 to −0.026, Holm p 6·10⁻⁷); **C3 not supported** — Claude calibrated novelty 1.80 vs 1.83 (−0.03, CI −0.16 to 0.09, p 0.30; read with the within-temperature calibration caveat). Per-temperature analysis at T = 0.7: H1 and H2 hold as at T = 1.0 (H2 loose effect +0.074 vs +0.098). Report: `results/temperature-sweep/REPORT.md`. Next (plan 3 Task 6): checkpoint with Robert — T = 0.5 or not.
+
+## 2026-11-25 (WP12: T = 0.5 decided)
+
+Robert decided to run T = 0.5 as well (D-040). Condition `qwen35-9b-bf16-mlx-t0p5-c9bce32f`; queued after the fork jobs (grid + eval). Ratings and the comparison follow the T = 0.7 procedure once the eval is complete.
+
+## 2026-11-25 (D-041: cross-temperature novelty pass prepared)
+
+Robert agreed to a blind cross-temperature novelty pass after the T = 0.5 ratings (D-041, exploratory): key builder, blind server mode (`serve_apps.py --blind-key`), collector and analysis (`src/entropytrail/novelty_cross.py`, `scripts/novelty_cross.py`, tests), agent brief `docs/novelty-cross-brief.md`. Checked billing: Claude Code uses the subscription login (the shell's API key is on Claude Code's rejected list).
+
+## 2026-11-26 (D-042 prepared: rescoring and semantic entropy)
+
+Robert's theory notes reviewed. Already covered: per-token H/S (§1), fork position (H2 secondary, §2), fork importance (H3, §4), max_tokens and finish reason (§6; T = 1.0: 439 of 440 apps ended with the end token, one hit 16,000). Output structure checked at T = 1.0: 401 of 440 outputs are a fenced ```html block, the rest start directly with the document; text outside the app is at most 884 characters before and 4 after — the token chain is practically the code. Implemented D-042: `et rescore` + queue job kind `rescore`, stopping/position analysis, semantic-entropy analysis and cluster brief, tests (214 pass). Rescore jobs are appended when the current queue completes.
+
+## 2026-11-26 (theory note)
+
+Discussed with Robert how the attainable region of dynamic systems carries over: the reachable set is everything at T > 0, so the informative object is the distribution over final sequences and its pushforward onto app classes; on the token tree the forward equation is trivial (probability only splits), and the non-trivial dynamics live in the projection (Mori–Zwanzig). Written down as `docs/THEORY.md`, a reading frame for the existing measurements only. Agreed focus: no new experiments from it until H3 and the T = 0.5 sweep are reported; the deferred items are listed in its §7.
+
+## 2026-11-26 (README updated)
+
+README brought up to date: temperature sweep and six fork re-samples in the method, Claude ratings named as exploratory, new sections "Results so far (interim)" (H1–H3, H4/H5 status, T = 0.7 sweep) and "How to read it" (short version of docs/THEORY.md). Two new figures from the committed results via `scripts/make_readme_figures.py`: `temperature-sweep-v1.svg` (renders, functionality, per-prompt spread, novelty at T = 1.0 vs 0.7) and `entropy-vs-spread-v1.svg` (per prompt, mean ΣH of an app vs ensemble spread at T = 1.0: 300–4,600 bits per app, Spearman ρ 0.51 with spread, driven mostly by length, ρ 0.88).

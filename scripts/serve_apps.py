@@ -1,6 +1,6 @@
 """Serve generated apps for rating, with a dialog shim injected.
 
-    uv run python scripts/serve_apps.py [--port 8770] [--root /Volumes/Data/entropytrail/<condition_id>]
+    uv run python scripts/serve_apps.py [--port 8770] [--root /Volumes/Data/entropytrail/<condition_id>] [--blind-key key.json]
 
 GET /<prompt_id>/<sample>/ returns that unit's app.html with a small script inserted at the
 very start, which replaces alert/confirm/prompt by console logging (browser dialogs would
@@ -41,11 +41,17 @@ def inject(html: str, unit: str = "") -> str:
     return pre + html
 
 
-def make_handler(root: Path):
+def make_handler(root: Path, blind: dict[str, dict[str, str]] | None = None):
+    """Serve <root>/<prompt>/<sample>/app.html, or with ``blind`` ({prompt: {blind id: unit dir}})
+    the unit behind a blind id (cross-temperature novelty pass, D-041)."""
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802
             m = UNIT.match(self.path.split("?")[0])
-            app = root / m.group(1) / m.group(2) / "app.html" if m else None
+            if blind is not None:
+                unit = blind.get(m.group(1), {}).get(m.group(2)) if m else None
+                app = Path(unit) / "app.html" if unit else None
+            else:
+                app = root / m.group(1) / m.group(2) / "app.html" if m else None
             if not app or not app.is_file():
                 self.send_error(404)
                 return
@@ -67,8 +73,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8770)
     ap.add_argument("--root", default="/Volumes/Data/entropytrail/qwen35-9b-bf16-mlx-1195d88b")
+    ap.add_argument("--blind-key", help="key.json of the cross-temperature novelty pass (D-041); serves blind ids")
     a = ap.parse_args()
-    ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(Path(a.root))).serve_forever()
+    blind = None
+    if a.blind_key:
+        import json
+
+        from entropytrail.novelty_cross import server_map
+
+        blind = server_map(json.loads(Path(a.blind_key).read_text()))
+    ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(Path(a.root), blind)).serve_forever()
 
 
 if __name__ == "__main__":

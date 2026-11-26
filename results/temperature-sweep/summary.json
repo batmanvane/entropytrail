@@ -1,0 +1,248 @@
+{
+  "reference": {
+    "condition_id": "qwen35-9b-bf16-mlx-1195d88b",
+    "temperature": 1.0
+  },
+  "comparisons": {
+    "0.7": {
+      "condition_id": "qwen35-9b-bf16-mlx-t0p7-a31fc218",
+      "C1": {
+        "n": 840,
+        "n_prompts": 21,
+        "estimate": 1.5999204993498402,
+        "ci": [
+          1.293121401038895,
+          1.9067195976607854
+        ],
+        "p_two_sided": 1.59722692928973e-24,
+        "p_primary": 7.98613464644865e-25,
+        "sign": "+",
+        "model": "Logit renders ~ lowT + loose + C(domain), cluster-robust SE by prompt",
+        "share": {
+          "0.7": 0.9071428571428571,
+          "1.0": 0.6857142857142857
+        }
+      },
+      "C2": {
+        "n": 42,
+        "n_prompts": 21,
+        "estimate": -0.03660033333333343,
+        "ci": [
+          -0.04722082469651392,
+          -0.02597984197015294
+        ],
+        "p_two_sided": 5.837225609425658e-07,
+        "p_primary": 2.918612804712829e-07,
+        "sign": "-",
+        "model": "OLS ensemble_spread ~ lowT + C(prompt), paired by prompt",
+        "mean": {
+          "0.7": 0.12282004761904762,
+          "1.0": 0.15942038095238095
+        }
+      },
+      "C3": {
+        "n": 840,
+        "n_prompts": 21,
+        "estimate": -0.03333333333333335,
+        "ci": [
+          -0.15634985267877688,
+          0.0896831860121102
+        ],
+        "p_two_sided": 0.5953604153795207,
+        "p_primary": 0.29768020768976033,
+        "sign": "-",
+        "model": "MixedLM novelty_calibrated ~ lowT + loose + C(domain) + (1|prompt)",
+        "mean": {
+          "0.7": 1.7976190476190477,
+          "1.0": 1.8309523809523809
+        }
+      },
+      "holm": {
+        "C1": {
+          "p": 7.98613464644865e-25,
+          "p_holm": 2.395840393934595e-24,
+          "reject": true
+        },
+        "C2": {
+          "p": 2.918612804712829e-07,
+          "p_holm": 5.837225609425658e-07,
+          "reject": true
+        },
+        "C3": {
+          "p": 0.29768020768976033,
+          "p_holm": 0.29768020768976033,
+          "reject": false
+        }
+      },
+      "descriptive": {
+        "label": "secondary, descriptive; not in the family",
+        "n_app_tokens": {
+          "0.7": {
+            "mean": 3720.9928571428572,
+            "median": 3564.0,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 4389.726190476191,
+            "median": 3959.5,
+            "n": 420
+          }
+        },
+        "fork_share": {
+          "0.7": {
+            "mean": 0.011024057142857143,
+            "median": 0.009474,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 0.022916521428571427,
+            "median": 0.018889,
+            "n": 420
+          }
+        },
+        "late_js_surprise": {
+          "0.7": {
+            "mean": 0.0016518666666666666,
+            "median": 0.000533,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 0.014475888095238093,
+            "median": 0.011321000000000001,
+            "n": 420
+          }
+        },
+        "fork_surprise": {
+          "0.7": {
+            "mean": 1.95293161722488,
+            "median": 1.950605,
+            "n": 418
+          },
+          "1.0": {
+            "mean": 2.7347018345323737,
+            "median": 2.763632,
+            "n": 417
+          }
+        },
+        "path_action_per_token": {
+          "0.7": {
+            "mean": 0.1373834857142857,
+            "median": 0.1240965,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 0.33544581904761905,
+            "median": 0.28181999999999996,
+            "n": 420
+          }
+        },
+        "functionality": {
+          "0.7": {
+            "mean": 2.75,
+            "median": 3.0,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 2.142857142857143,
+            "median": 2.0,
+            "n": 420
+          }
+        },
+        "ui": {
+          "0.7": {
+            "mean": 3.264339152119701,
+            "median": 3.0,
+            "n": 401
+          },
+          "1.0": {
+            "mean": 3.070028011204482,
+            "median": 3.0,
+            "n": 357
+          }
+        },
+        "ux": {
+          "0.7": {
+            "mean": 2.4523809523809526,
+            "median": 3.0,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 1.9690476190476192,
+            "median": 2.0,
+            "n": 420
+          }
+        },
+        "novelty_calibrated": {
+          "0.7": {
+            "mean": 1.7976190476190477,
+            "median": 2.0,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 1.8309523809523809,
+            "median": 2.0,
+            "n": 420
+          }
+        },
+        "checklist_share": {
+          "0.7": {
+            "mean": 0.8340909090909091,
+            "median": 1.0,
+            "n": 176
+          },
+          "1.0": {
+            "mean": 0.7082828282828283,
+            "median": 0.8,
+            "n": 165
+          }
+        },
+        "renders": {
+          "0.7": {
+            "mean": 0.9071428571428571,
+            "median": 1.0,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 0.6857142857142857,
+            "median": 1.0,
+            "n": 420
+          }
+        },
+        "ensemble_rarity": {
+          "0.7": {
+            "mean": 0.12282004523809525,
+            "median": 0.1166745,
+            "n": 420
+          },
+          "1.0": {
+            "mean": 0.15942031904761905,
+            "median": 0.149981,
+            "n": 420
+          }
+        }
+      }
+    }
+  },
+  "provenance": {
+    "git_commit": "bff3689b303f44fb4be99c62df09b4094aebe75d",
+    "git_dirty": false,
+    "decisions": [
+      "D-030",
+      "D-032",
+      "D-034",
+      "D-036",
+      "D-037"
+    ],
+    "inputs": {
+      "results/outcomes.csv": "d94db5602471c4a217fab6cc83ad9bf248326019551d6231ad969bfa23c840c3",
+      "results/app-measures.csv": "3ce2422bf5a1e642c7144b7e5b2bb8f43a288871a4bcce845835f9980f5189e5",
+      "results/ratings-claude.csv": "6c277546500912d53a0b6fb4b7db78a218271ba9abca8ba2d43d7920df8dbe17",
+      "results/ensemble.csv": "a2c5e0186d9c4c7009dbe45872d52a661683c98cee6982a404194e1e0a1e7b9d",
+      "results/qwen35-9b-bf16-mlx-t0p7-a31fc218/outcomes.csv": "ff4c7a85d68de87efc2d6c2d8dfb6b394c012af18d5389acb61de51139308768",
+      "results/qwen35-9b-bf16-mlx-t0p7-a31fc218/app-measures.csv": "3dd8d7c504faafaa277dbaeec2f695ee6a7f15c3ff9155e0113df369f99d3ff6",
+      "results/qwen35-9b-bf16-mlx-t0p7-a31fc218/ratings-claude.csv": "a83f36932c1c9df9ccfaf0f91b26377ba4c1944e923046dc5b603b74b4d1d836",
+      "results/qwen35-9b-bf16-mlx-t0p7-a31fc218/ensemble.csv": "3ac53d58714b01cc79b0dd815534d3050746344fc539a21510403bcdc6a02787"
+    },
+    "created_at": "2026-11-25T11:42:08+01:00"
+  }
+}
