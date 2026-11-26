@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tap to Survive</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --accent-color: #22d3ee;
+            --danger-color: #f43f5e;
+            --text-color: #f8fafc;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(4px);
+            transition: opacity 0.3s ease;
+        }
+
+        h1 {
+            color: var(--text-color);
+            font-size: 4rem;
+            margin: 0 0 20px 0;
+            text-shadow: 0 0 20px var(--accent-color);
+            font-weight: 800;
+            letter-spacing: -2px;
+        }
+
+        h1 small {
+            display: block;
+            font-size: 1rem;
+            font-weight: 400;
+            letter-spacing: 4px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 10px;
+        }
+
+        p {
+            color: var(--text-color);
+            font-size: 1.5rem;
+            margin: 10px 0;
+            opacity: 0.8;
+        }
+
+        .score-display {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--text-color);
+            pointer-events: none;
+            z-index: 10;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none !important;
+        }
+
+        .pulse {
+            animation: pulse-animation 0.1s ease-in-out;
+        }
+
+        @keyframes pulse-animation {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Mobile instruction */
+        #mobile-hint {
+            display: none;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            opacity: 0.6;
+            border: 1px solid var(--accent-color);
+            padding: 5px 15px;
+            border-radius: 20px;
+            background: rgba(34, 211, 238, 0.1);
+        }
+        
+        @media (hover: none) and (pointer: coarse) {
+            #mobile-hint { display: inline-block; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="score-display" id="scoreEl">500</div>
+
+        <div id="ui-layer">
+            <div id="start-screen">
+                <h1>NEON JUMP</h1>
+                <p>Tap to Survive</p>
+                <div id="mobile-hint">Tap screen or Press Space</div>
+            </div>
+            <div id="game-over-screen" class="hidden">
+                <h1 style="color: var(--danger-color)">GAME OVER</h1>
+                <p>Final Score: <span id="final-score">0</span></p>
+                <p style="font-size: 1rem; opacity: 0.7">High Score: <span id="high-score">0</span></p>
+            </div>
+        </div>
+    </div>
+
+<script>
+/**
+ * NEON JUMP - A Single Key Game
+ * 
+ * Logic:
+ * 1. Player is a ball at the top.
+ * 2. Player automatically bounces off the bottom of the screen.
+ * 3. Player moves vertically.
+ * 4. "Spikes" (rectangular hazards) fall from the top.
+ * 5. Timer increases.
+ * 6. Player taps to slow down and drift left/right.
+ * 7. Delay between taps is the key mechanic. Delay = Score / 100.
+ * 8. Speed increases as score increases.
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const uiLayer = document.getElementById('ui-layer');
+const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const scoreEl = document.getElementById('scoreEl');
+const finalScoreEl = document.getElementById('final-score');
+const highScoreEl = document.getElementById('high-score');
+const uiTitle = document.querySelector('#game-over-screen h1');
+
+// Game State
+let gameState = 'START'; // START, PLAYING, GAMEOVER
+let score = 0;
+let highScore = localStorage.getItem('neonJumpHighScore') || 0;
+let lastTime = 0;
+let frameCount = 0;
+let difficultyMultiplier = 0; // How much speed increases
+
+// Entity Sizes
+const ballRadius = 15;
+const rectW = 40;
+const rectH = 40;
+
+// Input Tracking
+let lastTapTime = 0;
+let currentX = 0;
+let currentY = 0;
+let targetX = 0;
+let targetY = 0;
+
+// Arrays
+let obstacles = [];
+let particles = [];
+let stars = [];
+
+// Resize Handling
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // Reset positions if needed or keep aspect ratio
+    targetY = ballRadius;
+    currentY = ballRadius;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Game Entities
+class Obstacle {
+    constructor() {
+        this.w = rectW;
+        this.h = rectH;
+        this.x = Math.random() * (canvas.width - this.w);
+        this.y = -this.h;
+        // Speed depends on difficulty
+        this.vy = (4 + Math.random() * 2) + (difficultyMultiplier * 0.5); 
+    }
+
+    update(dt) {
+        this.y += this.vy * dt;
+    }
+
+    draw() {
+        ctx.fillStyle = '#f43f5e';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#f43f5e';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+        ctx.shadowBlur = 0;
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 10;
+        this.vy = (Math.random() - 0.5) * 10;
+        this.life = 1.0;
+        this.color = color;
+        this.size = Math.random() * 4 + 1;
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.02;
+    }
+
+    draw() {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    }
+}
+
+class Star {
+    constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 2;
+        this.alpha = Math.random();
+    }
+    
+    draw() {
+        ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;
+        ctx.fillRect(this.x, this.y, 2, 2);
+    }
+}
+
+// Initialize Stars
+for(let i=0; i<50; i++) {
+    stars.push(new Star());
+}
+
+// Core Logic
+function update(dt) {
+    if (gameState !== 'PLAYING') return;
+
+    // Difficulty scaling
+    difficultyMultiplier = Math.floor(score / 100);
+
+    // Update Difficulty Display
+    // The delay is determined by score. 
+    const delay = Math.max(100, 500 - (score / 4)); // Max 450ms, min 100ms
+
+    // Cooldown Logic using Date.now() for tactile response
+    const now = Date.now();
+    if (now - lastTapTime > delay) {
+        move();
+    }
+
+    // 1. Ball Movement
+    // Move horizontally towards target
+    currentX += (targetX - currentX) * 0.8 * dt;
+    
+    // Screen wrapping logic
+    const drawW = canvas.width;
+    // Simple boundary check
+    if (currentX > drawW) currentX = 0;
+    if (currentX < -drawW) currentX = drawW; // Lin-Manuel effect or just simple keep in view?
+    
+    // Let's try staying on screen and just pinning X to aspect ratio if too far?
+    // Actually, simple bouncing or wrapping is better for mobile. Let's do wrapping.
+    // Or simpler: just clamp to 0 - width (minus radius) for safety, 
+    // but wrapping feels more organic.
+    
+    // Let's calculate wrapping
+    let extremeLeftX = (canvas.width - currentX) % (canvas.width * 2);
+    let extremeRightX = (canvas.width - (currentX + 20)) % (canvas.width * 2);
+    if (extremeLeftX > 0) currentX += extremeLeftX;
+    if (extremeRightX > 0) currentX -= extremeRightX;
+
+    // Constrain X to 0 and canvas width
+    if (currentX + ballRadius < 0) currentX = ballRadius;
+    if (currentX > canvas.width - ballRadius) currentX = canvas.width - ballRadius;
+
+    currentY = targetY;
+
+    // 2. Obstacles
+    // Spawn logic
+    spawnRate = 2000 - (difficultyMultiplier * 100); // Spawn faster as score goes up
+    // Clamp min spawn rate
+    if (Math.random() * 1000 < spawnRate) {
+        obstacles.push(new Obstacle());
+    }
+
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].update(dt);
+        
+        // Collision Detection
+        // AABB Collision
+        if (
+            currentX < obstacles[i].x + obstacles[i].w &&
+            currentX + ballRadius * 2 > obstacles[i].x &&
+            currentY > obstacles[i].y &&
+            currentY + ballRadius * 2 < obstacles[i].y + obstacles[i].h
+        ) {
+            gameOver();
+        }
+
+        // Cleanup
+        if (obstacles[i].y > canvas.height + 100) {
+            obstacles.splice(i, 1);
+            score += 10;
+            updateScoreUI();
+            scoreEl.classList.remove('pulse');
+            void scoreEl.offsetWidth; // trigger reflow
+            scoreEl.classList.add('pulse');
+        }
+    }
+
+    // 3. Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        if (particles[i].life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+}
+
+function move() {
+    lastTapTime = Date.now();
+    // Target logic:
+    // If current X < half, target = half
+    // If current X > half, target = width - half
+    // This creates a "sway" effect across the center
+    const center = canvas.width / 2;
+    const target = center;
+
+    targetX = target;
+    targetY = ballRadius;
+    
+    // Add particles at tap location
+    if (particles.length < 20) {
+        particles.push(new Particle(currentX, targetY, '#22d3ee'));
+    }
+}
+
+function updateScoreUI() {
+    score = Math.max(score, 0);
+    scoreEl.innerText = score;
+}
+
+function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 1000, 0.1); // Cap dt for lag spikes
+    lastTime = timestamp;
+
+    // Clear
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.3)'; // Trail effect
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Stars
+    stars.forEach(star => star.draw());
+
+    if (gameState === 'PLAYING') {
+        update(dt);
+    }
+
+    // Draw Entities
+    obstacles.forEach(obs => obs.draw());
+    particles.forEach(part => part.draw());
+
+    // Draw Ball
+    // Create glow for ball
+    const glowGradient = ctx.createRadialGradient(currentX, currentY, 2, currentX, currentY, ballRadius * 2.5);
+    glowGradient.addColorStop(0, '#fff');
+    glowGradient.addColorStop(0.5, '#22d3ee');
+    glowGradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
+
+    ctx.fillStyle = glowGradient;
+    ctx.beginPath();
+    ctx.arc(currentX, currentY, ballRadius * 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Solid ball
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(currentX, currentY, ballRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    requestAnimationFrame(gameLoop);
+}
+
+function start() {
+    gameState = 'PLAYING';
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    
+    // Reset entities
+    obstacles = [];
+    particles = [];
+    score = 0;
+    difficultyMultiplier = 0;
+    lastTapTime = 0;
+    currentX = canvas.width / 2;
+    targetX = canvas.width / 2;
+    
+    updateScoreUI();
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    
+    // Visual shake
+    canvas.style.transform = 'translate(5px, 5px)';
+    setTimeout(() => canvas.style.transform = 'translate(-5px, -5px)', 50);
+    setTimeout(() => canvas.style.transform = 'translate(0, 0)', 100);
+
+    // Create explosion
+    for(let i=0; i<30; i++) {
+        particles.push(new Particle(currentX, currentY, '#f43f5e'));
+    }
+
+    // Wait a beat then show menu
+    setTimeout(() => {
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('neonJumpHighScore', highScore);
+        }
+        
+        finalScoreEl.innerText = score;
+        highScoreEl.innerText = highScore;
+        uiTitle.innerText = "GAME OVER";
+        
+        gameOverScreen.classList.remove('hidden');
+    }, 500);
+}
+
+function inputAction() {
+    if (gameState === 'START') {
+        start();
+    } else if (gameState === 'PLAYING') {
+        move();
+    } else if (gameState === 'GAMEOVER') {
+        start();
+    }
+}
+
+// Listeners
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') inputAction();
+});
+
+window.addEventListener('touchstart', (e) => {
+    // Prevent default to stop scrolling/zooming
+    e.preventDefault();
+    inputAction();
+}, { passive: false });
+
+window.addEventListener('mousedown', (e) => {
+    inputAction();
+});
+
+// Start Loop
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraction Math Quiz</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #22c55e;
+            --error: #ef4444;
+            --background: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border-radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 600px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+            transition: height 0.3s ease;
+        }
+
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #fff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .content {
+            padding: 30px;
+            text-align: center;
+        }
+
+        /* Start Screen */
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .start-btn, .restart-btn, .next-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.2s;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        .start-btn:hover, .restart-btn:hover, .next-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Quiz Screen */
+        .question-counter {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .question-text {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: var(--text);
+        }
+
+        .options-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .option-btn {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            padding: 15px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            font-family: inherit;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .option-btn:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        /* Feedback States */
+        .option-btn.correct {
+            background-color: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        .option-btn.wrong {
+            background-color: var(--error);
+            border-color: var(--error);
+            color: white;
+        }
+
+        .feedback-msg {
+            margin-top: 20px;
+            font-weight: bold;
+            min-height: 24px;
+        }
+
+        .feedback-msg.success { color: var(--success); }
+        .feedback-msg.error { color: var(--error); }
+
+        /* Result Screen */
+        .score-display {
+            font-size: 4rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 20px 0;
+        }
+
+        .result-message {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            margin-bottom: 30px;
+        }
+
+        /* Utility */
+        .hidden { display: none !important; }
+
+        @media (min-width: 600px) {
+            .container {
+                box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Fraction Quiz</h1>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active">
+            <h2>Welcome to the Fraction Challenge</h2>
+            <p style="margin: 15px 0; color: var(--text-light);">Test your skills in adding and comparing fractions.</p>
+            <ul style="list-style: none; text-align: left; display: inline-block; color: var(--text-light); font-size: 0.9rem;">
+                <li>✓ 10 Questions</li>
+                <li>✓ Immediate Feedback</li>
+                <li>✓ Simple and Reduced Answers</li>
+            </ul>
+            <button class="start-btn" onclick="startQuiz()">Start Quiz</button>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz-screen" class="screen">
+            <div class="question-counter">Question <span id="current-q-num">1</span> of 10</div>
+            <div class="question-text" id="question-text">
+                <!-- Fraction renders here -->
+            </div>
+            <div class="options-grid" id="options-container">
+                <!-- Buttons render here -->
+            </div>
+            <div id="feedback" class="feedback-msg"></div>
+            <button id="next-btn" class="next-btn hidden" onclick="nextQuestion()">Next Question</button>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="screen">
+            <h2>Quiz Completed!</h2>
+            <div class="score-display"><span id="final-score">0</span>/10</div>
+            <p class="result-message" id="result-message">Great job!</p>
+            <button class="restart-btn" onclick="restartQuiz()">Try Again</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * Helper: GCD calculation for reducing fractions
+     */
+    function gcd(a, b) {
+        return b ? gcd(b, a % b) : a;
+    }
+
+    /**
+     * Generate a random integer between min and max (inclusive)
+     */
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // State variables
+    let questions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+
+    // DOM Elements
+    const startScreen = document.getElementById('start-screen');
+    const quizScreen = document.getElementById('quiz-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const questionText = document.getElementById('question-text');
+    const optionsContainer = document.getElementById('options-container');
+    const currentQNum = document.getElementById('current-q-num');
+    const feedbackEl = document.getElementById('feedback');
+    const nextBtn = document.getElementById('next-btn');
+    const progressFill = document.getElementById('progress-fill');
+    const finalScoreEl = document.getElementById('final-score');
+    const resultMessageEl = document.getElementById('result-message');
+
+    /**
+     * Generates 10 random questions
+     */
+    function generateQuestions() {
+        questions = [];
+        for (let i = 0; i < 10; i++) {
+            const type = getRandomInt(1, 2); // 1: Addition, 2: Comparison
+            let q;
+
+            if (type === 1) {
+                // Addition: N1/D1 + N2/D2
+                const d1 = getRandomInt(2, 9);
+                const d2 = getRandomInt(2, 9);
+                // Ensure denominators aren't identical to make it worth doing the work
+                if (d1 === d2) d2 = getRandomInt(2, 9);
+
+                const n1 = getRandomInt(1, d1);
+                const n2 = getRandomInt(1, d2);
+
+                // Calculation logic for correct answer
+                let lcd = (d1 * d2) / gcd(d1, d2);
+                let numNumerator = (n1 * (lcd / d1)) + (n2 * (lcd / d2));
+                let finalDenominator = lcd;
+
+                // Simplify the correct answer
+                let common = gcd(numNumerator, finalDenominator);
+                let ansNum = numNumerator / common;
+                let ansDenom = finalDenominator / common;
+
+                // Generate distractors
+                let options = new Set();
+                options.add(`${ansNum}/${ansDenom}`);
+                
+                while(options.size < 4) {
+                    let offset = getRandomInt(1, 5) * (ansDenom === 1 ? 10 : ansDenom);
+                    let off = offset === 0 ? 1 : offset;
+                    let wrongNum = (ansNum > 0 && ansNum !== 0) ? ansNum + off : ansNum - off;
+                    if (wrongNum <= 0) wrongNum = 1;
+                    options.add(`${wrongNum}/${ansDenom}`);
+
+                    let wrongDiff = getRandomInt(2, 8);
+                    options.add(`${ansNum}/${wrongDiff}`);
+                }
+
+                q = {
+                    text: `What is ${n1}/${d1} + ${n2}/${d2}?`,
+                    correct: `${ansNum}/${ansDenom}`,
+                    options: Array.from(options).sort(() => Math.random() - 0.5)
+                };
+
+            } else {
+                // Comparison: Is N1/D1 > N2/D2?
+                const d1 = getRandomInt(2, 7);
+                const d2 = getRandomInt(2, 7);
+                if (d1 === d2) d2 = getRandomInt(2, 7);
+
+                const n1 = getRandomInt(1, Math.ceil(d1 * 0.8)); // Not quite equal
+                const n2 = getRandomInt(1, Math.ceil(d2 * 0.8)); // Not quite equal
+
+                // Calculate decimal for comparison
+                const val1 = n1 / d1;
+                const val2 = n2 / d2;
+                const isGreater = val1 > val2;
+
+                // Generate distractor (Always "No" if true, or "Yes" if false)
+                let target = isGreater ? "Yes" : "No";
+                let wrongTarget = target === "Yes" ? "No" : "Yes";
+
+                q = {
+                    text: `Is ${n1}/${d1} > ${n2}/${d2}?`,
+                    correct: target,
+                    options: [target, wrongTarget].sort(() => Math.random() - 0.5)
+                };
+            }
+
+            questions.push(q);
+        }
+    }
+
+    /**
+     * Formats a number as a fraction or integer for display
+     */
+    function formatFraction(n, d) {
+        if (d === 1) return n.toString();
+        return `${n}/${d}`;
+    }
+
+    function startQuiz() {
+        generateQuestions();
+        currentQuestionIndex = 0;
+        score = 0;
+        showScreen(quizScreen);
+        loadQuestion();
+    }
+
+    function showScreen(screenEl) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        screenEl.classList.add('active');
+    }
+
+    function loadQuestion() {
+        const q = questions[currentQuestionIndex];
+        
+        // Update UI State
+        currentQNum.textContent = currentQuestionIndex + 1;
+        questionText.innerHTML = q.text;
+        feedbackEl.className = 'feedback-msg';
+        feedbackEl.textContent = '';
+        nextBtn.classList.add('hidden');
+        progressFill.style.width = `${((currentQuestionIndex) / 10) * 100}%`;
+        
+        // Clear options
+        optionsContainer.innerHTML = '';
+
+        // Create Buttons
+        q.options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = opt;
+            btn.onclick = () => handleAnswer(btn, opt, q.correct);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    function handleAnswer(btn, selected, correct) {
+        // Disable all buttons
+        const buttons = optionsContainer.querySelectorAll('.option-btn');
+        buttons.forEach(b => b.disabled = true);
+
+        if (selected === correct) {
+            btn.classList.add('correct');
+            score++;
+            feedbackEl.textContent = "Correct! Well done.";
+            feedbackEl.classList.add('success');
+        } else {
+            btn.classList.add('wrong');
+            feedbackEl.textContent = `Incorrect. The answer is ${correct}.`;
+            feedbackEl.classList.add('error');
+            
+            // Highlight the correct answer
+            buttons.forEach(b => {
+                if (b.textContent === correct) {
+                    b.classList.add('correct');
+                }
+            });
+        }
+
+        // Find the exact correct text to show if it's not a simple onclick match (safety)
+        // Actually, relying on textContent match is fine here due to uniqueness of distractors
+        const correctBtn = Array.from(buttons).find(b => b.textContent === correct);
+        if(correctBtn) correctBtn.classList.add('correct');
+
+
+        nextBtn.classList.remove('hidden');
+        
+        // Update Progress Bar immediately
+        const progress = ((currentQuestionIndex + 1) / 10) * 100;
+        progressFill.style.width = `${progress}%`;
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < 10) {
+            loadQuestion();
+        } else {
+            endQuiz();
+        }
+    }
+
+    function endQuiz() {
+        progressFill.style.width = '100%';
+        showScreen(resultScreen);
+        finalScoreEl.textContent = score;
+        
+        let msg = "";
+        if (score === 10) msg = "Perfect score! You are a fraction master!";
+        else if (score >= 7) msg = "Great job! You know your fractions.";
+        else if (score >= 4) msg = "Not bad, but you could do better.";
+        else msg = "Keep practicing! Fractions take time.";
+        
+        resultMessageEl.textContent = msg;
+    }
+
+    function restartQuiz() {
+        startQuiz();
+    }
+</script>
+
+</body>
+</html>

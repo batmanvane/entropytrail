@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pythagorean Theorem Interactive</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --accent: #ef4444;
+            --fill-primary: rgba(59, 130, 246, 0.2);
+            --fill-secondary: rgba(16, 185, 129, 0.2);
+            --fill-accent: rgba(239, 68, 68, 0.2);
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+
+        canvas {
+            background: #ffffff;
+            border: 2px dashed #e2e8f0;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+            width: 100%;
+            height: auto;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            align-items: center;
+            background: #f1f5f9;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+        }
+
+        .slider-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 300px;
+            align-items: center;
+        }
+
+        .label {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        input[type=range] {
+            width: 100%;
+            max-width: 300px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: var(--text);
+            cursor: pointer;
+            margin-top: -10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+
+        .formula-display {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 1rem 0;
+            font-family: "Times New Roman", Times, serif;
+            letter-spacing: 2px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dot.blue { background: var(--primary); }
+        .dot.green { background: var(--secondary); }
+        .dot.red { background: var(--accent); }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pythagorean Theorem</h1>
+        <p class="subtitle">Interactive Visualization of a² + b² = c²</p>
+
+        <canvas id="pythagorasCanvas" width="600" height="400"></canvas>
+
+        <div class="formula-display">
+            a<sup>2</sup> + b<sup>2</sup> = c<sup>2</sup>
+        </div>
+
+        <div class="controls">
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="label">a (Opposite)</span>
+                    <span id="val-a" style="font-weight:bold;">4</span>
+                </div>
+                <input type="range" id="input-a" min="1" max="10" step="0.1" value="4">
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="label">b (Adjacent)</span>
+                    <span id="val-b" style="font-weight:bold;">3</span>
+                </div>
+                <input type="range" id="input-b" min="1" max="10" step="0.1" value="3">
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><div class="dot blue"></div> <span id="area-a-p"></span></div>
+            <div class="legend-item"><div class="dot green"></div> <span id="area-b-p"></span></div>
+            <div class="legend-item"><div class="dot red"></div> <span id="area-c-p"></span></div>
+        </div>
+    </div>
+
+    <script>
+        // Setup Canvas
+        const canvas = document.getElementById('pythagorasCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Inputs
+        const inputA = document.getElementById('input-a');
+        const inputB = document.getElementById('input-b');
+        const valA = document.getElementById('val-a');
+        const valB = document.getElementById('val-b');
+        
+        // Legend Text
+        const areaAP = document.getElementById('area-a-p');
+        const areaBP = document.getElementById('area-b-p');
+        const areaCP = document.getElementById('area-c-p');
+
+        // Configuration
+        const scale = 30; // Pixels per unit
+        const padding = 80;
+        const minWidth = 400;
+        const minHeight = 300;
+        
+        let values = { a: 4, b: 3 };
+
+        // Helper: Calculate hypotenuse
+        function calculateC(a, b) {
+            return Math.sqrt(a * a + b * b);
+        }
+
+        // Draw Regular Text Helper
+        function.drawText(ctx, x, y, text, { fill = 'black' = '', size = '12px', align = 'left', angle = 0 } = {}) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate((angle * Math.PI) / 180);
+            ctx.font = size;
+            ctx.fillStyle = fill;
+            ctx.textAlign = align;
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 0, 0);
+            ctx.restore();
+        }
+
+        // Main Draw Function
+        function draw() {
+            // 1. Clear Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Parse Inputs
+            let a = parseFloat(inputA.value);
+            let b = parseFloat(inputB.value);
+
+            // Clamp values to prevent extreme visual distortion
+            if (a < 0.5) a = 0.5;
+            if (b < 0.5) b = 0.5;
+
+            // Calculate C
+            let c = calculateC(a, b);
+
+            // 3. Update UI Text
+            valA.textContent = parseFloat(a.toFixed(1));
+            valB.textContent = parseFloat(b.toFixed(1));
+            
+            const areaA = Math.round(a * a * scale * scale);
+            const areaB = Math.round(b * b * scale * scale);
+            const areaC = Math.round(c * c * scale * scale);
+
+            areaAP.textContent = `Area: ${areaA}`;
+            areaBP.textContent = `Area: ${areaB}`;
+            areaCP.textContent = `Area: ${areaC}`;
+
+            // 4. Determine Layout
+            // We want to fit the bounding box within the canvas.
+            // Bounding box is roughly width a + c, height b + c.
+            
+            let maxW = (a + c) * scale;
+            let maxH = (b + c) * scale;
+            
+            // Add padding
+            maxW += padding * 2;
+            maxH += padding * 2;
+
+            // Calculate center to place within canvas
+            let x = (canvas.width - maxW) / 2;
+            let y = (canvas.height - maxH) / 2;
+
+            // Ensure minimum size
+            if (maxW < minWidth) maxW = minWidth;
+            if (maxH < minHeight) maxH = minHeight;
+
+            // 5. Define Coordinates
+            // (0,0) is the Right Angle
+            const pLegA = { x: 0, y: 0 }; // Top Left corner of square A
+            const pLegA_W = { x: a * scale, y: 0 };
+            const pLegA_H = { x: 0, y: b * scale };
+            
+            const pLegB = { x: 0, y: b * scale }; // Top Right corner of square B
+            const pLegB_W = { x: c * scale, y: b * scale };
+            const pLegB_H = { x: c * scale, y: 2 * b * scale }; // Bottom
+
+            // Hypotenuse Square
+            // Top-Left is (x + c*scale, y) roughly
+            const pHyp = { x: c * scale, y: 0 };
+            const pHyp_W = { x: a * scale, y: b * scale };
+            const pHyp_H = { x: (a + c) * scale, y: b * scale };
+            const pHyp_B = { x: (a + c) * scale, y: min(b, a/b * c) * scale }; // This logic is getting complex, let's just use the box bounds
+            
+            // Correcting Box Logic:
+            // Square A: x=0, y=0, w=a, h=b
+            // Square B: x=0, y=b, w=c, h=c
+            // Square C: top-left=(c,b), bottom-right=(c+a,b+a*sinHyp), wait.
+            
+            // Let's stick to relative coordinates first, then transform.
+            // Point A (Right Angle): (0,0)
+            // Point X (End of Leg A): (0, a) - Visual Top
+            // Point Y (End of Leg B): (b, 0) - Visual Right
+            
+            // Let's rotate the whole system so Leg A is vertical Up, Leg B is horizontal Right? 
+            // No, standard: A vertical, B horizontal.
+            
+            // Let's define points relative to (0,0)
+            const ptOrigin = { x: 0, y: 0 };
+            const ptTopLeftCorner = { x: 0, y: 0 }; // Top Left of Inner Triangle
+            const ptBottomRightCorner = { x: b, y: 0 }; // Bottom Right
+            // Let's make Leg A Vertical
+            const ptRightAngle = { x: 0, y: 0 };
+            const ptVert = { x: 0, y: a }; // Top
+            const ptHoriz = { x: b, y: 0 }; // Right
+            
+            // Square A (Side a): Top-Left at (0,0) -> (0, a) -> c.hypotenuse_start -> (0, a) is wrong.
+            // Leg A is along Y axis. Leg B is along X axis.
+            
+            // Square A (on leg a):
+            // (0,0), (0,a), (-a*a/a, 0)? No.
+            // (0,0) -> (0,a) -> (-c, a + hyp_x?) -> (-c, 0)
+            // Let's just use the coordinates calculated by geometry.
+            
+            // Let's normalize the drawing area to match the requirements exactly.
+            // We will draw:
+            // 1. Right Angle at (cx + something, cy + something).
+            
+            // Coordinates relative to Right Angle (0,0)
+            // Sides: a (Vertical), b (Horizontal)
+            
+            // Outer Boundary Box for Canvas
+            // Max Width: b + c
+            // Max Height: a + c
+            // Note: This is the bounding box of the two squares. 
+            // Square A (leg a) is on left? No, usually Square A is on leg A.
+            
+            // Let's try this layout:
+            // Right Triangle: Right Angle at (0,0).
+            // Leg B (length b) along positive X.
+            // Leg A (length a) along positive Y.
+            // Hypotenuse connects (b,0) and (0,a).
+            
+            // Square A (Side a): Vertices (0,0), (0,a), (hyp, a), (hyp, 0). 
+            // Wait, the square on leg A is outside.
+            // Vertices: (0,0), (0,a), (-c, a), (-c, 0).
+            
+            // Square B (Side b): Vertices (0,0), (b,0), (b, b), (0, b)?? No, hypotenuse.
+            // Square on leg B (hypotenuse is connecting (b,0) to (0,a)).
+            // Square vertices: (0,0), (b,0), (b+a, a), (a,a).
+            
+            // Actually, let's just define the square coordinates properly.
+            // Triangle: P0(0,0), P1(b, 0), P2(0, a).
+            
+            // Square 1 (On side a): P0(0,0), P2(0,a), P2+P1(-bx), P0+P1(-bx)
+            // Vector P0->P2 is (0, a). Rotate 90 deg (-cw) -> (-a, 0)?
+            // Vector (-a, 0). P2 + (-a, 0) -> (-a, a).
+            // P0 + (-a, 0) -> (-a, 0).
+            // So Square A Vertices: (0,0), (0,a), (-a,a), (-a,0).
+            
+            // Square 2 (On side b): P0(0,0), P1(b,0).
+            // Vector P0->P1 is (b, 0). Rotate 90 deg (ccw) -> (0, b).
+            // P1 + (0,b) -> (b,b).
+            // P0 + (0,b) -> (0,b).
+            // So Square B Vertices: (0,0), (b,0), (b,b), (0,b).
+            
+            // Square 3 (On side c): P1(b,0), P2(0,a).
+            // Vector P1->P2 is (-b, a).
+            // Rotate 90 deg (ccw) -> (-a, -b).
+            // P1 + (-a, -b) -> (b-a, -b).
+            // P2 + (-a, -b) -> (-a, a-b).
+            // Square C Vertices: (b,0), (0,a), (-a, a-b), (b-a, -b).
+            
+            // This orientation places everything in quadrants 1, 2, 3 (mostly).
+            // Let's normalize to bounding box to center it.
+            
+            const pS1_1 = {x: 0, y: 0};
+            const pS1_2 = {x: 0, y: a};
+            const pS1_3 = {x: -a, y: a};
+            const pS1_4 = {x: -a, y: 0};
+            
+            const pS2_1 = {x: 0, y: 0};
+            const pS2_2 = {x: b, y: 0};
+            const pS2_3 = {x: b, y: b};
+            const pS2_4 = {x: 0, y: b};
+            
+            // Vector P1 to P2 is (-b, a). Perpendicular is (-a, -b).
+            // Wait, P1 is (b,0), P2 is (0,a).
+            // c vector is P1->P2: (-b, a).
+            // To draw square OUTSIDE, we go P1 -> P2, then turn left? 
+            // The triangle P0->P1->P2.
+            // Square on c: P1, P2, P3, P4.
+            // Vector P1->P2 is (-b, a).
+            // Rotated (-b, a) -> (-a, -b).
+            // P3 = P2 + (-a, -b) = (-a, a-b).
+            // P4 = P1 + (-a, -b) = (b-a, -b).
+            
+            const pS3_1 = {x: b, y: 0};
+            const pS3_2 = {x: -a, y: a-b};
+            const pS3_3 = {x: -a, y: a-b}; // Same as 2? No.
+            // Let's recalculate P3.
+            // Vector P1->P2 is (-b, a).
+            // Rotate 90 deg CCW (x', y') = (-y, x) -> (-a, -b).
+            // P3 = P2 + (-a, -b) = (-a, a-b).
+            // P4 = P1 + (-a, -b) = (b-a, -b).
+            const pS3_3 = {x: b-a, y: -b};
+            const pS3_4 = {x: -a, y: a-b}; 
+            // Wait, P3 is adjacent to P2. P4 is adjacent to P1.
+            // Vertices: P1(b,0), P2(0,a), P3(-a, a-b), P4(b-a, -b).
+            
+            // Check if this is a square.
+            // Sides are length c. Diagonals are c*sqrt(2).
+            
+            // Find Min X, Min Y, Max X, Max Y to Draw
+            let allPoints = [
+                pS1_1, pS1_2, pS1_3, pS1_4,
+                pS2_1, pS2_2, pS2_3, pS2_4,
+                pS3_1, pS3_2, pS3_3, pS3_4,
+                p{2} // The right angle vertex
+            ]; // Add right angle explicitly to draw lines
+            
+            // Actually, let's add P0 to the list
+            allPoints[12] = {x: 0, y: 0};
+
+            let minX = Infinity, minY = Infinity;
+            let maxX = -Infinity, maxY = -Infinity;
+
+            allPoints.forEach(p => {
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y > maxY) maxY = p.y;
+            });
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+            
+            // Apply Scale
+            const drawWidth = width * scale;
+            const drawHeight = height * scale;
+            
+            // Calculate Canvas Offset (Centering)
+            const canvasCenterX = canvas.width / 2;
+            const canvasCenterY = canvas.height / 2;
+            
+            const dx = canvasCenterX - (minX * scale + drawWidth / 2);
+            const dy = canvasCenterY - (minY * scale + drawHeight / 2);
+            
+            // 6. Draw Geometry
+            
+            // Draw Connecting Lines
+            ctx.beginPath();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            // Triangle
+            ctx.moveTo(pS1_1.x * scale + dx, pS1_1.y * scale + dy);
+            ctx.lineTo(pS2_1.x * scale + dx, pS2_1.y * scale + dy);
+            ctx.lineTo(pS3_1.x * scale + dx, pS3_1.y * scale + dy); // P3_1 is P1(b,0)
+            ctx.closePath(); // Triangle isn't closed by P3, it's defined by 0->1->2.
+            // Let's just draw the lines explicitly.
+            ctx.moveTo(pS1_1.x * scale + dx, pS1_1.y * scale + dy); // (0,0)
+            ctx.lineTo(pS2_1.x * scale + dx, pS2_1.y * scale + dy); // (b,0)
+            ctx.lineTo(pS3_1.x * scale + dx, pS3_1.y * scale + dy); // (0,a) is WRONG. P2 is (0,a). P3_1 is (b,0).
+            // Wait, my point naming is confusing.
+            // P1(0,0), P2(b,0), P3(0,a).
+            ctx.moveTo(0 * scale + dx, 0 * scale + dy);
+            ctx.lineTo(b * scale + dx, 0 * scale + dy);
+            ctx.lineTo(0 * scale + dx, a * scale + dy);
+            ctx.strokeStyle = '#334155';
+            ctx.stroke();
+            
+            // Draw Squares
+            // Square A (Side a)
+            ctx.save();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.fillStyle = 'var(--fill-primary)';
+            ctx.strokeRect(pS1_1.x * scale + dx, pS1_1.y * scale + dy, 0, -minX * scale); 
+            
+            // Better: use specific coords
+            // Square A: (0,0), (0,a), (-a,a), (-a,0) -> Note y axes
+            // Draw path
+            ctx.beginPath();
+            ctx.moveTo(0 * scale + dx, 0 * scale + dy);
+            ctx.lineTo(0 * scale + dx, a * scale + dy);
+            ctx.lineTo(-a * scale + dx, a * scale + dy);
+            ctx.lineTo(-a * scale + dx, 0 * scale + dy);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.15)';
+            ctx.fill();
+            
+            // Square B (Side b)
+            // (0,0), (b,0), (b,b), (0,b)
+            ctx.fillStyle = 'var(--fill-secondary)';
+            ctx.beginPath();
+            ctx.moveTo(0 * scale + dx, 0 * scale + dy);
+            ctx.lineTo(b * scale + dx, 0 * scale + dy);
+            ctx.lineTo(b * scale + dx, b * scale + dy);
+            ctx.lineTo(0 * scale + dx, b * scale + dy);
+            ctx.closePath();
+            
+            // Since the triangle is inside Square B in this orientation? 
+            // Triangle is (0,0), (b,0), (0,a).
+            // If a < b, the square extends to y=b. Triangle goes to y=a.
+            // So Square B is bigger than the triangle height.
+            // The hypotenuse is the top-right boundary of the triangle inside Square B.
+            // We want the square ON the leg B.
+            // Wait, "Square on each side".
+            // Square on leg B (bottom leg).
+            // (0,0) -> (b,0). Square is (0,0)-(b,0)-(b,b)-(0,b).
+            // But the triangle is in this corner.
+            // The square should be OUTSIDE the triangle.
+            // Current Triangle points: (0,0), (b,0), (0,a).
+            // Square on (0,0)-(b,0) points should be y < 0.
+            // Let's rotate Square B down.
+            
+            // Reset Square B logic
+            // Sides: (0,0) to (b,0). Normal vector (0,1). Outward normal (0, -1).
+            // Shift by Normal vector.
+            
+            // Square A: (0,0) to (0,a). Outward normal (-1, 0).
+            // Square B: (0,0) to (b,0). Outward normal (0, -1).
+            // Square C: (b,0) to (0,a). Vector (-b,a). Normal (-a, -b).
+            
+            ctx.restore(); // Reset for drawing logic
+            
+            // RE-DO DRAWING PATHS
+            
+            // 1. Square A (Left of Y axis)
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.rect(-a * scale + dx, 0 * scale + dy, a * scale, a * scale);
+            ctx.fill();
+            ctx.stroke();
+
+            // 2. Square B (Below X axis)
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.2)';
+            ctx.strokeStyle = '#10b981';
+            ctx.beginPath();
+            ctx.rect(0 * scale + dx, -b * scale + dy, b * scale, b * scale);
+            ctx.fill();
+            ctx.stroke();
+
+            // 3. Square C (Top of Hypotenuse)
+            // Vertices relative: (b,0), (0,a), (-a, a-b), (b-a, -b)
+            // Let's draw square defined by P1(b,0), P2(0,a), P3(-a, a-b), P4(b-a, -b)
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+            ctx.strokeStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(b * scale + dx, 0 * scale + dy);
+            ctx.lineTo(-a * scale + dx, (a-b) * scale + dy);
+            ctx.lineTo((b-a) * scale - a * scale + dx, -b * scale + dy); // Wait
+            // P4 = (b-a, -b).
+            ctx.lineTo((b-a) * scale + dx, -b * scale + dy);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // 4. Draw Triangle
+            ctx.fillStyle = '#e2e8f0';
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0 * scale + dx, 0 * scale + dy); // (0,0)
+            ctx.lineTo(0 * scale + dx, a * scale + dy); // (0,a)
+            ctx.lineTo(b * scale + dx, 0 * scale + dy); // (b,0)
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // 5. Draw Area Texts
+            // Square A Text (Blue)
+            drawText(ctx, -a*scale, a*scale/2, `a²\n= ${a}²`, { 
+                fill: '#3b82f6', 
+                size: '12px', 
+                angle: -45, 
+                align: 'right' 
+            });
+            
+            // Square B Text (Green)
+            // Center of bottom square: x = b/2, y = -b/2
+            drawText(ctx, b*scale/2, -b*scale/2, `b²\n= ${b}²`, { 
+                fill: '#10b981', 
+                size: '12px', 
+                angle: 0, 
+                align: 'center' 
+            });
+            
+            // Square C Text (Red)
+            // Approx center
+            const cxHyp = ((b) + (b-a)) / 2;
+            const cyHyp = (0 + (b-a)) / 2; // Wait, y coords: 0, a-b, -b. 
+            drawText(ctx, cxHyp * scale + dx, cyHyp * scale + dy, `c²\n= ${c.toFixed(1)}²`, { 
+                fill: '#ef4444', 
+                size: '16px', 
+                angle: 0, 
+                align: 'center' 
+            });
+
+        }
+
+        // Event Listeners
+        inputA.addEventListener('input', () => {
+            draw();
+        });
+
+        inputB.addEventListener('input', () => {
+            draw();
+        });
+
+        // Initial Draw
+        draw();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Pythagorean Theorem</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --text-color: #2d3748;
+            --accent-color: #3182ce;
+            --square-a-color: #fc8181; /* Red-ish */
+            --square-b-color: #68d391; /* Green-ish */
+            --square-c-color: #63b3ed; /* Blue-ish */
+            --stroke-color: #2d3748;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-size: 1.8rem;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 90%;
+            width: 600px;
+        }
+
+        /* Canvas */
+        canvas {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #ffffff;
+        }
+
+        /* Controls */
+        .controls {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .value-display {
+            color: var(--accent-color);
+            font-family: monospace;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+            transition: background .15s ease-in-out;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #2b6cb0;
+        }
+
+        /* Equation Display */
+        .equation {
+            font-size: 1.25rem;
+            font-family: 'Courier New', Courier, monospace;
+            background: #edf2f7;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #cbd5e0;
+        }
+
+        .term {
+            display: inline-block;
+            margin: 0 5px;
+        }
+        
+        .term-plus {
+            color: var(--accent-color);
+            font-weight: bold;
+            margin: 0 10px;
+        }
+
+        .highlight {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pythagorean Theorem Visualization</h1>
+        
+        <canvas id="pythagorasCanvas" width="500" height="500"></canvas>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>
+                    Leg A
+                    <span class="value-display" id="valA">60</span>
+                </label>
+                <input type="range" id="sliderA" min="20" max="140" value="60">
+            </div>
+
+            <div class="control-group">
+                <label>
+                    Leg B
+                    <span class="value-display" id="valB">80</span>
+                </label>
+                <input type="range" id="sliderB" min="20" max="140" value="80">
+            </div>
+        </div>
+
+        <div class="equation">
+            <span class="term" id="dispA2">3600</span>
+            <span class="term-plus">+</span>
+            <span class="term" id="dispB2">6400</span>
+            <span class="term-plus">=</span>
+            <span class="term highlight" id="dispC2">10000</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('pythagorasCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const sliderA = document.getElementById('sliderA');
+        const sliderB = document.getElementById('sliderB');
+        const displayA = document.getElementById('valA');
+        const displayB = document.getElementById('valB');
+        
+        const dispA2 = document.getElementById('dispA2');
+        const dispB2 = document.getElementById('dispB2');
+        const dispC2 = document.getElementById('dispC2');
+
+        const canvasSize = 500;
+        const padding = 60;
+        
+        // Configuration
+        const colors = {
+            a: '#fc8181',     // Red-ish for 3
+            b: '#68d391',     // Green-ish for 4
+            c: '#63b3ed',     // Blue-ish for 5
+            stroke: '#2d3748',
+            text: '#2d3748',
+            bg: '#ffffff'
+        };
+
+        function resizeCanvas() {
+            canvas.width = canvasSize;
+            canvas.height = canvasSize;
+            draw();
+        }
+
+        function drawTriangle(a, b, h, w) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Calculate dimensions of squares
+            // We want to fit the largest square (c^2) mostly, and ensure others fit.
+            // For visualization, we scale a and b down slightly if they are getting too large.
+            let scale = 1;
+            if (a + b + 20 > h) {
+                const maxAllowed = (h - padding) / 2;
+                const currentTotal = (a * scale) + (b * scale) + b;
+                // Approx logic to shrink everything if it won't fit in the available height
+                scale = maxAllowed / (a + b + a); 
+            }
+
+            const dimA = a * scale;
+            const dimB = b * scale;
+            const dimC = Math.sqrt(a*a + b*b) * scale;
+
+            // Offset calculation
+            // We place the common vertex of the squares at the CENTER of the canvas (smooth rotation)
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+
+            // Rotate drawing context for smooth visualization
+            // The hypotenuse should generally be horizontal-ish or we just keep legs on X/Y axis relative to center
+            // To make it look like a proper geometry theorem proof, let's keep the right angle at the exact center (0,0 relative)
+            
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            ctx.strokeStyle = colors.stroke;
+            ctx.fillStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // --- SQUARE A (Red) ---
+            // Draw from (-dimA, -dimA) to (0,0)
+            ctx.fillStyle = colors.a;
+            ctx.strokeStyle = colors.stroke;
+            ctx.fillRect(-dimA, -dimA, dimA, dimA);
+            
+            // Label A
+            ctx.fillStyle = colors.stroke;
+            ctx.font = "bold 16px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("a", -dimA/2 - padding, -dimA/2 + padding);
+
+            // --- SQUARE B (Green) ---
+            // Draw from (0, -dimB) to (0,0)
+            ctx.fillStyle = colors.b;
+            ctx.fillRect(0, -dimB - dimA, dimB, dimB);
+            
+            // Label B
+            ctx.fillText("b", 0, -dimB);
+
+            // --- HYPOTENUSE LINE (The triangle itself) ---
+            ctx.beginPath();
+            ctx.moveTo(-dimA, -dimA); // Top Left of Square A (if A is rotated 90 deg)
+            // Correct coordinate mapping for the triangle vertices:
+            // P1: (-dimA, -dimA) -> Relative point
+            // P2: (0, 0) -> Center
+            // P3: (0, -dimB) -> Relative point
+            
+            // Wait, let's verify standard square A+B=C topology
+            // Square A is on the Y axis (left of center).
+            // Square B is on the X axis (bottom of center).
+            // Square C is the hypotenuse connecting them.
+            
+            // Coordinates relative to center (0,0):
+            // Square A occupies x:[-dimA, 0], y:[-dimA, 0]
+            // Square B occupies x:[-dimB, 0], y:[0, -dimB] -- Wait, if A is on Y, B must be on X perpendicular to it.
+            
+            // Let's redraw specifically for Squares sharing a corner at (cx, cy)
+            // Square A: Top-Left quadrant, size dimA. Range [cx-dimA, cx] and [cy-dimA, cy]
+            // Square B: Bottom-Right quadrant (relative to rotation), size dimB. 
+            // Actually, simpler: Square A is Y-axis, Square B is X-axis.
+            // Square A: x < 0, y < 0? No, y > 0.
+            // Let's say Square A is to the Left (-x). 
+            // Let's say Square B is to the Bottom (-y).
+            // Triangle connects TopLeft of A to TopRight of B.
+            
+            ctx.beginPath();
+            ctx.moveTo(cx - dimA, cy); // Left side of Square A
+            ctx.lineTo(cx, cy - dimA); // Bottom of Square A
+            ctx.lineTo(cx, cy - dimA + dimB); // Top-Right of Square B
+            ctx.stroke();
+
+            // --- RECTANGLES FOR VISUALIZATION (Cut and Paste visual) ---
+            // To make it palatable, let's just draw the two squares and one hypotenuse square aligned simply?
+            // That usually looks bad because C is rotated.
+            // Standard visualization: 
+            // Square A (Red), Square B (Green).
+            // Square C (Blue) usually placed rotated.
+            // Let's just draw the outlines of the squares and the hypotenuse square for now.
+            
+            // Reset to non-rotated squares for cleaner look if possible, 
+            // but "Squaring the circle" style (Squares on sides) implies C rotates.
+            
+            // Actually, for a clear theorem demo, it is often easier to just draw:
+            // 1. Red Square (A*A)
+            // 2. Blue Square (B*B)
+            // 3. Green Square (C*C) created by rotating.
+            
+            // To make the user understand A + B = C, drawing C rotated is best.
+            // Let's draw C rotated.
+            
+            ctx.fillStyle = colors.c;
+            ctx.save();
+            ctx.rotate(45 * Math.PI / 180);
+            ctx.fillRect(0, -dimC/2, dimC, dimC); // Centered square
+            ctx.restore();
+            
+            // Bounding box for C
+            ctx.strokeStyle = colors.stroke;
+            ctx.strokeRect(-dimC/2, -dimC/2, dimC, dimC);
+
+            ctx.restore(); // Restore global transform
+
+            drawLines(dimA, dimB, cx, cy);
+        }
+
+        function drawLines(dimA, dimB, cx, cy) {
+            // This function draws the overlapping lines to show the squares
+            ctx.strokeStyle = colors.stroke;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.setLineDash([10, 3]);
+
+            // Vertical line for Square B's top edge
+            ctx.beginPath();
+            ctx.moveTo(cx - dimB, cy - dimB); 
+            ctx.lineTo(cx, cy - dimB);
+            ctx.stroke();
+
+            // Horizontal line for Square A's right edge
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - dimA);
+            ctx.lineTo(cx, cy);
+            ctx.stroke();
+
+            // Horizontal line for Square A's left edge
+            ctx.beginPath();
+            ctx.moveTo(cx - dimA, cy - dimA);
+            ctx.lineTo(cx - dimA, cy);
+            ctx.stroke();
+
+            // Diagonal lines for Square C logic
+            // We need to find the vertices of the rotated square C
+            // Center: (cx, cy)
+            // Side: dimC
+            // Vertices relative to center: (0, dimC/sin45), (dimC/sin45, 0) ... no.
+            // Diagonal is dimC*sqrt(2). Half diagonal is dimC/sqrt(2).
+            // Actually C is rotated 45 deg.
+            // Let's just draw the bounding box of C to imply the 4th square.
+            
+            const hw = dimC / 2;
+            ctx.fillStyle = colors.c;
+            ctx.beginPath();
+            // Draw cross inside C
+            ctx.moveTo(cx - hw - 20, -5);
+            ctx.lineTo(cx + hw + 20, -5);
+            ctx.moveTo(-5, cy - hw - 20);
+            ctx.lineTo(-5, cy + hw + 20);
+            ctx.stroke();
+            
+            // Fill the triangle area to suggest C
+            ctx.fillStyle = 'rgba(99, 179, 237, 0.2)';
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - dimA); // Point 1 (Corner between A and B)
+            ctx.lineTo(cx - dimA, cy - dimA + dimB); // Point 2 (Corner of A)
+            ctx.lineTo(cx - dimB, cy - dimB); // Point 3 (Corner of B)
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = 'black'; // Reset temporarily
+
+            // Draw text A inside Square A
+            ctx.fillText("a²", cx - dimA/2, cy - dimA/2 + 15);
+            ctx.fillStyle = colors.b;
+            ctx.fillText("b²", cx - dimB, cy - dimB + 10);
+            
+            // Draw text C inside Square C (approximate position)
+            ctx.strokeStyle = 'transparent'; // Save stroke
+            // Save style
+            ctx.lineWidth = 1; 
+        }
+
+        function getValues() {
+            const a = parseInt(sliderA.value);
+            const b = parseInt(sliderB.value);
+            
+            // Update Displays
+            displayA.textContent = a;
+            displayB.textContent = b;
+            
+            dispA2.textContent = a * a;
+            dispB2.textContent = b * b;
+            const cSq = a * a + b * b;
+            dispC2.textContent = cSq;
+
+            // Also display Hypotenuse as a side note
+            const c = Math.sqrt(cSq);
+            // displayC.textContent = Math.round(c); 
+        }
+
+        function draw() {
+            getValues();
+            drawTriangle(parseInt(sliderA.value), parseInt(sliderB.value));
+        }
+
+        // Event Listeners
+        sliderA.addEventListener('input', draw);
+        sliderB.addEventListener('input', draw);
+        window.addEventListener('resize', resizeCanvas);
+
+        // Init
+        resizeCanvas();
+
+    </script>
+</body>
+</html>

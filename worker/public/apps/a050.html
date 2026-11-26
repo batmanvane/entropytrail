@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Focus Helper</title>
+    <style>
+        :root {
+            --bg-color: #eef2f5;
+            --card-bg: #ffffff;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --success: #10b981;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Header & Quote */
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        h1 { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 8px; }
+        .date-label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
+        .quote-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--primary);
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .quote-text { font-style: italic; font-size: 1.1rem; color: var(--text-main); line-height: 1.5; }
+        .quote-author { display: block; margin-top: 10px; font-size: 0.85rem; font-weight: bold; font-style: normal; color: var(--text-muted); }
+        .refresh-btn {
+            background: none;
+            border: none;
+            color: var(--primary);
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            text-decoration: underline;
+            padding: 0;
+        }
+
+        /* Tip Section */
+        .tip-section {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            padding: 20px;
+            border-radius: 12px;
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+        .tip-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .tip-content { font-size: 1.1rem; line-height: 1.5; }
+
+        /* Habits Tracker */
+        .habits-container {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .habits-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .habits-header h2 { font-size: 1.25rem; }
+
+        .habits-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .habit-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            background: #f9fafb;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .habit-item:hover { background: #f3f4f6; }
+        .habit-item.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        .check-icon {
+            font-size: 1.5rem;
+            opacity: 0.2; /* Checkered background look */
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15,15 L85,85 L100,100 L100,0' fill='none' stroke='%234f46e5' stroke-width='5'/%3E%3C/svg%3E");
+            background-size: cover;
+            margin-right: 10px;
+            transition: opacity 0.2s;
+        }
+
+        .habit-item.active .check-icon { opacity: 0.3; }
+        .habit-item.active.completed .check-icon { opacity: 1; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E"); }
+
+        /* Modal for Logging */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 100;
+        }
+        .modal-overlay.open { opacity: 1; pointer-events: auto; }
+        
+        .modal {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal h3 { margin-bottom: 15px; }
+        .modal textarea {
+            width: 100%;
+            height: 100px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            resize: none;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        .modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .btn { padding: 10px 20px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-secondary { background: #f3f4f6; color: var(--text-main); }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>Daily Helper</h1>
+        <div class="date-label" id="currentDate"></div>
+    </div>
+
+    <!-- Quote -->
+    <div class="quote-card">
+        <div id="quoteText" class="quote-text">"Loading wisdom..."</div>
+        <div id="quoteAuthor" class="quote-author">Unknown</div>
+        <button class="refresh-btn" onclick="app.newQuote()">🔄 Refresh Wisdom</button>
+    </div>
+
+    <!-- Life Hack / Tip -->
+    <div class="tip-section">
+        <span class="tip-badge">Today's Hack</span>
+        <div id="tipContent" class="tip-content">Loading your success tip...</div>
+    </div>
+
+    <!-- Habit Tracker -->
+    <div class="habits-container">
+        <div class="habit-header">
+            <h2>Daily Focus (3 Goals)</h2>
+            <button class="btn btn-secondary" id="logBtn" style="font-size: 0.8rem; padding: 5px 10px;">+ Log</button>
+        </div>
+        <div class="habits-grid" id="habitsGrid">
+            <!-- Habits injected via JS -->
+        </div>
+        <div style="text-align: center; margin-top: 15px;">
+            <button class="btn btn-secondary" style="font-size: 0.75rem; background: #fee2e2; color: #b91c1c;" onclick="app.clearData()">Reset Day</button>
+        </div>
+    </div>
+</div>
+
+<!-- Log Modal -->
+<div class="modal-overlay" id="logModal">
+    <div class="modal">
+        <h3>Log Today's Progress</h3>
+        <textarea id="logInput" placeholder="What did you achieve or notice today?"></textarea>
+        <div class="modal-btns">
+            <button class="btn btn-secondary" onclick="app.closeModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="app.saveLog()">Save Log</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Data Sources ---
+    const QUOTES = [
+        { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
+        { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
+        { text: "The secret of getting ahead is getting started.", author: "Mark Twain" },
+        { text: "What you get by achieving your goals is not as important as what you become by achieving your goals.", author: "Zig Ziglar" },
+        { text: "It does not matter how slowly you go as long as you do not stop.", author: "Confucius" },
+        { text: "Everything you've ever wanted is on the other side of fear.", author: "George Addair" },
+        { text: "Believe in yourself. You are capable of amazing things.", author: "Oprah Winfrey" }
+    ];
+
+    const TIPS = [
+        "Did you drink enough water today? Your brain relies heavily on it for concentration.",
+        "Try the 'Pomodoro' technique: Work 25 minutes, break for 5. It boosts productivity significantly.",
+        "Start your morning with NO-phone time for the first 15 minutes to set a calm mindset.",
+        "Write down your tasks by the end of the day, so you feel prepared and relieved tomorrow.",
+        "If you're stressed, box breathing: Inhale 4s, Hold 4s, Exhale 4s, Hold 4s. Repeat."
+    ];
+
+    const HABIT_THEMES = [
+        { id: 'health', label: 'Health & Move', checklist: ['Drink 2L Water', '30 min Exercise', 'No Sugar'] },
+        { id: 'work', label: 'Work & Focus', checklist: ['Deep Work Session', 'Clear Inbox', 'Finish 1 Priority'] },
+        { id: 'mind', label: 'Mind & Soul', checklist: ['10 min Meditation', 'Call a Friend', 'Read 10 Pages'] }
+    ];
+
+    // --- Application Logic ---
+    const app = {
+        state: {
+            date: new Date().toDateString(),
+            quotes: {},
+            tips: [],
+            habits: {
+                health: [],
+                work: [],
+                mind: []
+            },
+            log: []
+        },
+
+        init: function() {
+            this.renderDate();
+            this.loadData();
+            this.newQuote();
+            this.renderHabits();
+        },
+
+        // Data Handling
+        loadData: function() {
+            const saved = localStorage.getItem('dailyHelperData');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                // Check if data is for today
+                if (parsed.date === this.state.date) {
+                    Object.assign(this.state, parsed);
+                } else {
+                    // Old data, keep for history means
+                    this.state.logs = parsed.logs || []; 
+                }
+            }
+        },
+
+        saveData: function() {
+            const todayData = {
+                ...this.state,
+                logs: this.state.log // Ensure logs are saved
+            };
+            localStorage.setItem('dailyHelperData', JSON.stringify(todayData));
+        },
+
+        // Quote Logic
+        newQuote: function() {
+            const rand = Math.floor(Math.random() * QUOTES.length);
+            this.state.quotes = QUOTES[rand];
+            this.renderQuote();
+        },
+
+        renderQuote: function() {
+            const t = this.state.quotes;
+            document.getElementById('quoteText').innerText = `"${t.text}"`;
+            document.getElementById('quoteAuthor').innerText = t.author;
+        },
+
+        // Habit Logic
+        getHabitIds: function() {
+            return ['health', 'work', 'mind'];
+        },
+
+        renderHabits: function() {
+            const grid = document.getElementById('habitsGrid');
+            grid.innerHTML = '';
+            
+            this.getHabitIds().forEach(id => {
+                const theme = HABIT_THEMES.find(h => h.id === id);
+                if(!theme) return;
+
+                // Create Header for the theme
+                const themeTitle = document.createElement('div');
+                themeTitle.className = 'habits-header';
+                themeTitle.innerHTML = `<h2 style="font-size:1rem; text-align:center; margin-bottom:5px;">${theme.label}</h2>`;
+                grid.appendChild(themeTitle);
+
+                // Create Checkboxes
+                theme.checklist.forEach(item => {
+                    const isChecked = this.state.habits[id].includes(item);
+                    const div = document.createElement('div');
+                    div.className = `habit-item ${isChecked ? 'active completed' : ''}`;
+                    div.onclick = () => this.toggleHabit(id, item);
+                    
+                    const icon = document.createElement('div');
+                    icon.className = 'check-icon';
+                    
+                    const span = document.createElement('span');
+                    span.innerText = item;
+
+                    div.appendChild(icon);
+                    div.appendChild(span);
+                    grid.appendChild(div);
+                });
+            });
+        },
+
+        toggleHabit: function(themeId, item) {
+            // Remove existing check for this item
+            this.state.habits[themeId] = this.state.habits[themeId].filter(i => i !== item);
+            if (!this.state.habits[themeId].includes(item)) {
+                this.state.habits[themeId].push(item);
+            }
+            this.saveData();
+            this.renderHabits();
+        },
+
+        // Logging Logic
+        openModal: function() {
+            document.getElementById('logModal').classList.add('open');
+            document.getElementById('logInput').value = '';
+            document.getElementById('logBtn').innerText = "Log Today's Progress";
+            document.getElementById('logBtn').style.display = 'block';
+        },
+
+        closeModal: function() {
+            document.getElementById('logModal').classList.remove('open');
+            this.hideLogButton();
+        },
+
+        hideLogButton: function() {
+            const btn = document.getElementById('logBtn');
+            btn.innerText = "Log";
+            btn.style.display = 'block';
+        },
+
+        saveLog: function() {
+            const val = document.getElementById('logInput').value.trim();
+            if (!val) return;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            this.state.log.unshift({ text: val, time: timestamp });
+            
+            this.saveData();
+            this.closeModal();
+            alert("Log saved! Great job.");
+        },
+
+        clearData: function() {
+            if(confirm("Are you sure? This will reset all today's progress.")) {
+                localStorage.removeItem('dailyHelperData');
+                location.reload();
+            }
+        }
+
+    };
+
+    // --- Initialization ---
+    // Run when DOM is ready (though script is at bottom in this specific template)
+    app.init();
+
+    // Event Listener for Modal
+    document.getElementById('logBtn').onclick = () => app.openModal();
+
+</script>
+</body>
+</html>

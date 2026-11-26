@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Rain & Starfield</title>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --primary-color: #00d9ff;
+            --secondary-color: #ff0099;
+            --text-color: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+        }
+
+        /* Canvas Background */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        /* Main Container */
+        .container {
+            position: relative;
+            z-index: 10;
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+            text-transform: uppercase;
+            font-size: 1.5rem;
+            text-shadow: 0 0 10px var(--primary-color);
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary-color);
+            transition: transform 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            padding: 12px 24px;
+            color: white;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 217, 255, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 217, 255, 0.5);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .stats {
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Overlay for Start Button */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .start-btn {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 4px solid var(--text-color);
+            font-size: 1.2rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(255, 255, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Overlay -->
+    <div id="overlay">
+        <button id="startBtn" class="start-btn">INITIATE</button>
+    </div>
+
+    <!-- Background Canvas -->
+    <canvas id="canvas"></canvas>
+
+    <!-- UI Card -->
+    <div class="container">
+        <h1>Cosmic Rain</h1>
+
+        <div class="control-group">
+            <label for="starCount">Starfield Density</label>
+            <input type="range" id="starCount" min="10" max="200" value="100">
+        </div>
+
+        <div class="control-group">
+            <label for="rainSpeed">Rainfall Speed</label>
+            <input type="range" id="rainSpeed" min="1" max="10" value="5">
+        </div>
+
+        <div class="control-group">
+            <label for="particleCount">Particle Count</label>
+            <input type="range" id="particleCount" min="20" max="500" value="150">
+        </div>
+
+        <button id="resetBtn">Reset System</button>
+
+        <div class="stats">
+            <div class="stat-item">
+                <span>Stars:</span>
+                <span id="statStar">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Velocity:</span>
+                <span id="statVel">0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Canvas Setup
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // State
+        let stars = [];
+        let particles = [];
+        let animationId;
+        let showRain = false;
+        
+        // Config
+        const config = {
+            starCount: 100,
+            rainSpeed: 3,
+            particleCount: 150
+        };
+
+        // Resize Handler
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Star Class
+        class Star {
+            constructor() {
+                this.reset(true);
+            }
+
+            reset(initial = false) {
+                this.x = Math.random() * width;
+                this.y = initial ? Math.random() * height : -10; // Start slightly above
+                this.z = randomRange(0.5, 2); // Depth factor
+                this.size = randomRange(0.5, 2) * this.z;
+                // Initial velocity is mostly Y, slight X wobble
+                this.vx = (Math.random() - 0.5) * this.z * 0.5;
+                this.vy = this.z * config.rainSpeed;
+            }
+
+            update() {
+                this.y += this.vy;
+                this.x += this.vx;
+
+                // Reset if off screen
+                if (this.y > height + 10) {
+                    this.reset();
+                    this.y = -10;
+                    this.x = Math.random() * width;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.z * 0.8})`;
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Particle Class (Rain)
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                // Gravity/Motion up from bottom or down from top depending on interpretation
+                // We will do "Shooting stars" style raining up
+                this.vy = randomRange(0.2, 0.8) * config.rainSpeed * 0.5;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.life = Math.random() * 0.5 + 0.5; // Opacity
+                this.decay = randomRange(0.01, 0.05);
+                this.size = 2;
+                // Trail
+                this.history = [];
+            }
+
+            update() {
+                this.y -= this.vy; // Move UP
+                this.x += this.vx;
+                this.life -= this.decay;
+
+                if (this.life <= 0 || this.y < -10 || this.x < -10 || this.x > width + 10) {
+                    this.reset();
+                }
+
+                // Trail logic
+                this.history.push({x: this.x, y: this.y, opacity: this.life});
+                if (this.history.length > 10) this.history.shift();
+            }
+
+            draw() {
+                // Draw trail
+                for (let i = 0; i < this.history.length; i++) {
+                    const point = this.history[i];
+                    const alpha = (i / this.history.length) * this.life;
+                    ctx.beginPath();
+                    ctx.fillStyle = `rgba(255, 200, 255, ${alpha})`;
+                    ctx.arc(point.x, point.y, this.size * (i/this.history.length), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw head
+                ctx.beginPath();
+                ctx.fillStyle = 'white';
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Initialize Collections
+        function initCollections() {
+            stars = [];
+            particles = [];
+            
+            // Limit collections to somewhat less than total requested to prevent lag
+            const limit = Math.min(config.starCount, 400);
+            const particleLimit = Math.min(config.particleCount, 600);
+
+            for (let i = 0; i < limit; i++) {
+                stars.push(new Star());
+            }
+            for (let i = 0; i < particleLimit; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        // Utils
+        function randomRange(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function randomColor() {
+            const colors = ['#00d9ff', '#ff0099', '#ffffff', '#ae00ff'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // Animation Loop
+        function animate() {
+            // Clear canvas with trail effect
+            ctx.fillStyle = 'rgba(5, 5, 16, 0.3)'; // Creates a motion blur trail
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Stars
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+
+            // Draw Particles
+            if (showRain) {
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // UI Interaction
+        document.getElementById('startBtn').addEventListener('click', () => {
+            document.getElementById('overlay').style.display = 'none';
+            initCollections();
+            animate();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            cancelAnimationFrame(animationId);
+            document.getElementById('overlay').style.display = 'flex';
+            showRain = false;
+            ctx.clearRect(0, 0, width, height);
+        });
+
+        // Controls
+        const starInput = document.getElementById('starCount');
+        const speedInput = document.getElementById('rainSpeed');
+        const countInput = document.getElementById('particleCount');
+        const statStar = document.getElementById('statStar');
+        const statVel = document.getElementById('statVel');
+
+        starInput.addEventListener('input', (e) => {
+            config.starCount = parseInt(e.target.value);
+            // Don't destroy existing stars, just set cap if they exceed
+            if (stars.length > config.starCount) {
+                stars.length = config.starCount;
+            }
+            updateStats();
+        });
+
+        speedInput.addEventListener('input', (e) => {
+            config.rainSpeed = parseFloat(e.target.value);
+            updateStats();
+        });
+
+        countInput.addEventListener('input', (e) => {
+            if (particles.length > config.particleCount) {
+                particles.length = config.particleCount;
+            }
+            updateStats();
+        });
+
+        function updateStats() {
+            statStar.innerText = config.starCount;
+            statVel.innerText = config.rainSpeed.toFixed(1);
+        }
+
+    </script>
+</body>
+</html>

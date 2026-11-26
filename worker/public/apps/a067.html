@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybernetic Task Manager</title>
+    <style>
+        :root {
+            --bg-color: #09090b;
+            --card-bg: #18181b;
+            --primary: #00f0ff;
+            --secondary: #7000ff;
+            --text-main: #e4e4e7;
+            --text-muted: #a1a1aa;
+            --border: #27272a;
+            --danger: #ff4d4d;
+            --success: #00ff88;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            border: 1px solid var(--border);
+            background-color: var(--card-bg);
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+            padding: 2rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 5px 10px;
+            border: 1px solid var(--text-muted);
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+        }
+
+        button.add-btn {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 0 20px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+
+        button.add-btn:hover {
+            background: var(--primary);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        ul {
+            list-style: none;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        /* Custom Scrollbar */
+        ul::-webkit-scrollbar {
+            width: 5px;
+        }
+        ul::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+        ul::-webkit-scrollbar-thumb {
+            background: var(--border);
+        }
+        ul::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        li {
+            background: var(--bg-color);
+            margin-bottom: 10px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-left: 2px solid var(--border);
+            border-radius: 2px;
+            transition: all 0.3s;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        li:hover {
+            border-left-color: var(--secondary);
+            transform: translateX(5px);
+        }
+
+        li.completed {
+            opacity: 0.6;
+            border-left-color: var(--success);
+        }
+
+        li.completed span {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+            transition: transform 0.2s;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .tick { color: var(--text-muted); }
+        .tick.active { color: var(--success); }
+        
+        .trash { color: var(--danger); }
+        .trash:hover { color: #ff0000; }
+
+        .footer-stats {
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            padding-top: 1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">NEON MODE</button>
+    <header>
+        <h1>Task_OS v1.0</h1>
+    </header>
+
+    <div class="input-group">
+        <input type="text" id="todoInput" placeholder="Initialize new directive..." autocomplete="off">
+        <button class="add-btn" id="addBtn">EXECUTE</button>
+    </div>
+
+    <ul id="todoList">
+        <!-- List items will be injected here -->
+    </ul>
+
+    <div class="footer-stats">
+        <p id="statText">0 tasks remaining</p>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // State Management
+    let todos = [];
+    let isNeonMode = true;
+
+    // DOM Elements
+    const todoInput = document.getElementById('todoInput');
+    const addBtn = document.getElementById('addBtn');
+    const todoList = document.getElementById('todoList');
+    const themeBtn = document.getElementById('themeBtn');
+    const statText = document.getElementById('statText');
+    const progressBar = document.getElementById('progressBar');
+
+    // Load from local storage
+    function loadTodos() {
+        const stored = localStorage.getItem('cyberTodos');
+        if (stored) {
+            try {
+                todos = JSON.parse(stored);
+            } catch (e) {
+                todos = [];
+            }
+        }
+        render();
+    }
+
+    // Save to local storage
+    function saveTodos() {
+        localStorage.setItem('cyberTodos', JSON.stringify(todos));
+    }
+
+    // Add Task
+    function addTask() {
+        const text = todoInput.value.trim();
+        if (text === '') return;
+
+        const newTask = {
+            id: Date.now(),
+            text: text,
+            completed: false,
+            createdAt: new Date().toLocaleTimeString()
+        };
+
+        todos.push(newTask);
+        todoInput.value = '';
+        saveTodos();
+        render();
+    }
+
+    // Toggle Complete
+    function toggleComplete(id) {
+        const task = todos.find(t => t.id === id);
+        if (task) {
+            task.completed = !task.completed;
+            saveTodos();
+            render();
+        }
+    }
+
+    // Delete Task
+    function deleteTask(id) {
+        todos = todos.filter(t => t.id !== id);
+        saveTodos();
+        render();
+    }
+
+    // Render List
+    function render() {
+        todoList.innerHTML = '';
+        
+        let completedCount = 0;
+
+        todos.forEach(task => {
+            if (task.completed) completedCount++;
+            
+            const li = document.createElement('li');
+            li.className = task.completed ? 'completed' : '';
+            
+            li.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <button class="action-btn tick ${task.completed ? 'active' : ''}" onclick="toggleComplete(${task.id})">
+                        ${task.completed ? 'OK' : '->'}
+                    </button>
+                    <span>${task.text}</span>
+                    <small style="color:var(--text-muted); font-size:0.7rem;">[${task.createdAt}]</small>
+                </div>
+                <button class="action-btn trash" onclick="deleteTask(${task.id})" title="Delete">
+                    X
+                </button>
+            `;
+            
+            todoList.appendChild(li);
+        });
+
+        updateStats(completedCount);
+    }
+
+    // Update Statistics
+    function updateStats(completed) {
+        const total = todos.length;
+        const remaining = total - completed;
+        
+        let statMsg = "";
+        let progressPct = 0;
+
+        if (total === 0) {
+            statMsg = "System Idle...";
+        } else if (remaining === 0) {
+            statMsg = "All Systems Operational";
+            progressPct = 100;
+        } else {
+            statMsg = `${remaining} tasks remaining / ${completed} complete`;
+            progressPct = (completed / total) * 100;
+        }
+
+        statText.textContent = statMsg;
+        progressBar.style.width = `${progressPct}%`;
+        
+        // Change color of progress bar based on status
+        if (progressPct === 100) {
+            progressBar.style.backgroundColor = 'var(--success)';
+            progressPct > 80 && (statText.style.color = 'var(--success)');
+        } else {
+            progressBar.style.backgroundColor = 'var(--primary)';
+            statText.style.color = 'var(--text-main)';
+        }
+    }
+
+    // Theme Toggle
+    function toggleTheme() {
+        const colorSchema = getComputedStyle(document.documentElement);
+        const isDark = colorSchema.getPropertyValue('--bg-color') === '#09090b';
+        
+        isNeonMode = !isNeonMode;
+        
+        if (isNeonMode) {
+            document.documentElement.style.setProperty('--bg-color', '#09090b');
+            document.documentElement.style.setProperty('--card-bg', '#18181b');
+            document.documentElement.style.setProperty('--primary', '#00f0ff'); // Cyan
+            themeBtn.textContent = "NEON MODE";
+            body.style.backgroundColor = '#09090b';
+        } else {
+            document.documentElement.style.setProperty('--bg-color', '#e4e4e7');
+            document.documentElement.style.setProperty('--card-bg', '#ffffff');
+            document.documentElement.style.setProperty('--primary', '#0066ff'); // Blue
+            document.documentElement.style.setProperty('--text-main', '#000000');
+            document.documentElement.style.setProperty('--text-muted', '#555555');
+            document.documentElement.style.setProperty('--border', '#d4d4d8');
+            document.documentElement.style.setProperty('--container-border', '#d4d4d8');
+            themeBtn.textContent = "CLASSIC MODE";
+            body.style.backgroundColor = '#f0f0f0';
+        }
+    }
+
+    // Event Listeners
+    addBtn.addEventListener('click', addTask);
+    
+    todoInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') addTask();
+    });
+
+    // Auto-save on every change (debounced would be better but keeping it simple)
+    window.addEventListener('storage', () => loadTodos());
+    localStorage.setItem('cyberTodos', JSON.stringify([])); // Init empty
+
+    // Init
+    loadTodos();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Zen Garden</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --primary: #00f3ff;
+            --secondary: #ff00ff;
+            --accent: #ffee00;
+            --text: #ffffff;
+            --text-muted: #888888;
+            --glow-primary: rgba(0, 243, 255, 0.5);
+            --glow-secondary: rgba(255, 0, 255, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Canvas Layer */
+        #myCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        /* UI Layer */
+        .ui-layer {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            padding: 20px;
+            pointer-events: none; /* Let clicks pass through to canvas where no buttons exist */
+        }
+
+        header {
+            text-align: center;
+            pointer-events: auto;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        h1 {
+            font-size: 2rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .controls {
+            pointer-events: auto;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: rgba(30, 30, 30, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--text-muted);
+            color: var(--text);
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: var(--text);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        button.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--bg-color);
+            font-weight: bold;
+            box-shadow: 0 0 20px var(--glow-primary);
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            pointer-events: auto;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 20px;
+            border-radius: 10px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 50px var(--glow-primary);
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            max-width: 90%;
+            width: 350px;
+        }
+
+        .modal-overlay.open .modal {
+            transform: translateY(0);
+        }
+
+        .modal h2 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+
+        .modal p {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .btn-reset {
+            background: var(--secondary);
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            font-weight: bold;
+            box-shadow: 0 0 20px var(--glow-secondary);
+        }
+        
+        .btn-reset:hover {
+            background: white;
+            color: var(--secondary);
+            box-shadow: 0 0 30px var(--glow-secondary);
+        }
+
+        /* Particle specific classes */
+        .hidden { display: none; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Canvas for Rendering -->
+    <canvas id="myCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div class="ui-layer">
+        <header>
+            <h1>Neon Zen</h1>
+            <p class="subtitle">Click or drag to create particles</p>
+        </header>
+
+        <div class="stat-row">
+            <div class="stat-box">
+                <div class="stat-label">Speed</div>
+                <div class="stat-value" id="speedDisplay">Normal</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Particles</div>
+                <div class="stat-value" id="countDisplay">0</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="modeSpawner" class="active" onclick="setMode('spawner')">Spawner</button>
+            <button id="modeTablet" onclick="setMode('tablet')">Tablet Air</button>
+            <button onclick="togglePause()" id="pauseBtn">Pause</button>
+            <button onclick="openModal()" style="font-size: 0.8em; opacity: 0.7;">Settings</button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h2>Neon Zen</h2>
+            <p>A soothing digital artwork generator.<br>Click to scatter energy.<br>Use "Tablet Air" for smooth drawing modes.</p>
+            <button class="btn-reset" onclick="resetApp()">New Garden</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & State ---
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width, height;
+        let particles = [];
+        let mouse = { x: -100, y: -100, isDown: false, lastX: -100, lastY: -100 };
+        
+        // Settings
+        const config = {
+            particleCount: 100, // For tablet mode (tail trail)
+            explosionCount: 10, // For click mode
+            maxParticles: 800,
+            baseSpeed: 0.03,
+            decaySpeed: 0.015,
+            colors: ['#00f3ff', '#ff00ff', '#ffee00', '#ffffff'],
+            currentMode: 'spawner', // 'spawner' or 'tablet', 'trail'
+            paused: false,
+            gravity: 0, // 0 = float, 1 = gravity
+            friction: 0.98
+        };
+
+        // --- Resizing ---
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Classes ---
+
+        class Particle {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.radius = Math.random() * 8 + 4;
+                this.color = config.colors[Math.floor(Math.random() * config.colors.length)];
+                
+                if (type === 'spawner') {
+                    // Explosion physics
+                    const velocity = Math.random() * 8 + 1;
+                    const angle = Math.random() * Math.PI * 2;
+                    this.vx = Math.cos(angle) * velocity;
+                    this.vy = Math.sin(angle) * velocity;
+                    this.alpha = 1;
+                    this.decay = Math.random() * 0.02 + 0.01; // Fade out speed
+                    this.drag = config.friction;
+                    this.stage = 'expanding';
+                } else if (type === 'tablet') {
+                    // Static trail physics
+                    this.vx = 0;
+                    this.vy = 0;
+                    this.alpha = 1;
+                    this.decay = config.decaySpeed;
+                    this.stage = 'static';
+                }
+            }
+
+            update() {
+                // lerp current position to velocity target
+                this.vx *= config.friction;
+                this.vy *= config.friction;
+                
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Gravity behavior (floating up)
+                if (config.gravity === 1) {
+                    this.vy += 0.1;
+                } else {
+                    // Floating / Upward momentum
+                    if (this.vy > -0.3 && this.vy < 1) this.vy -= 0.02;
+                }
+
+                // Apply Velocity to current velocity for explosion effect
+                this.vx += this.vx * 0.95; 
+                this.vy += this.vy * 0.95;
+
+                // Alpha decay
+                this.alpha -= this.decay;
+
+                // Bounce off edges
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0) this.vy *= -1;
+                if (this.y > height) { this.vy *= -1; this.y = height; }
+
+                if (this.alpha <= 0) this.toRemove = true;
+            }
+
+            draw(ctx) {
+                ctx.beginPath();
+                // Additive blending for that glowing light leak effect
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.alpha;
+                
+                if (this.stage === 'expanding') {
+                    // Draw a circle
+                    ctx.arc(this.x, this.y, this.radius * (1 + (1-this.alpha)*5), 0, Math.PI * 2);
+                } else {
+                    // Draw an ellipse for the tablet tail
+                    // We want the tail to look elongated horizontally or vertically based on movement
+                    ctx.ellipse(this.x, this.y, this.radius/2, this.radius * 2, 0, 0, Math.PI * 2);
+                    ctx.moveTo(this.x, this.y);
+                }
+                
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.closePath();
+            }
+        }
+
+        // --- Core Functions ---
+
+        function createParticles(x, y, count, type) {
+            for (let i = 0; i < count; i++) {
+                const p = new Particle(x, y, type);
+                if (particles.length + p.type === 'spawner' && particles.length >= config.maxParticles) {
+                    // Limit total particles to prevent lag
+                    continue;
+                }
+                particles.push(p);
+            }
+        }
+
+        function drawGlow(ctx) {
+            // Reset global composite operation for background
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = '#121212';
+            ctx.fillRect(0, 0, width, height);
+
+            // Generate noise for the background "waves"
+            // (Implementation of a simple sine wave noise for background movement)
+            // To save performance and code size, we will just use a static dark gradient
+            // But we will animate a massive particle system in the background.
+            
+            if (particles.length === 0) {
+                // Idle state particles
+                if (Math.random() < 0.1) {
+                    const p = new Particle(Math.random() * width, Math.random() * height, 'spawner');
+                    // Make them slow and large
+                    p.vy = (Math.random() - 0.5) * 0.5;
+                    p.vx = (Math.random() - 0.5) * 0.5;
+                    p.decay = 0.001;
+                    particles.push(p);
+                }
+            }
+        }
+
+        function drawBackgroundWaves() {
+            // Aesthetic streaming background
+            const stars = 100;
+            const time = Date.now() * 0.0002;
+            
+            for(let i=0; i<stars; i++) {
+                // We simulate moving distant particles
+                // Optimization: Only render this once or use a few sets of particles
+                if (!window.renderBackground) {
+                    setTimeout(() => {
+                          for(let i=0; i<stars; i++) {
+                            let px = Math.random() * width;
+                            let py = Math.random() * height;
+                             if (Math.random() > 0.5) { window.bgStars.push({x:px, y:py, offset: Math.random()*Math.PI*2});}
+                        }
+                        window.renderBackground = true;
+                    }, 0);
+                }
+            }
+        }
+        
+        let bgStars = [];
+        let lastBgTime = 0;
+
+        function animateBg() {
+            if(!window.renderBackground && bgStars.length < 200) {
+                bgStars = [];
+                for(let i=0; i<200; i++) {
+                    bgStars.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        offset: Math.random() * Math.PI * 2,
+                        speed: Math.random() * 0.5 + 0.1
+                    });
+                }
+                window.renderBackground = true;
+            }
+
+            if(config.paused) return;
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter'; // Add blending
+
+            // Draw background "stars" or ambient particles
+            const time = Date.now() * 0.0005;
+            
+            // Draw simple winding lines as "energy streams"
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.05)';
+            ctx.lineWidth = 2;
+            for(let i = 0; i < 5; i++) {
+                let startX = width/2;
+                let yPos = Math.sin(time + i) * height/2;
+                ctx.beginPath();
+                for(let x = 0; x <= width; x+=20) {
+                    let my = Math.sin((x * 0.01) + (time + i * 2) + (Math.random())) * height * 0.15 + (y + yPos * 0.5);
+                    ctx.lineTo(x, my);
+                }
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function animate() {
+            animateBg();
+
+            if (config.paused) {
+                requestAnimationFrame(animate);
+                return;
+            }
+
+            // Clear trail effect for tablet mode would go here, but we are clearing full rect
+            // to perform the "floating" effect.
+            // We use a standard clear for performance.
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.globalCompositeOperation = 'lighter';
+
+            // Update and draw particles
+            // Iterate backwards for removal
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw(ctx);
+                if (p.toRemove) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Create more particles if idle to keep it alive
+            if (particles.length < 20 && Math.random() < 0.05) {
+                createParticles(width/2 + (Math.random()-0.5)*100, height - 100, 5, 'spawner');
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Interaction ---
+
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        function handleInput(e) {
+            // Handle multi-touch or standard click
+            if(e.touches) {
+                for(let i=0; i<e.touches.length; i++) {
+                    const pos = getMousePos(e.touches[i]);
+                    if(config.currentMode === 'spawner') {
+                        createParticles(pos.x, pos.y, config.explosionCount, 'spawner');
+                    } else if (config.currentMode === 'tablet_trail') {
+                        createParticles(pos.x, pos.y, 1, 'tablet');
+                    }
+                }
+            } else if (e.type === 'mousedown') {
+                createParticles(mouse.x, mouse.y, config.explosionCount, 'spawner');
+                mouse.isDown = true;
+                mouse.lastX = mouse.x;
+                mouse.lastY = mouse.y;
+            } else {
+                // Mouse move handling for tablet mode
+                if(mouse.isDown || e.type === 'mousemove') {
+                    const sensitivity = config.currentMode === 'spawner' ? 0 : 1; // sensitivity
+                    const dX = mouse.x - mouse.lastX;
+                    const dY = mouse.y - mouse.lastY;
+                    
+                    if (Math.abs(dX) > 1 || Math.abs(dY) > 1) {
+                         if(config.currentMode === 'tablet_trail' || config.currentMode === 'tablet_burst')
+                             createParticles(mouse.x, mouse.y, 1 * sensitivity, 'tablet');
+                         if(config.currentMode === 'spawner') 
+                             createParticles(mouse.x, mouse.y, 3 * sensitivity, 'spawner');
+                    }
+                    
+                    mouse.lastX = mouse.x;
+                    mouse.lastY = mouse.y;
+                }
+            }
+        }
+
+        canvas.addEventListener('mousemove', handleInput);
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(e); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleInput(e); }, {passive: false});
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); mouse.isDown = false; });
+        window.addEventListener('mouseup', () => mouse.isDown = false);
+
+
+        // --- Controls & UI Logic ---
+
+        function setMode(mode) {
+            config.currentMode = mode;
+            
+            // Update Buttons
+            document.querySelectorAll('.controls button').forEach(b => {
+                b.classList.remove('active');
+                if(b.innerText.toLowerCase() === mode || (mode === 'tablet' && b.parentElement.id === 'modeTablet')) {
+                    b.classList.add('active');
+                }
+            });
+
+            // Re-align logic
+            if(mode === 'spawner') {
+                document.getElementById('modeTablet').innerText = "Tablet Mode";
+                config.gravity = 0;
+            } else if (mode === 'tablet') {
+                document.getElementById('modeTablet').innerText = "Tablet Air";
+                config.gravity = 0;
+            }
+        }
+
+        function togglePause() {
+            config.paused = !config.paused;
+            const btn = document.getElementById('pauseBtn');
+            btn.innerText = config.paused ? "Resume" : "Pause";
+            btn.classList.toggle('active', config.paused);
+            if (!config.paused) animate();
+        }
+
+        function openModal() {
+            document.getElementById('modalOverlay').classList.add('open');
+        }
+
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if(e.target === document.getElementById('modalOverlay')) {
+                document.getElementById('modalOverlay').classList.remove('open');
+            }
+        });
+
+        function resetApp() {
+            particles = [];
+            document.getElementById('modalOverlay').classList.remove('open');
+            config.currentMode = 'spawner';
+            setMode('spawner');
+        }
+
+        // --- Init ---
+        
+        // Initialize UI Buttons State
+        setMode('spawner');
+
+        // Start Loop
+        animate();
+
+    </script>
+</body>
+</html>

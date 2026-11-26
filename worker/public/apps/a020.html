@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    <style>
+        :root {
+            --primary-color: #ba4949; /* Standard Pomodoro Red */
+            --secondary-color: #2d3436;
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --font-family: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: var(--secondary-color);
+            font-family: var(--font-family);
+        }
+
+        .container {
+            background-color: var(--bg-color);
+            padding: 3rem 4rem;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .time-display {
+            font-size: 8rem;
+            font-weight: bold;
+            color: var(--text-color);
+            margin: 1rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        /* Ring Visual */
+        .time-display::before, 
+        .time-display::after {
+            content: '';
+            position: absolute;
+            background-color: var(--primary-color);
+            /* Only displaying the gap using box-shadow trick for the circle, 
+               or positioning elements. Let's keep text simple and punchy. */
+        }
+
+        .mode-label {
+            font-size: 1.5rem;
+            color: #dfe6e9;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+
+        .timer-icon {
+            font-size: 3rem;
+            color: #dfe6e9;
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            opacity: 0.1;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        button {
+            border: none;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            font-family: var(--font-family);
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn-action {
+            background-color: var(--primary-color);
+            color: white;
+            width: 120px;
+        }
+
+        .btn-action:hover {
+            background-color: #a93232;
+        }
+
+        .btn-action:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.9rem;
+            color: #b2bec3;
+            margin-top: 20px;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 2rem;
+            }
+            .time-display {
+                font-size: 6rem;
+            }
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .btn-action {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="mode-label" class="mode-label">Work</div>
+        
+        <!-- Visual timer icon -->
+        <div class="timer-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM13 7V11L16 13V15H15V17H14V13H11V11H13Z"/>
+            </svg>
+        </div>
+
+        <div class="time-display">
+            <div id="time">25:00</div>
+        </div>
+
+        <div class="controls">
+            <button id="toggleBtn" class="btn-action">Start</button>
+        </div>
+
+        <div class="info-bar">
+            <span id="completed-count">Completed: 0</span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const WORK_TIME = 25 * 60; // 25 minutes in seconds
+        const BREAK_TIME = 5 * 60; // 5 minutes in seconds
+
+        // DOM Elements
+        const elViewTime = document.querySelector('#time');
+        const elMode = document.querySelector('#mode-label');
+        const btnToggle = document.querySelector('#toggleBtn');
+        const elCompletedCount = document.querySelector('#completed-count');
+
+        // State
+        let timeLeft = WORK_TIME;
+        let isRunning = false;
+        let isWorkTime = true; // true for Work, false for Break
+        let intervalId = null;
+        let completedWorkCount = 0;
+
+        // Audio Context for Beeps (No external files needed)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playNotificationSound() {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+            oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            elViewTime.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Change text color based on mode
+            elViewTime.style.color = isWorkTime ? 'var(--primary-color)' : '#dfe6e9';
+            elMode.style.color = isWorkTime ? 'var(--primary-color)' : '#dfe6e9';
+        }
+
+        function switchMode() {
+            clearInterval(intervalId);
+            isWorkTime = !isWorkTime;
+            
+            if (isWorkTime) {
+                timeLeft = WORK_TIME;
+                elMode.textContent = "POMODORO";
+            } else {
+                timeLeft = BREAK_TIME;
+                elMode.textContent = "BREAK";
+            }
+            
+            updateDisplay();
+            isRunning = false;
+            btnToggle.textContent = "Start";
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                isRunning = false;
+                clearInterval(intervalId);
+                btnToggle.textContent = "Start";
+            } else {
+                isRunning = true;
+                btnToggle.textContent = "Pause";
+                intervalId = setInterval(() => {
+                    timeLeft--;
+                    updateDisplay();
+
+                    if (timeLeft <= 0) {
+                        switchMode();
+                        playNotificationSound();
+                        
+                        // Handle workflow logic
+                        if (isWorkTime) {
+                            completedWorkCount++;
+                            elCompletedCount.textContent = `Completed: ${completedWorkCount}`;
+                            switchMode(); // Automatically switch to break
+                        } else {
+                            // If finished break, stay on break but mark as done (optional cyc logic)
+                            // Standard is just to stop here or start next work. 
+                            // We will stick to just switching logic above.
+                        }
+                    }
+                }, 1000);
+            }
+        }
+
+        // Initial Setup
+        updateDisplay();
+
+        // Event Listeners
+        btnToggle.addEventListener('click', toggleTimer);
+        document.body.addEventListener('click', () => {
+            // Initialize Audio Context on first user interaction (browser policy)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        });
+    </script>
+</body>
+</html>

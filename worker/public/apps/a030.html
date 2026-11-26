@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Life Helper</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --success: #10b981;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--text);
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            padding: 0 10px;
+        }
+
+        .helper-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .helper-card h2 {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.75rem;
+        }
+
+        /* Clock Styles */
+        .clock-display {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .time { font-size: 2.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--primary); }
+        .date { color: var(--text-light); margin-top: 5px; }
+
+        /* Unit Converter Styles */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .input-group { display: flex; flex-direction: column; }
+        label { font-size: 0.8rem; color: var(--text-light); margin-bottom: 4px; }
+        input[type="number"], select {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus { border-color: var(--primary); }
+        .arrow { text-align: center; color: var(--text-light); font-size: 1.2rem; }
+        .result-box {
+            background-color: #f9fafb;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        /* To-Do Styles */
+        .todo-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .todo-input input { flex: 1; }
+        .todo-input button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .todo-input button:hover { background-color: var(--primary-hover); }
+        ul { list-style: none; max-height: 150px; overflow-y: auto; }
+        li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        li:last-child { border-bottom: none; }
+        li.completed span { text-decoration: line-through; color: var(--text-light); }
+        .checkbox-wrapper { display: flex; align-items: center; }
+        .todo-checkbox { width: 18px; height: 18px; accent-color: var(--success); cursor: pointer; }
+        .del-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.2rem; }
+        .clear-all {
+            color: var(--text-light);
+            background: none;
+            border: none;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        /* Utility Button */
+        .full-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--text);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .full-btn:hover { opacity: 0.9; }
+        .full-btn.secondary { background-color: white; color: var(--text); border: 1px solid var(--border); }
+        .full-btn.secondary:hover { background-color: var(--bg); }
+
+        @media (max-width: 400px) {
+            .grid { grid-template-columns: 1fr; }
+            .arrow { transform: rotate(90deg); margin: 10px 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Life Helper</h1>
+    </header>
+
+    <!-- Clock Widget -->
+    <div class="helper-card">
+        <h2>Current Time</h2>
+        <div class="clock-display">
+            <div class="time" id="clock">00:00:00</div>
+            <div class="date" id="date">Loading...</div>
+        </div>
+    </div>
+
+    <!-- Unit Converter -->
+    <div class="helper-card">
+        <h2>Unit Converter Length</h2>
+        <div class="grid">
+            <div class="input-group">
+                <label>Value</label>
+                <input type="number" id="convInput" placeholder="100" oninput="convertValue()">
+            </div>
+            <div class="input-group">
+                <label>Convert To</label>
+                <select id="convSelect" onchange="convertValue()">
+                    <option value="1">Meters</option>
+                    <option value="3.28084">Feet</option>
+                    <option value="39.3701">Inches</option>
+                    <option value="0.000621371">Miles</option>
+                    <option value="1000">Millimeters</option>
+                    <option value="0.946353">Yards</option>
+                    <option value="1609344">Micrometers</option>
+                </select>
+            </div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="result-box" id="convResult">100 Meters</div>
+        <p style="font-size: 0.8rem; color: var(--text-light); margin-top: 10px; text-align: center;">
+            Note: 1 Meter = 3.28 Feet (Approximate Conversion)
+        </p>
+    </div>
+
+    <!-- To-Do List -->
+    <div class="helper-card">
+        <h2>Quick Tasks</h2>
+        <div class="todo-input">
+            <input type="text" id="todoInput" placeholder="Add a task..." onkeypress="handleEnter(event)">
+            <button onclick="addTask()">Add</button>
+        </div>
+        <ul id="todoList">
+            <!-- Tasks go here -->
+        </ul>
+        <button class="clear-all" id="clearAllBtn" onclick="clearCompleted()" style="display:none;">Clear Completed Tasks</button>
+    </div>
+</div>
+
+<script>
+    // --- Clock Logic ---
+    function updateClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const dateString = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+        
+        document.getElementById('clock').textContent = timeString;
+        document.getElementById('date').textContent = dateString;
+    }
+    setInterval(updateClock, 1000);
+    updateClock(); // Initial call
+
+    // --- Unit Converter Logic ---
+    function convertValue() {
+        const input = document.getElementById('convInput');
+        const select = document.getElementById('convSelect');
+        const resultBox = document.getElementById('convResult');
+        
+        let val = parseFloat(input.value);
+        let unit = select.options[select.selectedIndex].text;
+        let metricUnit = "Meters";
+
+        if (isNaN(val)) {
+            resultBox.textContent = "---";
+            return;
+        }
+
+        // Base conversion: Meters to specific unit (stored as multiplier for 1 Meter)
+        // Example: Meters option is 1 (1*val = val)
+        
+        resultBox.innerHTML = val + " " + unit;
+    }
+
+    // --- To-Do List Logic ---
+    // Load from local storage if exists
+    let tasks = JSON.parse(localStorage.getItem('dailyHelperTasks')) || [];
+
+    function saveTasks() {
+        localStorage.setItem('dailyHelperTasks', JSON.stringify(tasks));
+        renderTasks();
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') addTask();
+    }
+
+    function addTask() {
+        const input = document.getElementById('todoInput');
+        const text = input.value.trim();
+        
+        if (text) {
+            tasks.unshift({ id: Date.now(), text: text, completed: false });
+            input.value = '';
+            saveTasks();
+        }
+    }
+
+    function toggleTask(id) {
+        const task = tasks.find(t => t.id === id);
+        if (task) {
+            task.completed = !task.completed;
+            saveTasks();
+        }
+    }
+
+    function deleteTask(id) {
+        tasks = tasks.filter(t => t.id !== id);
+        saveTasks();
+    }
+
+    function clearCompleted() {
+        tasks = tasks.filter(t => !t.completed);
+        saveTasks();
+    }
+
+    function renderTasks() {
+        const list = document.getElementById('todoList');
+        const clearBtn = document.getElementById('clearAllBtn');
+        
+        list.innerHTML = '';
+        
+        // Show clear button only if there are completed tasks
+        clearBtn.style.display = tasks.some(t => t.completed) ? 'block' : 'none';
+
+        tasks.forEach(task => {
+            const li = document.createElement('li');
+            li.className = task.completed ? 'completed' : '';
+            
+            li.innerHTML = `
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" class="todo-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                    <span>${task.text}</span>
+                </div>
+                <button class="del-btn" onclick="deleteTask(${task.id})">&times;</button>
+            `;
+            list.appendChild(li);
+        });
+
+        if (tasks.length === 0) {
+            list.innerHTML = '<li style="color:var(--text-light); justify-content:center;">No tasks yet</li>';
+        }
+    }
+
+    // Initial Render
+    renderTasks();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TestPrep Master</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --success: #10b981;
+            --error: #ef4444;
+            --border-radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 600px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 500px;
+        }
+
+        /* Header */
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        /* Screens */
+        .screen {
+            padding: 30px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Setup Screen */
+        .topic-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .topic-btn {
+            background: white;
+            border: 2px solid #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .topic-btn:hover {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .topic-btn.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .topic-inputs {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--text-main);
+            border: 1px solid #d1d5db;
+        }
+
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+
+        /* Quiz Screen */
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .question-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .option-card:hover {
+            border-color: var(--primary);
+            background: #f9fafb;
+        }
+
+        .option-card.selected {
+            border-color: var(--success);
+            background: #ecfdf5;
+        }
+
+        .option-card:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        /* Feedback Screen */
+        .feedback-box {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .feedback-correct {
+            background: #ecfdf5;
+            color: var(--success);
+        }
+
+        .feedback-incorrect {
+            background: #fef2f2;
+            color: var(--error);
+        }
+
+        .next-btn {
+            background: var(--text-main);
+            color: white;
+            margin-top: 20px;
+        }
+
+        /* Confetti */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #f00;
+            animation: fall linear forwards;
+            top: -20px;
+            z-index: 999;
+        }
+
+        @keyframes fall {
+            to { transform: translateY(600px) rotate(720deg); }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>TestPrep Master</h1>
+    </header>
+
+    <!-- 1. Setup Screen -->
+    <div id="setup-screen" class="screen">
+        <h2>Select a Subject</h2>
+        <p style="color: var(--text-muted); margin-bottom: 10px;">Choose what to study:</p>
+        <div class="topic-list" id="topic-list">
+            <!-- Topics injected by JS -->
+        </div>
+
+        <div class="topic-inputs">
+            <div>
+                <label style="font-size: 0.8rem; color: var(--text-muted); display:block; margin-bottom:5px;">Number of Questions</label>
+                <input type="number" id="question-count" value="5" min="1" max="50">
+            </div>
+        </div>
+
+        <button class="btn" onclick="app.startSetup()">Create Practice Test</button>
+    </div>
+
+    <!-- 2. Quiz Screen -->
+    <div id="quiz-screen" class="screen hidden">
+        <div class="quiz-header">
+            <span id="quiz-progress-text">Question 1/5</span>
+            <span id="quiz-score">Score: 0</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="question-text" id="question-text"></div>
+        <div class="options-container" id="options-container">
+            <!-- Options injected by JS -->
+        </div>
+    </div>
+
+    <!-- 3. Feedback Screen (Intermediate) -->
+    <div id="feedback-screen" class="screen hidden">
+        <h2 id="feedback-title">Result</h2>
+        <div class="feedback-box" id="feedback-box">
+            <h3></h3>
+        </div>
+        <p id="feedback-explanation" style="margin-bottom: 20px; color: var(--text-muted);"></p>
+        <button class="btn" id="feedback-btn" onclick="app.nextQuestion()">Continue</button>
+    </div>
+
+    <!-- 4. Results Screen -->
+    <div id="results-screen" class="screen hidden">
+        <div style="text-align: center;">
+            <div style="font-size: 4rem; margin-bottom: 10px;" id="final-score-icon">🎉</div>
+            <h2 style="margin-bottom: 10px;">Test Complete!</h2>
+            <p style="color: var(--text-muted); margin-bottom: 30px;">Your subject was <strong id="final-subject"></strong></p>
+            
+            <div style="background: #f9fafb; padding: 20px; border-radius: 12px; margin-bottom: 30px;">
+                <span style="color: var(--text-muted);">Final Score</span><br>
+                <span id="final-score-display" style="font-size: 2.5rem; font-weight: 700; color: var(--primary);">0 / 0</span>
+            </div>
+
+            <button class="btn" onclick="app.restart()">Try Again</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * Mini Question Bank Generator
+ * Generates quiz questions based on a chosen subject.
+ */
+const QuizGenerator = {
+    generateRandomOptions: (correct, type) => {
+        let options = [correct];
+        let min = type === 'math' ? 0 : 1;
+        let max = type === 'math' ? 100 : 100;
+        
+        while (options.length < 4) {
+            let option = Math.floor(Math.random() * (max - min + 1)) + min;
+            if (!options.includes(option)) {
+                if (type === 'math') {
+                    options.push(option);
+                } else {
+                    // For non-math, just random dates or numbers to simulate options
+                    // We map these abstractly to concepts in the prompt
+                    options.push(option);
+                }
+            }
+        }
+        // Shuffle
+        options.sort(() => Math.random() - 0.5);
+        return options;
+    },
+
+    questions: {
+        'math': [
+            { q: "What is 8 × 7?", a: 56, t: 'math' },
+            { q: "What is 12 + 18?", a: 30, t: 'math' },
+            { q: "What is the square root of 144?", a: 12, t: 'math' },
+            { q: "Solve for x: 2x + 4 = 10", a: 3, t: 'math' },
+            { q: "What is 25% of 200?", a: 50, t: 'math' },
+            { q: "If a triangle has angles 30° and 60°, what is the third?", a: 90, t: 'math' },
+            { q: "Calculate: 100 ÷ 5", a: 20, t: 'math' },
+            { q: "What is the sum of 1 through 9?", a: 45, t: 'math' },
+        ],
+        'history': [
+            { q: "Who painted the Mona Lisa?", a: "Leonardo da Vinci", t: 'history' },
+            { q: "In which year did the Titanic sink?", a: "1912", t: 'history' },
+            { q: "Who was the first President of the USA?", a: "George Washington", t: 'history' },
+            { q: "The French Revolution began in which year?", a: "1789", t: 'history' },
+            { q: "Who discovered penicillin?", a: "Alexander Fleming", t: 'history' },
+        ],
+        'science': [
+            { q: "What is the chemical symbol for Gold?", a: "Au", t: 'science' },
+            { q: "How many states are in the USA?", a: "50", t: 'science' }, //다니
+            { q: "What planet is known as the Red Planet?", a: "Mars", t: 'science' },
+            { q: "What is the powerhouse of the cell?", a: "Mitochondria", t: 'science' },
+            { q: "What is the boiling point of water?", a: "100", t: 'science' },
+        ],
+        'general': [
+            { q: "What is the capital of Japan?", a: "Tokyo", t: 'general' },
+            { q: "How many sides does a hexagon have?", a: "6", t: 'general' },
+            { q: "Who wrote 'Romeo and Juliet'?", a: "William Shakespeare", t: 'general' },
+            { q: "What is the largest ocean?", a: "Pacific Ocean", t: 'general' },
+            { q: "How many colors are in a rainbow?", a: "7", t: 'general' },
+        ]
+    }
+};
+
+/**
+ * Application Controller
+ */
+const app = {
+    state: {
+        currentScreen: 'setup',
+        selectedTopic: 'math',
+        questionCount: 5,
+        currentQuestionIndex: 0,
+        score: 0,
+        questions: [],
+        userAnswer: null
+    },
+
+    // DOM Elements
+    screens: {
+        setup: document.getElementById('setup-screen'),
+        quiz: document.getElementById('quiz-screen'),
+        feedback: document.getElementById('feedback-screen'),
+        results: document.getElementById('results-screen')
+    },
+
+    init: function() {
+        this.renderTopicList();
+    },
+
+    switchScreen: function(screenName) {
+        Object.values(this.screens).forEach(el => el.classList.add('hidden'));
+        this.screens[screenName].classList.remove('hidden');
+        this.state.currentScreen = screenName;
+    },
+
+    renderTopicList: function() {
+        const list = document.getElementById('topic-list');
+        const topics = ['math', 'history', 'science', 'general'];
+        const topicNames = {
+            'math': 'Mathematics',
+            'history': 'History',
+            'science': 'Science',
+            'general': 'General Knowledge'
+        };
+
+        list.innerHTML = topics.map(topic => `
+            <div class="topic-btn" onclick="app.selectTopic('${topic}')">
+                • ${topicNames[topic]}
+            </div>
+        `).join('');
+    },
+
+    selectTopic: function(topic) {
+        this.state.selectedTopic = topic;
+        
+        // Update UI selection
+        const btns = document.querySelectorAll('.topic-btn');
+        btns.forEach(btn => {
+            if(btn.textContent.includes(topicNames[topic])) {
+                btn.classList.add('selected');
+            } else {
+                btn.classList.remove('selected');
+            }
+        });
+    },
+
+    startSetup: function() {
+        const count = parseInt(document.getElementById('question-count').value);
+        this.state.questionCount = Math.max(1, count);
+        this.startQuiz();
+    },
+
+    startQuiz: function() {
+        // Generate random questions
+        this.state.questions = [];
+        const bank = QuizGenerator.questions[this.state.selectedTopic];
+        const shuffled = [...bank].sort(() => 0.5 - Math.random());
+        
+        this.state.questions = shuffled.slice(0, this.state.questionCount);
+        this.state.currentQuestionIndex = 0;
+        this.state.score = 0;
+        
+        this.switchScreen('quiz');
+        this.loadQuestion();
+    },
+
+    loadQuestion: function() {
+        const qData = this.state.questions[this.state.currentQuestionIndex];
+        const currentQ = qData; // Frontend only, just find next
+        
+        // Update Header
+        document.getElementById('quiz-progress-text').textContent = `Question ${this.state.currentQuestionIndex + 1}/${this.state.questionCount}`;
+        document.getElementById('quiz-score').textContent = `Score: ${this.state.score}`;
+        
+        // Update Progress Bar
+        const percent = ((this.state.currentQuestionIndex) / this.state.questionCount) * 100;
+        document.getElementById('progress-fill').style.width = `${percent}%`;
+
+        // Update Text
+        const topicNames = {
+            'math': 'Mathematics',
+            'history': 'History',
+            'science': 'Science',
+            'general': 'General Knowledge'
+        };
+        document.getElementById('quiz-subject').textContent = topicNames[this.state.selectedTopic];
+        document.getElementById('question-text').textContent = currentQ.q;
+
+        // Update Options
+        const optionsBank = QuizGenerator.generateRandomOptions(currentQ.a, currentQ.t);
+        const optionsContainer = document.getElementById('options-container');
+        optionsContainer.innerHTML = optionsBank.map(opt => `
+            <div class="option-card" onclick="app.selectOption('${opt}')">
+                ${opt}
+            </div>
+        `).join('');
+    },
+
+    selectOption: function(value) {
+        if (this.state.userAnswer !== null) return; // Prevent changing answer
+
+        this.state.userAnswer = value;
+        
+        // Highlight selected
+        const cards = document.querySelectorAll('.option-card');
+        cards.forEach(card => {
+            const text = card.textContent;
+            if (text === value) card.classList.add('selected');
+            card.style.pointerEvents = 'none';
+        });
+
+        // Delay to show feedback
+        setTimeout(() => this.showFeedback(), 800);
+    },
+
+    showFeedback: function() {
+        const currentQ = this.state.questions[this.state.currentQuestionIndex];
+        const isCorrect = this.state.userAnswer == currentQ.a;
+        
+        const title = document.getElementById('feedback-title');
+        const box = document.getElementById('feedback-box');
+        const explanation = document.getElementById('feedback-explanation');
+        const btn = document.getElementById('feedback-btn');
+
+        if (isCorrect) {
+            this.state.score++;
+            title.textContent = "Correct!";
+            box.textContent = "Great job!";
+            box.className = "feedback-box feedback-correct";
+            btn.textContent = "Next Question";
+        } else {
+            title.textContent = "Incorrect";
+            box.textContent = `The correct answer was ${currentQ.a}.`;
+            box.className = "feedback-box feedback-incorrect";
+            btn.textContent = "Learn & Continue";
+        }
+        
+        explanation.textContent = `Question: ${currentQ.q}`;
+        
+        this.switchScreen('feedback');
+    },
+
+    nextQuestion: function() {
+        this.state.currentQuestionIndex++;
+        this.state.userAnswer = null;
+
+        if (this.state.currentQuestionIndex >= this.state.questions.length) {
+            this.finishQuiz();
+        } else {
+            this.loadQuestion();
+        }
+    },
+
+    finishQuiz: function() {
+        const finalPercent = Math.max(80, Math.min(100, Math.round((this.state.score / this.state.questions.length) * 100)));
+        
+        // Update Results
+        document.getElementById('final-score-display').textContent = `${this.state.score} / ${this.state.questionCount}`;
+        document.getElementById('final-subject').textContent = this.state.questions.length === 0 ? "Unknown Subject" : 
+            (this.state.selectedTopic === 'history' ? 'History' : 
+             this.state.selectedTopic === 'science' ? 'Science' : 
+             this.state.selectedTopic === 'math' ? 'Mathematics' : 'General Knowledge');
+        
+        const btn = document.getElementById('feedback-btn');
+        
+        // Add emoji based on score
+        let emoji = finalPercent >= 80 ? '🎉' : finalPercent >= 50 ? '👍' : '💪';
+        document.getElementById('final-score-icon').textContent = emoji;
+
+        // Clear previous confetti
+        document.querySelectorAll('.confetti').forEach(e => e.remove());
+        
+        // Trigger confetti
+        if (finalPercent >= 80) {
+            this.triggerConfetti();
+        }
+
+        btn.style.display = 'none';
+        this.switchScreen('results');
+    },
+
+    restart: function() {
+        this.switchScreen('setup');
+    },
+
+    triggerConfetti: function() {
+        const colors = ['#f00', '#0f0', '#00f', '#ff0', '#0ff', '#f0f'];
+        for (let i = 0; i < 50; i++) {
+            const conf = document.createElement('div');
+            conf.classList.add('confetti');
+            conf.style.left = Math.random() * 100 + 'vw';
+            conf.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            conf.style.animationDuration = (Math.random() * 2 + 2) + 's';
+            document.body.appendChild(conf);
+        }
+    }
+};
+
+// Initialize App
+app.init();
+
+</script>
+</body>
+</html>

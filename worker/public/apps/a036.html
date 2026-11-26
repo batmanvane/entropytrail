@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Times Table Trainer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 350px;
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 0;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+            color: #555;
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .question-box {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            min-height: 60px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.5rem;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            margin-bottom: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus {
+            border-color: #3498db;
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        .btn:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .feedback {
+            margin-top: 1rem;
+            height: 20px;
+            font-weight: bold;
+        }
+
+        .feedback.correct { color: #27ae60; }
+        .feedback.wrong { color: #c0392b; }
+        .feedback.start { color: #7f8c8d; }
+
+        .timer-bar {
+            width: 100%;
+            height: 5px;
+            background-color: #ddd;
+            margin-bottom: 1rem;
+            border-radius: 3px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .timer-fill {
+            height: 100%;
+            background-color: #3498db;
+            width: 100%;
+            transition: width 1s linear;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Times Table Trainer</h1>
+    
+    <div class="timer-bar" id="timerBar">
+        <div class="timer-fill" id="timerFill"></div>
+    </div>
+
+    <div class="stats">
+        <span>Time: <b id="timerDisplay">60</b>s</span>
+        <span>Scores: <b id="scoreDisplay">0</b></span>
+        <span>Best: <b id="bestScoreDisplay">0</b></span>
+    </div>
+
+    <div class="question-box" id="question">Ready?</div>
+    
+    <input type="number" id="answer" placeholder="?" autocomplete="off">
+    <button id="submitBtn" class="btn">Submit Answer</button>
+    <div id="feedback" class="feedback start"></div>
+</div>
+
+<script>
+    // State
+    let correctCount = 0;
+    let bestScore = localStorage.getItem('timesTableBest') || 0;
+    let timeLeft = 60;
+    let timerInterval;
+    let isGameActive = false;
+    let currentQuestion = {};
+
+    // DOM Elements
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const bestScoreDisplay = document.getElementById('bestScoreDisplay');
+    const timerDisplay = document.getElementById('timerDisplay');
+    const questionEl = document.getElementById('question');
+    const answerInput = document.getElementById('answer');
+    const submitBtn = document.getElementById('submitBtn');
+    const feedbackEl = document.getElementById('feedback');
+    const timerBar = document.getElementById('timerBar');
+    const timerFill = document.getElementById('timerFill');
+
+    // Init
+    bestScoreDisplay.textContent = bestScore;
+    renderQuestion();
+
+    // Listeners
+    submitBtn.addEventListener('click', handleAnswer);
+    answerInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleAnswer();
+    });
+
+    function startTimer() {
+        timeLeft = 60;
+        timerDisplay.textContent = timeLeft;
+        timerBar.style.display = 'block';
+        timerFill.style.width = '100%';
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            timerDisplay.textContent = timeLeft;
+            const percentage = (timeLeft / 60) * 100;
+            timerFill.style.width = `${percentage}%`;
+
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }, 1000);
+    }
+
+    function renderQuestion() {
+        // Generate random numbers 1-10
+        const num1 = Math.floor(Math.random() * 10) + 1;
+        const num2 = Math.floor(Math.random() * 10) + 1;
+        currentQuestion = {
+            num1: num1,
+            num2: num2,
+            answer: num1 * num2
+        };
+        
+        questionEl.textContent = `${num1} × ${num2} = ?`;
+        answerInput.value = '';
+        answerInput.focus();
+    }
+
+    function handleAnswer() {
+        if (!isGameActive) return;
+
+        const userAnswer = parseInt(answerInput.value);
+
+        if (isNaN(userAnswer)) {
+            feedbackEl.textContent = "Please enter a number";
+            feedbackEl.className = "feedback";
+            return;
+        }
+
+        if (userAnswer === currentQuestion.answer) {
+            correctCount++;
+            scoreDisplay.textContent = correctCount;
+            feedbackEl.textContent = "Correct!";
+            feedbackEl.className = "feedback correct";
+            renderQuestion();
+        } else {
+            feedbackEl.textContent = `Wrong! It was ${currentQuestion.answer}`;
+            feedbackEl.className = "feedback wrong";
+            startTimer(); // Give 1 second penalty for wrong answer
+        }
+
+        answerInput.value = '';
+        answerInput.focus();
+
+        // Reset feedback after 1 second
+        setTimeout(() => {
+            if (isGameActive) {
+                feedbackEl.textContent = "";
+                feedbackEl.className = "feedback";
+            }
+        }, 1000);
+    }
+
+    function startGame() {
+        isGameActive = true;
+        timeLeft = 60;
+        correctCount = 0;
+        scoreDisplay.textContent = 0;
+        startTimer();
+        renderQuestion();
+    }
+
+    function endGame() {
+        isGameActive = false;
+        clearInterval(timerInterval);
+        feedbackEl.textContent = "Time's Up!";
+        feedbackEl.className = "feedback sad";
+        
+        if (correctCount > bestScore) {
+            bestScore = correctCount;
+            localStorage.setItem('timesTableBest', bestScore);
+            bestScoreDisplay.textContent = bestScore;
+        }
+
+        questionEl.textContent = "Game Over";
+        answerInput.disabled = true;
+        submitBtn.textContent = "Play Again";
+        submitBtn.disabled = false;
+        submitBtn.style.backgroundColor = "#e74c3c";
+        timerBar.style.display = 'none';
+    }
+
+    submitBtn.addEventListener('click', () => {
+        if (isGameActive) {
+            endGame();
+        } else {
+            startGame();
+        }
+        submitBtn.style.backgroundColor = "#3498db";
+    });
+
+</script>
+
+</body>
+</html>

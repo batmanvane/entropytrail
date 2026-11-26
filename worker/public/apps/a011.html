@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pythagorean Theorem Interactive Illustration</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --hypotenuse: #ef4444;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --border: #e5e7eb;
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            max-width: 1000px;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin: 0 0 10px 0;
+            font-size: 1.8rem;
+            color: #111827;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 20px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background-color: #eef2ff;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            overflow: hidden;
+            touch-action: none; /* Prevent scrolling while drawing on mobile */
+        }
+
+        #pythagorasCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 20px;
+            align-items: end;
+            padding: 24px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: grab;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .hypotenuse-label {
+            align-items: flex-end;
+            text-align: right;
+        }
+
+        .equation-display {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-top: 10px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-family: 'Times New Roman', Times, serif;
+            letter-spacing: 1px;
+        }
+
+        .val-display {
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .canvas-wrapper {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Pythagorean Theorem</h1>
+    <p class="subtitle">Adjust legs <strong>a</strong> and <strong>b</strong> to visualize a² + b² = c²</p>
+
+    <div class="canvas-wrapper" id="canvasContainer">
+        <canvas id="pythagorasCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <div class="control-header">
+                <label for="inputA">Leg A (Width)</label>
+                <strong class="val-display" id="valA">300</strong>
+            </div>
+            <input type="range" id="inputA" min="50" max="400" value="150" step="10">
+        </div>
+
+        <div class="control-group">
+            <div class="control-header">
+                <label for="inputB">Leg B (Height)</label>
+                <strong class="val-display" id="valB">300</strong>
+            </div>
+            <input type="range" id="inputB" min="50" max="400" value="150" step="10">
+        </div>
+
+        <div class="control-group hypotenuse-label">
+            <div class="control-header">
+                <label for="inputC">Hypotenuse (C)</label>
+                <strong class="val-display" id="valC">0</strong>
+            </div>
+            <input type="range" id="inputC" min="0" max="1000" value="500" step="0.1">
+        </div>
+    </div>
+
+    <div class="equation-display">
+        <span id="expressionA">a²</span> + <span id="expressionB">b²</span> = <span id="expressionC">c²</span>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('pythagorasCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+
+    // UI Elements
+    const inputA = document.getElementById('inputA');
+    const inputB = document.getElementById('inputB');
+    const inputC = document.getElementById('inputC');
+    
+    const valA = document.getElementById('valA');
+    const valB = document.getElementById('valB');
+    const valC = document.getElementById('valC');
+
+    const exprA = document.getElementById('expressionA');
+    const exprB = document.getElementById('expressionB');
+    const exprC = document.getElementById('expressionC');
+
+    // Dimensions
+    let width = 800;
+    let height = 500;
+    let centerX, centerY;
+    let base = 300; // Width of triangle base
+    let heightB = 300; // Height of triangle altitude
+    
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    // Squared coordinates for drawing the parallelogram proof visually
+    // The visual is actually a standard "Square on Hypotenuse" construction.
+    // To make it easier to understand, we draw the Right Triangle and Squares on sides.
+    
+    // Coordinates logic:
+    // Right Angled Triangle Vertex (Hypotenuse top)
+    // Left Vertex (Right angle)
+    // Bottom Vertex
+    
+    function resize() {
+        // Simple padding calculation
+        const padding = 60;
+        width = container.clientWidth - padding;
+        height = container.clientHeight - padding;
+        
+        // Max value constrained by canvas size
+        const maxDim = Math.floor(Math.min(width, height) * 0.85);
+        
+        // Update maxes on inputs
+        inputA.max = maxDim;
+        inputB.max = maxDim;
+        
+        centerX = width / 2;
+        centerY = height / 2 + 20; // Slight vertical offset if needed
+        
+        // Snap inputs to dimensions if they exceed new bounds
+        if (parseFloat(inputA.value) > inputA.max) inputA.value = inputA.max;
+        if (parseFloat(inputB.value) > inputB.max) inputB.max = Math.floor(height/1.5); // Scale height differently for better view
+
+        // Reset labels
+        valA.textContent = inputA.value;
+        valB.textContent = inputB.value;
+        valC.value = calculateHypotenuse(parseFloat(inputA.value), parseFloat(inputB.value));
+        updateEquation();
+        draw();
+    }
+
+    function calculateHypotenuse(a, b) {
+        return Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2));
+    }
+
+    function drawLines(fromX, fromY, toX, toY, color,겉=1) {
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 겉;
+        ctx.stroke();
+    }
+
+    function fillRect(x, y, w, h, color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, w, h);
+    }
+
+    function draw() {
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw background guide lines
+        ctx.strokeStyle = '#e4e6eb';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.moveTo(centerX, 0);
+        ctx.lineTo(centerX, height);
+        ctx.stroke();
+
+        // Read values
+        const a = parseFloat(inputA.value); // Width (base)
+        const b = parseFloat(inputB.value); // Height
+
+        // Define Triangle Vertices
+        // Position hypotenuse tip at (centerX, centerY)
+        // Leg A extends left horizontally
+        // Leg B extends down vertically
+        
+        const tipX = centerX;
+        const tipY = centerY;
+
+        const leftX = tipX - a;
+        const leftY = tipY;
+
+        const botX = tipX;
+        const botY = tipY + b;
+
+        // 1. Draw the Right Triangle (Legs and Hypotenuse)
+        // Legs (A & B) - Blue
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(leftX, tipY); // Leg A
+        ctx.lineTo(tipX, tipY);
+        ctx.lineTo(tipX, tipY + b); // Leg B
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Hypotenuse (C) - Red
+        ctx.beginPath();
+        ctx.moveTo(leftX, tipY);
+        ctx.lineTo(tipX, tipY + b);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // 2. Draw Square on Leg A (Top/Left)
+        const sqASize = a;
+        fillRect(leftX - sqASize, tipY - sqASize, sqASize, sqASize, '#60a5fa');
+        
+        // Draw Diagonal for Square A (visual aid for a*a)
+        ctx.beginPath();
+        ctx.moveTo(leftX - sqASize, tipY);
+        ctx.lineTo(tipX, tipY - sqASize);
+        ctx.strokeStyle = '#93c5fd';
+        ctx.stroke();
+
+        // 3. Draw Square on Leg B (Bottom)
+        const sqBSize = b;
+        fillRect(tipX, tipY, sqBSize, sqBSize, '#34d399');
+
+        // Draw Diagonal for Square B
+        ctx.beginPath();
+        ctx.moveTo(tipX - sqBSize, tipY);
+        ctx.lineTo(tipX, tipY + sqBSize);
+        ctx.strokeStyle = '#6ee7b7';
+        ctx.stroke();
+
+        // 4. Draw Square on Hypotenuse (Leg C - Slanted)
+        // We construct a square perpendicular to the hypotenuse.
+        // Length = c = hypotenuse
+        const c = calculateHypotenuse(a, b);
+        
+        // Calculate angle of hypotenuse
+        const dx = botX - leftX;
+        const dy = botY - tipY;
+        const angle = Math.atan2(dy, dx);
+        
+        // Start the square from the bottom-right vertex (botX, botY)
+        // Extending outwards from the triangle
+        
+        // Point 1: Bottom Right Vertex
+        const b0x = botX;
+        const b0y = botY;
+        
+        // Point 2: Top Left Vertex (Left Vertex of triangle moving c distance perpendicular)
+        const b1x = botX - c * Math.cos(angle - Math.PI/2);
+        const b1y = botY - c * Math.sin(angle - Math.PI/2);
+        
+        // Point 3: Extend from the Tip moving c distance perpendicular
+        const b2x = tipX + c * Math.cos(angle - Math.PI/2);
+        const b2y = tipY + c * Math.sin(angle - Math.PI/2);
+
+        // Point 4 (Completes the square)
+        const b3x = leftX + c * Math.cos(angle - Math.PI/2);
+        const b4y = tipY + c * Math.sin(angle - Math.PI/2);
+
+        // Correction based on geometry logic for slanted square construction
+        // If tip is (cx, cy), left is (cx-a, cy), bot is (cx, cy+b)
+        // Vector T -> Bot is (0, b). Vector T -> Left is (-a, 0).
+        // We need vector perpendicular to Hypotenuse.
+        
+        // Recalculate Square C vertices robustly
+        // Normalize hypotenuse vector: (dx, dy). Length c.
+        // Perpendicular vector: (-dy, dx) normalized * c
+        
+        const cx = centerX;
+        const cy = centerY;
+        
+        // Tip (cx, cy)
+        // Left (cx-a, cy)
+        // Bot (cx, cy+b)
+        
+        // Unit vector along hypotenuse (Left -> Bot)
+        const ux = b / c; // Since dx=0, dy=b
+        const uy = -a / c; // Wait, hypotenuse connects (cx-a, cy) to (cx, cy+b).
+        // Vector = (a, b).
+        const hx = a/c;
+        const hy = b/c;
+        
+        // Normal vector (pointing outwards away from the center of this config)
+        // If we walk from Left to Bot, outward is Up-Right roughly.
+        // Normal = (-hy, hx)
+        const nx = -hy;
+        const ny = hx;
+        
+        // Vertices of Square C
+        // 1. LeftVertex
+        // 2. TipVertex
+        // 3. TipVertex + Normal*c
+        // 4. LeftVertex + Normal*c
+        
+        // Actually, geometry check:
+        // Left: (cx-a, cy)
+        // Tip: (cx, cy)
+        // Bot: (cx, cy+b)
+        // Hypotenuse connects Left and Bot.
+        
+        // Let's draw square between Left and Bot.
+        // Midpoint of Leg is (cx - a/2, cy + b/2).
+        // Vector perpendicular is (b, -a) / c.
+        
+        let Lx = cx - a;
+        let Ly = cy;
+        let Tx = cx;
+        let Ty = cy;
+        let Bx = cx;
+        let By = cy + b;
+        
+        // Square starts at Left and Bot.
+        // Length C.
+        // Next point from Left: Move (hy, hx) * c? No.
+        // Vector T->B is (a, b).
+        // Rotate (a, b) by 90deg counter-clockwise: (-b, a).
+        // Rotate clockwise: (b, -a).
+        // We need outward.
+        // Vector from mid-point to center?
+        
+        // Let's use vector math.
+        // V = B - L = (a, b).
+        // N = (-b, a) (Counter Clockwise Rotation).
+        // N is roughly "Top-Left" direction if a,b > 0.
+        // We want outward (Top-Right). So use (b, -a).
+        // N_len = sqrt(b^2 + a^2) = c.
+        // So we don't scale N.
+        
+        const p1 = {x: Tx, y: Ty}; // Tip
+        const p2 = {x: Bx, y: By}; // Bot
+        
+        const p3 = { x: Tx + b, y: Ty - a }; // Tip + rotated
+        const p4 = { x: Bx + b, y: By - a }; // Bot + rotated
+
+        fillRect(p1.x - p3.x, Math.min(p1.y, p3.y), p3.x - p1.x, Math.abs(p1.y - p3.y), '#ef4444', 1); 
+        // The fillRect is tricky for rotated rectangles.
+        // Let's just fill triangle and use stroke for now? Or invert clip?
+        // To fill a tilted square:
+        // ctx.save(); ctx.translate(p1.x, p1.y); ctx.rotate(atan2(p2.y-p1.y, p2.x-p1.x)); ctx.fill("..."); ctx.restore();
+        
+        // Fill logic for rotated square
+        ctx.save();
+        ctx.translate(p1.x, p1.y);
+        ctx.rotate(Math.atan2(p2.y - p1.y, p2.x - p1.x));
+        // Origin is now Tip. p2 is shifted to (ax, ay).
+        // We want square from (0,0) to (ax, ay).
+        // Vertices relative to center: (0,0), (c,0), (c,c), (0,c)
+        // Wait, square side is c (length of hypotenuse).
+        // Vertices in rotated space: (0,0) to (a/c * c, b/c * c)? No side length is c.
+        // Valid rectangle: 0 to c width, 0 to c height.
+        ctx.fillRect(0, 0, c, c);
+        ctx.save();
+        ctx.clearRect(0,0, c, c);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0,0,c,c);
+        ctx.restore();
+        ctx.restore();
+
+        // 5. Draw Labels for sides
+        drawLabel(Lx, Ly, Tx, Ty, a, "#60a5fa");
+        drawLabel(Tx, Ty, Bx, By, b, "#34d399");
+        drawLabel(Lx, Ly, Bx, By, c, "#ef4444");
+    }
+
+    function drawLabel(x1, y1, x2, y2, val, color) {
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        
+        // Offset text to outside of line
+        // Calculate normal vector
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const len = Math.sqrt(dx*dx + dy*dy);
+        
+        const ox = -dy / len * 20; // Offset 20px
+        const oy = dx / len * 20;
+        
+        // Offset the start/end slightly to make label follow line center visually?
+        // No, just label the center here.
+        
+        // Better label position: Start point offset direction
+        // If we draw L->B (Leg A is L->T, but label usually center)
+        // Let's stick to absolute coords at midpoint but offset perpendicular
+        
+        // Check collision with canvas edge? Simple for this demo.
+        
+        // Draw text
+        ctx.fillStyle = color;
+        ctx.font = "bold 16px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        
+        ctx.beginPath();
+        ctx.save();
+        ctx.translate(midX + ox, midY + oy);
+        // Rotate text to match line
+        ctx.rotate(Math.atan2(dy, dx));
+        ctx.fillText(val + "²", 0, 0);
+        ctx.restore();
+    }
+
+    function updateEquation() {
+        const a = parseFloat(inputA.value);
+        const b = parseFloat(inputB.value);
+        const c = calculateHypotenuse(a, b);
+
+        valA.textContent = a;
+        valB.textContent = b;
+        valC.textContent = c.toFixed(1);
+
+        exprA.textContent = a * a;
+        exprB.textContent = b * b;
+        exprC.textContent = (a*a + b*b).toFixed(1);
+    }
+
+    // Event Listeners
+    window.addEventListener('resize', resize);
+
+    inputA.addEventListener('input', () => {
+        updateEquation();
+        // Snap hypotenuse slider to math
+        const currentC = parseFloat(inputC.value);
+        if (currentC > calculateHypotenuse(parseFloat(inputA.value), parseFloat(inputB.value)) + 2) {
+            inputC.value = calculateHypotenuse(parseFloat(inputA.value), parseFloat(inputB.value));
+            valC.textContent = parseFloat(inputC.value);
+        }
+        draw();
+    });
+
+    inputB.addEventListener('input', () => {
+        updateEquation();
+        const currentC = parseFloat(inputC.value);
+        if (currentC > calculateHypotenuse(parseFloat(inputA.value), parseFloat(inputB.value)) + 2) {
+            inputC.value = calculateHypotenuse(parseFloat(inputA.value), parseFloat(inputB.value));
+            valC.textContent = parseFloat(inputC.value);
+        }
+        draw();
+    });
+
+    inputC.addEventListener('input', () => {
+        // Allow user to break the theorem? Or just set max/min of A/B?
+        // To make it interactive, let's fix A and B, but constrain Hypotenuse slider value.
+        // Actually, it's better to just update the Label C, but prevent slider from invalidating math.
+        // Let's just let the slider move, but visually it won't match side lengths if slider is wrong.
+        // But that defeats the purpose of the visualization.
+        // Strategy: Force A and B changes if C changes drastically?
+        // No, A and B are primary. Slider C acts as a reference.
+        // Let's just make Slider C read-only? 
+        // Prompt says "sliders set a and b". So A and B drive the app.
+        // Let's just sync Slider C to A/B.
+        inputC.value = calculateHypotenuse(parseFloat(inputA.value), parseFloat(inputB.value));
+        valC.textContent = parseFloat(inputC.value);
+    });
+    
+    // Initialize
+    setTimeout(resize, 100);
+
+    // Drag to Draw on Canvas (Interactive Free-draw style)
+    canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragStartX = e.offsetX;
+        dragStartY = e.offsetY;
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        drawLS情节(dragStartX, dragStartY, e.offsetX, e.offsetY);
+    });
+    
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('mouseleave', () => isDragging = false);
+    
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        isDragging = true;
+        dragStartX = touch.clientX - rect.left;
+        dragStartY = touch.clientY - rect.top;
+        e.preventDefault();
+    }, {passive: false});
+    
+    canvas.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        drawLS情节(dragStartX, dragStartY, touch.clientX - rect.left, touch.clientY - rect.top);
+    }, {passive: false});
+    
+    canvas.addEventListener('touchend', () => isDragging = false);
+
+    function drawLS情节(x1, y1, x2, y2) {
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--primary') || '#3b82f6';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zen Desk - Focus Timer & Task Manager</title>
+    <style>
+        :root {
+            --bg-body: #1a1a20;
+            --bg-card: #24242c;
+            --bg-secondary: #2f2f36;
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108, 92, 231, 0.4);
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+            --success: #00b894;
+            --danger: #d63031;
+            --font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--bg-secondary);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 80px;
+            background: rgba(36, 36, 44, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-box {
+            width: 12px;
+            height: 12px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .weather-widget {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Main Layout */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        aside {
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--bg-secondary);
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            overflow-y: auto;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        input[type="text"] {
+            background: var(--bg-secondary);
+            border: 1px solid transparent;
+            padding: 0.8rem;
+            border-radius: 6px;
+            color: white;
+            font-family: var(--font);
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        button {
+            border: none;
+            cursor: pointer;
+            font-family: var(--font);
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .btn-add {
+            background: var(--accent);
+            color: white;
+            padding: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .btn-add:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .task-list {
+            list-style: none;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .task-item {
+            background: var(--bg-secondary);
+            margin-bottom: 0.8rem;
+            padding: 1rem;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid var(--accent);
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .task-item.completed {
+            opacity: 0.6;
+            text-decoration: line-through;
+            border-left-color: var(--success);
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-icon {
+            background: transparent;
+            color: var(--text-muted);
+            border-radius: 4px;
+            padding: 4px;
+            font-size: 0.8rem;
+        }
+
+        .btn-icon:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            color: var(--danger);
+            background: rgba(214, 48, 49, 0.1);
+        }
+
+        /* Timer Section */
+        section.timer-section {
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .timer-display {
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 2rem;
+            text-shadow: 0 0 20px rgba(255,255,255,0.05);
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .btn-timer {
+            background: var(--bg-secondary);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .btn-timer:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .btn-timer.active {
+            background: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* Presets */
+        .timer-presets {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .preset-btn {
+            background: transparent;
+            border: 1px solid var(--bg-secondary);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .preset-btn:hover {
+            color: white;
+            border-color: white;
+        }
+
+        /* Focus Stats */
+        .stats-container {
+            margin-top: auto;
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 12px;
+            width: 100%;
+        }
+
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 0.5rem;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .stat-box {
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Pomodoro Indicator */
+        .pomodoro-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.8rem;
+            color: var(--success);
+            background: rgba(0, 184, 148, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            main {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            aside {
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 1rem;
+                gap: 1rem;
+                overflow-x: auto;
+                height: auto;
+            }
+            .input-group {
+                min-width: 200px;
+                flex: 1;
+            }
+            .timer-display {
+                font-size: 3.5rem;
+            }
+            section.timer-section {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>
+            <div class="logo-box"></div>
+            Zen Desk
+        </h1>
+        <div class="weather-widget">
+            <span>🌤</span> 18&deg;C &bull; Partly Cloudy
+        </div>
+    </header>
+
+    <main>
+        <aside>
+            <div class="input-group">
+                <label for="taskInput">New Task</label>
+                <input type="text" id="taskInput" placeholder="e.g., Review Q3 Report" autocomplete="off">
+                <button class="btn-add" id="addTaskBtn">Add Task</button>
+            </div>
+
+            <div class="task-list" id="taskList">
+                <!-- Tasks injected here -->
+            </div>
+
+            <div class="stats-container">
+                <div class="stats-header">
+                    <span style="font-size: 0.9rem; color: var(--text-muted);">Today's Focus</span>
+                    <span style="font-size: 0.8rem; color: var(--success);">● System Online</span>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span class="stat-value" id="focusCount">0</span>
+                        <span class="stat-label">Sessions</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-value" id="totalFocus">0m</span>
+                        <span class="stat-label">Total Time</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="timer-section">
+            <div class="pomodoro-indicator" id="pomodoroStatus">Work Time</div>
+            
+            <div class="timer-display" id="timerDisplay">25:00</div>
+
+            <div class="timer-controls">
+                <button class="btn-timer" id="startStopBtn">Start</button>
+                <button class="btn-timer" id="resetBtn">Reset</button>
+            </div>
+
+            <div class="timer-presets">
+                <button class="preset-btn" onclick="setTimer(25)">Focus (25m)</button>
+                <button class="preset-btn" onclick="setTimer(5)">Break (5m)</button>
+                <button class="preset-btn" onclick="setTimer(15)">Short Break (15m)</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            tasks: JSON.parse(localStorage.getItem('zen_tasks')) || [],
+            timerSeconds: 25 * 60,
+            timerInterval: null,
+            isRunning: false,
+            focusSessions: 0,
+            totalFocusTime: 0
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            taskInput: document.getElementById('taskInput'),
+            taskList: document.getElementById('taskList'),
+            addTaskBtn: document.getElementById('addTaskBtn'),
+            timerDisplay: document.getElementById('timerDisplay'),
+            startStopBtn: document.getElementById('startStopBtn'),
+            resetBtn: document.getElementById('resetBtn'),
+            focusCount: document.getElementById('focusCount'),
+            totalFocus: document.getElementById('totalFocus'),
+            pomodoroStatus: document.getElementById('pomodoroStatus')
+        };
+
+        // --- Timer Logic ---
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateDisplay() {
+            els.timerDisplay.textContent = formatTime(state.timerSeconds);
+        }
+
+        function toggleTimer() {
+            if (state.isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            state.isRunning = true;
+            els.startStopBtn.textContent = 'Pause';
+            els.startStopBtn.classList.add('active');
+            
+            state.timerInterval = setInterval(() => {
+                if (state.timerSeconds > 0) {
+                    state.timerSeconds--;
+                    updateDisplay();
+                } else {
+                    completeTimer();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            state.isRunning = false;
+            els.startStopBtn.textContent = 'Resume';
+            clearInterval(state.timerInterval);
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            state.timerSeconds = 25 * 60;
+            els.pomodoroStatus.style.display = 'none';
+            updateDisplay();
+        }
+
+        function completeTimer() {
+            pauseTimer();
+            // Simple haptic sound simulation via audio context would be complex for single file
+            // Visual feedback
+            els.pomodoroStatus.textContent = sessionType();
+            els.pomodoroStatus.style.display = 'block';
+            
+            // Log stats
+            if(sessionType() === 'Work') {
+                state.focusSessions++;
+                state.totalFocusTime += 25;
+            }
+            updateStats();
+            
+            // Update local storage
+            saveData();
+        }
+
+        function setTimer(minutes) {
+            pauseTimer();
+            state.timerSeconds = minutes * 60;
+            els.pomodoroStatus.style.display = 'none';
+            updateDisplay();
+        }
+
+        function sessionType() {
+            if (state.timerSeconds === 5 * 60) return 'Take a Break';
+            return 'Deep Work';
+        }
+
+        // --- Task Logic ---
+
+        function renderTasks() {
+            els.taskList.innerHTML = '';
+            state.tasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = `task-item ${task.completed ? 'completed' : ''}`;
+                li.innerHTML = `
+                    <span style="word-break: break-all;">${task.text}</span>
+                    <div class="task-actions">
+                        <button class="btn-icon btn-check" onclick="toggleTask(${index})">✓</button>
+                        <button class="btn-icon btn-delete" onclick="deleteTask(${index})">✕</button>
+                    </div>
+                `;
+                els.taskList.appendChild(li);
+            });
+        }
+
+        function addTask() {
+            const text = els.taskInput.value.trim();
+            if (!text) return;
+            
+            state.tasks.unshift({ text, completed: false });
+            els.taskInput.value = '';
+            renderTasks();
+            saveData();
+        }
+
+        function toggleTask(index) {
+            state.tasks[index].completed = !state.tasks[index].completed;
+            renderTasks();
+            saveData();
+        }
+
+        function deleteTask(index) {
+            state.tasks.splice(index, 1);
+            renderTasks();
+            saveData();
+        }
+
+        function updateStats() {
+            els.focusCount.textContent = state.focusSessions;
+            els.totalFocus.textContent = state.totalFocusTime + 'm';
+        }
+
+        function saveData() {
+            localStorage.setItem('zen_tasks', JSON.stringify(state.tasks));
+        }
+
+        // --- Event Listeners ---
+
+        els.addTaskBtn.addEventListener('click', addTask);
+        
+        els.taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addTask();
+        });
+
+        els.startStopBtn.addEventListener('click', toggleTimer);
+        els.resetBtn.addEventListener('click', resetTimer);
+
+        // --- Initialization ---
+        updateDisplay();
+        renderTasks();
+        updateStats();
+
+    </script>
+</body>
+</html>

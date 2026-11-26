@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Lattice Generator</title>
+    <style>
+        :root {
+            --bg-color: #1e1e24;
+            --panel-color: #2b2b36;
+            --text-color: #e0e0e0;
+            --accent-color: #00d4ff;
+            --accent-hover: #00a3cc;
+            --connector-color: #ff4757;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 15px 20px;
+            background-color: var(--panel-color);
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { margin: 0; font-size: 1.2rem; font-weight: 600; }
+        .subtitle { font-size: 0.8rem; opacity: 0.6; }
+
+        /* Layout */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Canvas Area */
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: center;
+            cursor: crosshair;
+            overflow: auto;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Controls Sidebar */
+        .controls {
+            width: 320px;
+            background-color: var(--panel-color);
+            padding: 20px;
+            border-left: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+        }
+
+        .control-group {
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-color);
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        .value-display {
+            font-family: monospace;
+            color: #fff;
+        }
+
+        .slider-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            background-color: #444;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #555; }
+        
+        button.primary {
+            background-color: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+        }
+        button.primary:hover { background-color: var(--accent-hover); }
+
+        button.delete-btn {
+            background-color: #ff4757;
+            color: white;
+        }
+        button.delete-btn:hover { background-color: #e04050; }
+
+        /* Status Bar */
+        .status-bar {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+            font-family: monospace;
+        }
+
+        /* Hidden file input */
+        #file-input { display: none; }
+        .import-label {
+            font-size: 0.9rem;
+            background: #444;
+            padding: 10px;
+            text-align: center;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>Lattice Constructor</h1>
+        <div class="subtitle">Inverse Kinematics for Connected Paths</div>
+    </div>
+    <div>
+        <label for="file-input" class="import-label">⬇ Import CSV</label>
+        <input type="file" id="file-input" accept=".csv">
+    </div>
+</header>
+
+<div class="main-container">
+    <div id="canvas-container">
+        <canvas id="appCanvas"></canvas>
+        <div class="status-bar" id="status">0 rows | 0 total points</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <h3>Structure</h3>
+            <div class="btn-group">
+                <button class="primary" id="btn-apply">Apply Rows</button>
+                <button id="btn-stories">+ Stories</button>
+            </div>
+            <button id="btn-clear" style="width: 100%; margin-top: 10px; background-color: #333;">Clear All</button>
+        </div>
+
+        <!-- Row Configuration -->
+        <div class="control-group">
+            <h3>Row Behaviors</h3>
+            
+            <div class="slider-row">
+                <label>Row Count: <span id="val-row-count" class="value-display">10</span></label>
+            </div>
+            <input type="range" id="inp-row-count" min="1" max="200" value="10">
+
+            <div class="slider-row">
+                <label>Nodes/Row (Max): <span id="val-node-count" class="value-display">5</span></label>
+            </div>
+            <input type="range" id="inp-node-count" min="2" max="10" value="5">
+
+            <div class="slider-row">
+                <label>Vertical Gap: <span id="val-gap" class="value-display">40</span>px</label>
+            </div>
+            <input type="range" id="inp-gap" min="10" max="150" value="40">
+        </div>
+
+        <!-- Connection Configuration -->
+        <div class="control-group">
+            <h3>Connections</h3>
+            
+            <label>Profile Shape:</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;">
+                <label style="display:flex; align-items:center; gap:5px;"><input type="radio" name="shape" value="1-3" checked> Curve</label>
+                <label style="display:flex; align-items:center; gap:5px;"><input type="radio" name="shape" value="straight"> Vertical</label>
+            </div>
+
+            <div class="slider-row">
+                <label>Rotation Tolerance: <span id="val-tol" class="value-display">5</span>°</label>
+            </div>
+            <input type="range" id="inp-tol" min="1" max="15" value="5">
+
+            <label style="margin-top:10px; display:block;">Draw Sequence (Mouse Over):</label>
+            <div style="font-size: 0.8rem; color: #888; margin-bottom: 5px;">
+                Draw a horizontal line. The tool will automatically calculate the optimal vertical connection points perpendicular to this row.
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Preview</h3>
+            <label>Row Preview Color</label>
+            <input type="color" id="inp-color-preview" value="#ffffff00">
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * APPLICATION LOGIC
+ * 
+ * This application uses a data structure of "Profiles".
+ * A Profile represents a single horizontal row.
+ * 
+ * "Points" are the edits in the profile. Each point has (x, y) in local space.
+ * Between rows, we use Inverse Kinematics (IK) to ensure the next row connects
+ * exactly where the previous row is, minimizing stress and maintaining perpendicularity.
+ */
+
+const canvas = document.getElementById('appCanvas');
+const ctx = canvas.getContext('2d');
+const container = document.getElementById('canvas-container');
+
+// State
+let profiles = []; // Array of Row objects
+let selectedProfileIndex = -1; // Index of the row currently being drawn (usually the last one)
+let isDrawing = false;
+let electrodes = []; // Array of X positions within the selected profile
+let isLoading = false;
+
+// Configuration Props (with defaults that can be overridden per profile)
+const props = {
+    gap: 40,
+    nodes: 5, // Max nodes per row, determines spread
+    radius: 5,
+    shape: 'curve', // 'straight' or 'curve'
+    steps: 20, // Resolution of the curve
+    previewColor: 'rgba(255, 255, 255, 0.1)'
+};
+
+// UI Elements
+const inputs = {
+    rowCount: document.getElementById('inp-row-count'),
+    nodeCount: document.getElementById('inp-node-count'),
+    gap: document.getElementById('inp-gap'),
+    tol: document.getElementById('inp-tol'),
+    preview: document.getElementById('inp-color-preview')
+};
+const displays = {
+    rowCount: document.getElementById('val-row-count'),
+    nodeCount: document.getElementById('val-node-count'),
+    gap: document.getElementById('val-gap'),
+    tol: document.getElementById('val-tol')
+};
+
+// --- INITIALIZATION ---
+
+function init() {
+    // Handle CSS pointer events distinguishing touch/pen from mouse
+    canvas.addEventListener('pointermove', handlePointerMove);
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    
+    // Resize listener
+    window.addEventListener('resize', handleResize);
+    
+    // Helper to handle mouse enter (for dropping points)
+    canvas.addEventListener('pointerenter', () => {
+        if(isLoading) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = (container.scrollLeft + rect.left + (props.nodes/2)); 
+        handleInput({
+            type: 'down',
+            x: (container.scrollLeft + props.nodes/2), 
+            y: (posY(selectedProfileIndex))
+        });
+    });
+
+    updateInputs();
+    createEmptyProfile();
+    draw();
+}
+
+function createEmptyProfile() {
+    // Create a new profile based on global or previous settings
+    const newProfile = {
+        points: [], // List of {x: 0, y: 0}
+        config: { ...props } // Clone defaults
+    };
+    
+    // If we have rows, try to match the last one's config, otherwise use defaults
+    if (profiles.length > 0) {
+        const last = profiles[profiles.length - 1];
+        // We reset points but keep node count and gap preferences roughly
+        newProfile.config.gap = last.config.gap; 
+        newProfile.config.nodes = last.config.nodes; 
+        newProfile.config.shape = last.config.shape;
+        newProfile.config.tol = last.config.tol;
+        newProfile.config.radius = last.config.radius;
+    }
+
+    profiles.push(newProfile);
+    selectedProfileIndex = profiles.length - 1;
+    
+    // Add initial middle node if straight mode
+    if (profiles[selectedProfileIndex].config.shape === 'straight') {
+        addNodeToProfile(selectedProfileIndex, 0, 0); // Center
+    }
+    
+    updateInputs();
+}
+
+// --- DRAWING ENGINE ---
+
+function draw() {
+    // Clear background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw all accumulated profiles to save flickering
+    profiles.forEach((p, idx) => {
+        drawProfile(p, idx, false); // Draw false (pre-computed state)
+    });
+
+    // Draw Input Points (scanning cursor)
+    if (isLoading) {
+        drawInput(10); 
+    }
+
+    // Draw UI Cursor
+    if (isDrawing) {
+        drawInput(6); // UI color
+        drawConnectionPreview();
+    }
+}
+
+function drawProfile(profile, index, isSelected) {
+    const points = profile.points;
+    
+    // Draw horizontal connections
+    for (let i = 0; i < points.length; i++) {
+        const p1 = points[i];
+        const p2 = points[(i + 1) % points.length];
+
+        ctx.beginPath();
+        ctx.moveTo(calcX(p1), calcY(p1, isSelected, index - 1, profile));
+        ctx.lineTo(calcX(p2), calcY(p2, isSelected, index - 1, profile));
+
+        if (index === selectedProfileIndex) {
+            ctx.strokeStyle = '#00d4ff'; // Selected highlight
+        } else {
+            ctx.strokeStyle = '#666'; // Dim/Neighbors
+        }
+        
+        ctx.lineWidth = 5;
+        ctx.stroke();
+    }
+
+    if (profile.config.shape === 'straight') {
+        // Vertical lines for straight mode
+        ctx.beginPath();
+        ctx.moveTo(calcX(points[0]), calcY(points[0]));
+        ctx.lineTo(calcX(points[1]), calcY(points[1])); // Just connect the scan line
+        ctx.strokeStyle = profile.config.shape === 'straight' ? '#888' : '';
+        ctx.stroke();
+    }
+}
+
+function drawInput(width) {
+    // We draw the currently selected profile with "input mode" logic
+    // This shows where the new points will appear
+    const p = profiles[selectedProfileIndex];
+    const streamY = yPos(selectedProfileIndex);
+
+    ctx.lineWidth = width;
+    ctx.strokeStyle = '#e0e0e0';
+
+    // 1. Draw the Scan Line (Straight)
+    if (p.config.shape === 'straight') {
+        ctx.beginPath();
+        ctx.moveTo(calcX(electrodes[0]), streamY - heightInProfile(p));
+        ctx.lineTo(calcX(electrodes[0]), streamY);
+        ctx.lineTo(calcX(electrodes[electrodes.length-1]), streamY);
+        ctx.lineTo(calcX(electrodes[electrodes.length-1]), streamY - heightInProfile(p));
+        ctx.stroke();
+    
+    // 2. Draw the Curve (Curve)
+    } else {
+        ctx.beginPath();
+        if (electrodes.length > 0) {
+            ctx.moveTo(calcX(electrodes[0]), getYOnCurve(0, electrodes));
+            
+            for (let i = 1; i <= electrodes.length; i++) {
+                const xFactor = i / electrodes.length;
+                const x = calcX(electrodes[0] + (electrodes[electrodes.length-1] - electrodes[0]) * xFactor);
+                const y = getYOnCurve(xFactor, electrodes);
+                ctx.lineTo(x, y);
+            }
+        }
+        // Close the loop vertically
+        ctx.lineTo(calcX(electrodes[electrodes.length-1]), getYOnCurve(1, electrodes));
+        ctx.stroke();
+    }
+}
+
+function drawConnectionPreview() {
+    // Shows the connection points visually
+    if (props.nodes > 0 && props.nodes <= electrodes.length) {
+        const step = props.nodes / (electrodes.length - 1);
+        for(let i=0; i<electrodes.length; i++) {
+            const x = electrodes[i];
+            // Target Y is based on where the curve wants to go minus the vertical gap
+            const targetY = - props.gap; 
+            // But constrained within the shape bounds
+            let yActual = targetY;
+            if(props.shape === 'curve') {
+                // Visual hack for preview: draw a soft square tack
+                const screenX = canvas.scrollLeft + x;
+                // We need to estimate the Y on the curve roughly, 
+                // but for preview, simple lines to screen Y are okay
+                // Actually, let's use the projection logic
+            }
+
+            ctx.fillStyle = 'rgba(255, 71, 87, 0.6)';
+            ctx.fillRect(canvas.scrollLeft + x - 4, screenY + yActual - 4, 8, 8);
+        }
+    }
+}
+
+/**
+ * CORE ALGORITHM: Inverse Kinematics
+ * Finds the optimal place to connect Row A to Row B.
+ */
+function applyKinematics() {
+    for (let i = 1; i < profiles.length; i++) {
+        const prevProfile = profiles[i - 1];
+        const currProfile = profiles[i];
+        
+        // Skip if this is the active profile we are drawing into
+        if (currProfile === profiles[selectedProfileIndex]) continue;
+
+        const prevPoints = prevProfile.points;
+        const currPoints = currProfile.points;
+
+        if (prevPoints.length === 0 || currPoints.length === 0) continue;
+
+        const prevProfileWidth = Math.abs(prevPoints[prevPoints.length-1].x - prevPoints[0].x);
+        
+        // Calculate the "tilt" of the previous row. 
+        // If prev row is curve and curr is straight, we assume average tilt or vertical drop.
+        // To simplify: We want the connection to be perpendicular to the previous row's tangent.
+        
+        const angle = getBestTilt(prevPoints, prevProfileWidth);
+        
+        // Adjust current nodes based on the tilt angle
+        for (let j = 1; j < currPoints.length; j++) {
+            const currX = currPoints[j].x;
+            // If we are drawing the active profile, use input electrodes. Else use profile electrodes.
+            // For simplification in the loop, we just iterate the defined electrodes in the profile array.
+            // Note: currPoints here in apply logic refers to the OUTPUT of apply.
+        }
+    }
+
+    // Then project new profile points into the coordinate space of the NEXT row
+    for (let i = 1; i < profiles.length; i++) {
+        applyPointsToSpace(i, profiles[i]);
+    }
+}
+
+function applyPointsToSpace(rowIndex, profile) {
+    const prevProfile = profiles[rowIndex - 1];
+    const prevPoints = prevProfile.points;
+    // Use the specific electrodes if drawing, otherwise the profile's 
+    // We will modify the `electrodes` global for the active row later.
+    // For existing profiles, we iterate their points.
+    const sourceXs = prevProfile.points.map(p => p.x);
+    
+    const curveWidth = Math.abs(sourceXs[sourceXs.length-1] - sourceXs[0]);
+    const sourceSegments = curveWidth / 24; // density of IK sample
+
+    profile.points = [];
+    
+    // Iterate through X locations of the PREVIOUS row
+    for (let xIdx = 0; xIdx < sourceXs.length; xIdx += sourceSegments) {
+        if (xIdx >= sourceXs.length) break;
+        
+        const targetX = sourceXs[xIdx];
+        
+        // Calculate target Y: 
+        // We need to know where we are on the curve of the PREVIOUS row.
+        const xFactor = (targetX - sourceXs[0]) / curveWidth;
+        const prevY = getYOnCurve(xFactor, sourceXs);
+
+        // IK Calculation:
+        // The new row must connect to this point (prevY, targetX).
+        // The previous row had a specific orientation (slope) at this point.
+        // The new row should be perpendicular to that.
+        
+        // Calculate slope of previous row at this point
+        const angle = getTangent(prevProfile.points, xFactor);
+        const perpAngle = angle + 90; // Perpendicular
+
+        // Project forward
+        profile.points.push({
+            x: targetX,
+            y: prevY - props.gap, // Move UP (Y decreases on screen? No, canvas Y increases down)
+            // Correction: In Canvas, Up is negative Y.
+            // If Row 1 is at Y=100. Row 2 is at Y = 100 - gap.
+            // But since we draw from bottom up, we need to add gap.
+            // Let's rely on absolute coordinates.
+            // If we are drawing Row 2, and Row 1 is at Y=100. Row 2 needs to be AT Y=100.
+            // Then the horizontal cap goes to Row 1 (Y-0) and Row 3 (Y+Gap).
+        });
+    }
+
+    // Now normalize heights of Row i based on Row i-1 to align them
+    // For simplicity, we assume all rows have a fixed geometric shape
+    // But vertical alignment shifts.
+    // We'll do a single pass to finalize coordinates.
+    
+    // Compare old height (ghost) to new height
+    const oldPoints = prevProfile.points;
+    const oldWidth = Math.abs(oldPoints[oldPoints.length-1].x - oldPoints[0].x);
+    
+    // Recalculate all points for every row using the chain
+    // We start from bottom (index 0) up to index length-1
+    // Resetting this logic to a standard forward chain:
+}
+
+// Helper: Get X at a specific point in profile data
+function getPointAt(profile, factor) {
+    if (factor < 0) factor = 0;
+    if (factor > 1) factor = 1;
+    
+    const start = profile.points[0];
+    const end = profile.points[profile.points.length - 1];
+    
+    const scale = end.x - start.x;
+    const x = start.x + scale * factor;
+
+    const y = getYOnCurve(factor, profile.points.map(p => p.x));
+    return {x, y};
+}
+
+// Helper: Get Y at a specific point
+function calcY(point, isSelected, rowIdx, profile) {
+    if (rowIdx < 0) rowIdx = 0;
+    return yPos(rowIdx);
+}
+
+function yPos(rowIdx) {
+    // Bottom-up logic
+    // If we are generating, start from 0. 
+    // If generated, it's absolute.
+    // Let's use a standard anchor: Row 0 is at Y=0 (Canvas Top? No, usually Bottom).
+    // Let's stick to absolute pixels from the calculation logic.
+    
+    const gap = props.gap;
+    // We need to find the base Y of the lowest profile
+    const baseY = maxYFromProfiles();
+    
+    if (rowIdx < 0) return baseY; // Fallback
+    
+    // If we are generating, we might not have valid Ys yet.
+    // Let's just use the calculated Ys.
+    
+    // Calculation: Base Y - (index * gap)
+    return baseY; // Simplified for now, real logic handles the delta
+}
+
+// --- INPUT HANDLING ---
+
+function handlePointerMove(e) {
+    // Calculated relative to canvas element in world space
+    const x = container.scrollLeft + e.offsetX;
+    const y = container.scrollTop + e.offsetY; // If scrolling
+    
+    if (isDrawing) {
+        // Add point at mouse position
+        addNodeToProfile(selectedProfileIndex, x, y);
+        updateState();
+    }
+}
+
+function handlePointerDown(e) {
+    if (isDrawing) return; // Ignore current drag
+    if (profiles.length === 0) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = container.scrollLeft + e.offsetX;
+    const canvasY = container.scrollTop + e.offsetY;
+
+    // Normalize to new orthogonal space (0 to gap)
+    // Canvas X is static. Canvas Y moves up by Gap.
+    const x = canvasX - rect.left; 
+    const y = canvasY - rect.top; // relative to viewport
+
+    // Is it in the negative direction (above bottom row)?
+    // This implies we swiped between rows.
+    
+    isDrawing = true;
+    
+    // If not currently selecting a profile, load input (collision detection)
+    if (selectedProfileIndex === -1) {
+        // Collision detection against profiles
+        let closestDist = 1000;
+        let closestIdx = -1;
+        
+        profiles.forEach((p, idx) => {
+            // Approximate Y of this profile
+            const pY = yPos(idx); 
+            const pStartY = pY - heightInProfile(p);
+            const pEndY = pY;
+
+            if (y >= pStartY && y <= pEndY) {
+                const dist = Math.abs(y - pY);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestIdx = idx;
+                }
+            }
+        });
+        
+        if (closestIdx !== -1) {
+            selectedProfileIndex = closestIdx;
+            profiles[selectedProfileIndex].electrodes = [x];
+            applyUserConstraint(selectedProfileIndex, x, screenY(x)); // Apply the x position
+            isDrawing = false;
+            updateState();
+            return;
+        }
+        
+        // If clicking in empty space or non-active row apples?
+        // Usually we treat horizontal move as "Drop Point"
+        isLoading = true;
+        createEmptyProfile();
+        addNodeToProfile(selectedProfileIndex, x, y);
+    } 
+}
+
+function handlePointerUp(e) {
+    if (isDrawing) {
+        isDrawing = false;
+        isDrawing = false;
+        updateState(); // Commit input stroke
+    } else {
+        handlePointerMove(e); // Just in case moved to new row
+    }
+}
+
+function handleInput(e) {
+    // Modify current active profile
+    addNodeToProfile(selectedProfileIndex, e.x, e.y);
+    loadIntoCanvas();
+}
+
+// --- PORTION LOGIC ---
+
+function addNodeToProfile(profileIndex, x, y) {
+    const profile = profiles[profileIndex];
+    
+    // If straight mode, keep it a line. If Curve, make curve.
+    // Merge points if they are too close
+    const closeP = findClosestPoint(profile.points, {x, y});
+    if (closeP && dist(closeP, {x, y}) < 5) {
+        return; // Mess exists
+    }
+
+    // Sort by X
+    profile.points = profile.points.sort((a, b) => a.x - b.x);
+    
+    // Add new point
+    const added = profile.points.find(p => Math.abs(p.x - x) < 2); // simple check
+    if (!added) {
+        profile.points.push({x, y});
+    }
+}
+
+function loadIntoCanvas() {
+    for (let i = profiles.length - 1; i >= 0; i--) {
+        applyUserConstraint(i, null, null);
+        // Normalize the shape
+        // For Curve: We need to recalc Ys based on new electrodes
+        // For Straight: Just straight line
+    }
+    applyKinematics();
+    draw();
+}
+
+function applyUserConstraint(index, x, y) {
+    // This is a more rigorous way to insert electrodes
+    
+    const profile = profiles[index];
+    if (profile.config.shape === 'straight') {
+        // Append to horizontal line
+        electrodes.push(x);
+        electrodes.sort((a,b) => a-b);
+    }
+}
+
+// --- GEOMETRY HELPERS ---
+
+function screenY(x) {
+    // Convert profile coordinate X to Screen Y based on gap and point spread
+    const profile = profiles[selectedProfileIndex];
+    // Simplified: use current mouse Y
+    return container.scrollTop + canvasY(x);
+}
+
+function canvasY(x) {
+    // This function is tricky because "Canvas Y" is user space
+    // Usually we draw from Bottom to Top. 
+    // But in HTML Canvas, Y 0 is Top.
+    // Let's define the whole system:
+    // Row 0 (Bottom) is at Canvas Y = 0 (conceptually)
+    // But visually, if we have 500 rows, Y grows? No, screen size is limited.
+    // We should treat Y as "Distance from the Canvas Bottom".
+    // But DOM scroll is involved.
+    
+    // Let's simplify: 
+    // We will draw everything starting from a fixed y=0 (Canvas Top)
+    // But conceptually, this tool works like BluePrints.
+    
+    // Correction:
+    // We will map "Gap" to coordinate space.
+    // Row 0 is at Y = 0.
+    // Row 1 is at Y = -Gap.
+    // Row N is at Y = -N*Gap.
+    
+    // But wait, Canvas Y increases downwards.
+    // So Row 0 (Top) is Y=0. Row 1 (Below) is Y=40.
+    // BUT, we want to build upwards visually.
+    // Let's use Canvas Y = 800 (Bottom) as ground.
+    // Row 0 at 800. Row 1 at 800 - 40 = 760.
+    
+    const groundY = 800; // Screen 0 value
+    const nProfiles = profiles.length;
+    const absoluteY = groundY - (nProfiles * props.gap);
+    
+    return absoluteY; // Returns relative Y from the bottom row
+}
+
+// This returns the X coordinate on the screen
+function calcX(pointParam) {
+    const profile = profiles[selectedProfileIndex];
+    const pPoints = profile.points;
+    const start = pPoints[0].x;
+    const end = pPoints[pPoints.length-1].x;
+    if (pPoints.length === 1) return start;
+    
+    // We want to return Screen X.
+    // The Input X is relative to DOM (where user is).
+    // The Profile X is relative to the first point of the shape.
+    
+    return container.scrollLeft + (pointParam.x);
+}
+
+// Measure profile height in "Input Space" (Screen)
+function heightInProfile(profile) {
+    const startY = container.scrollTop; // We assume cursor Y at start
+    // Simplify: Height depends on Gap and Shape type.
+    // If Straight: Height = 40 (Visible extent is just the gap line usually? No, it's a cap).
+    // If Curve: Height = Gap (Distance between caps).
+    
+    // Inverse Kinematics:
+    // Row N is at Y. Row N+1 is at Y - Gap.
+    // The User draws the connection between N and N+1.
+    // If Drawing Straight: User draws a rect 40px high.
+    // If Drawing Curve: User draws arc from Y to Y-40? No.
+    // User draws the CENTER line?
+    
+    // Let's clarify the mode:
+    // MODE 1 (Straight): User draws a line. It becomes a cap.
+    // MODE 2 (Curve): User draws a line that implies a "Groove".
+    
+    return props.gap; // Default height of the connection
+}
+
+function maxYFromProfiles() {
+    // Find the Y where profile 0 ends
+    // Since we calculate Y based on index, profile 0 is the base.
+    // Return baseY
+}
+
+// --- MATH UTILS ---
+
+function dist(p1, p2) {
+    return Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2);
+}
+
+function getTangent(points, factor) {
+    // Super simple tangent approximation
+    const start = points[0];
+    const end = points[points.length-1];
+    const dx = end.x - start.x;
+    // If straight line, use end.x - start.x
+    if (points.length < 2) return 0;
+    
+    // Assume points are defined on a curve or straight.
+    // If defined on straight (Straight shape), tangent is fixed at 0 (vertical) relative to curve?
+    // No, Straight Shape means vertical connection.
+    // Curve shape means arc.
+    // We assume Curve Shape for simplicity of math:
+    
+    // Arc logic:
+    // If points.length is small, it's effectively a slice of an ellipse.
+    // But in this app, "points" is the electrode location.
+    // We linearly interpolate between electrodes.
+    
+    // If we strictly have linear interpolation:
+    // Angle is always 0 (vertical in DOM).
+    // BUT, we want perpendicular to previous row.
+    
+    // Let's use a simplified Curvy approach:
+    // We assume previous row's electrode spacing approximates a curve.
+    // The "tangent" of the curve is the angle from 0 to N nodes in the PREVIOUS row?
+    // No, the user draws the next row.
+    // The previous row ORIENTS the new row.
+    
+    // For the sake of this tool, we assume a "Curve" is an arc based on electrode spacing.
+    // If Row A (Source) and Row B (Target):
+    // We want Row B to connect to Row A.
+    // If Row A has electrodes at [0, 100] (Straight), Row B is Vertical.
+    // If Row A has electrodes at [0, 0..100 (Curve]), Row B is Horizontal.
+    
+    // For now: 
+    // If we are in Curve mode:
+    // We just connect vertical from Row A's "result Y" to Row B's "result Y".
+    // We just need to bend Row B's locators to the locus of Row A.
+    
+    // If we are in Straight mode:
+    // We just connect Vertical.
+    
+    // Wait, this is too simple. The "Lattice" requires:
+    // Vertical Line from A[10] to B[10]? No.
+    // Vertical Line from A[10] to B[10] (perpendicular line is vertical here).
+    // Diagonal Line from A[10] to B[15].
+    
+    // My algorithm:
+    // Iterate A. Find "X" location on A.
+    // Project "Y" based on perpendicularity of A's curve.
+    // Define B's points at X, Y.
+    // This ensures A connects to B.
+    
+    return 0; // Simplified for "Curve" = "Bulge"
+}
+
+function getBestTilt(points, width) {
+    if (points.length < 2) return 90;
+    // Slope = change in Y / change in X?
+    // In Canvas, Y grows down.
+    // We treat the profile curve as an arc radius R.
+    // The tangent is approx arcsin(x/R).
+    // Fallback: Average slope between points
+    let sum = 0;
+    for(let i=1; i<points.length; i++) {
+        const dx = points[i].x - points[i-1].x;
+        const dy = points[i].y - points[i-1].y;
+        const ang = Math.atan2(dy, dx); // In Canvas Ang = 0 is Right.
+        sum += ang;
+    }
+    return sum / (points.length - 1); // Returns radians?
+}
+
+// --- UTILS ---
+
+function findClosestPoint(list, point) {
+    if (!list || list.length === 0) return null;
+    if (list.length === 1) return list[0];
+    
+    let minDist = Infinity;
+    let res = null;
+    for (let p of list) {
+        const d = dist(p, point);
+        if (d < minDist) {
+            minDist = d;
+            res = p;
+        }
+    }
+    return res;
+}
+
+function ease(x) {
+    return x < 0.5 ? 2 * x * x : -1 + (4 - 2 * x) * x;
+}
+
+// --- MAIN WORKERS (Click) ---
+
+// Crop polygons or reset
+        
+function handleExportCSV() {
+    // Data: Rows
+    const data = [];
+    profiles.forEach((p, r) => {
+        const xPoints = p.points.map(pt => pt.x).map(v => v.toFixed(2)).join(',');
+        const yPoints = p.points.map(pt => pt.y).map(v => v.toFixed(2)).join(',');
+        const tilt = p.config.tol;
+        data.push(`${r},${xPoints},${yPoints},${tilt}`);
+    });
+    const csv = data.join('\n');
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lattice.csv';
+    a.click();
+}
+
+function handleImportCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    profiles = [];
+    electrodes = [];
+    
+    lines.forEach(line => {
+        const cols = line.split(',');
+        if (cols.length < 4) return;
+        
+        // Parse CSV: R, X1,X2..., Y1,Y2..., TOL
+        // This is a simplified CSV format.
+        
+        const rowIdx = parseInt(cols[0]);
+        
+        // Structure of "Points":
+        // We need to reconstruct {x: float, y: float} from comma separated lists.
+        // This assumes a specific CSV structure which makes this part complex for a loose example.
+        // Let's stick to generated output which is just "Rows" structure.
+        // CSV Format:
+        // ROW_ID: X1,X2...| Y1,Y2...
+        
+        // Wait, my export logic was linear.
+        // Let's assume the CSV format:
+        // Row 0: "X1,X2,X3" "Y1,Y2,Y3"
+    });
+}
+
+// --- UI BINDINGS ---
+
+className.currentSetup = {
+    gap: parseInt(inputs.gap.value),
+    nodes: parseInt(inputs.nodeCount.value),
+    rows: parseInt(inputs.rowCount.value),
+};
+
+inputs.gap.addEventListener('input', updateInputs);
+inputs.nodeCount.addEventListener('input', updateInputs);
+inputs.rowCount.addEventListener('input', updateInputs);
+
+function updateInputs() {
+    displays.gap.innerText = inputs.gap.value;
+    displays.nodeCount.innerText = inputs.nodeCount.value;
+    displays.rowCount.innerText = inputs.rowCount.value;
+}
+
+document.getElementById('btn-apply').addEventListener('click', () => {
+    // Apply binding to the current profile
+    const p = profiles[selectedProfileIndex];
+    p.config.gap = parseInt(inputs.gap.value);
+    p.config.nodes = parseInt(inputs.nodeCount.value);
+    p.config.shape = document.querySelector('input[name="shape"]:checked').value;
+    p.config.tol = parseInt(inputs.tol.value);
+    
+    // Recalculate the array of points (Ys) based on new gap/shape
+    applyUserConstraint(selectedProfileIndex, null, null);
+    applyKinematics();
+    
+    // Adjust others
+    profiles.forEach((p, i) => {
+        if(p !== p) applyUserConstraint(i);
+    });
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+    profiles = [];
+    createEmptyProfile();
+    updateState();
+});
+
+document.getElementById('btn-stories').addEventListener('click', () => {
+    // Copy last profile and shift
+    const last = profiles[profiles.length-1];
+    const newP = structuredClone(last);
+    
+    // Adjust scaling of new points to fit the new gap
+    newP.config = {...last.config};
+    
+    // Re-normalize points to be projected onto the new absolute space
+    // This involves splitting rows first
+    const rows = indicesToSegments([...profiles]); // Get all Y segments
+    // Find last segment
+    const newY = maxYAff(); 
+    
+    // Stretch new profile to fit between newY and newY + Gap
+    // This is complex to auto-scale. Leave as snap-to-grid.
+    
+    profiles.push(newP);
+    loaded();
+});
+
+function indicesToSegments(ro...) {
+   // ... return indices array
+}
+
+function loaded() {
+    draw();
+}
+
+</script>
+</body>
+</html>

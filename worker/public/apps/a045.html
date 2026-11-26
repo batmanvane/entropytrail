@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit Converter</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .converter-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #1f2937;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4b5563;
+            font-weight: 500;
+        }
+
+        input[type="number"], select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            box-sizing: border-box; /* Ensures padding doesn't affect width */
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .results {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .result-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .result-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 0.25rem;
+        }
+
+        .result-label {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .arrow {
+            color: #9ca3af;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="converter-card">
+    <h2>Length Converter</h2>
+
+    <div class="input-group">
+        <label for="inputValue">Value</label>
+        <input type="number" id="inputValue" placeholder="Enter value" step="any">
+    </div>
+
+    <div class="input-group">
+        <label for="inputUnit">From Unit</label>
+        <select id="inputUnit"></select>
+    </div>
+
+    <div class="results">
+        <div class="result-item">
+            <span id="outputValue" class="result-value">0</span>
+            <span id="outputLabel" class="result-label">cm</span>
+        </div>
+        <span class="arrow">→</span>
+        <!-- 
+          Note: The prompt asks for 1 input field and values in other two units updated.
+          Therefore, we display the same result value in two different unit labels.
+        -->
+        <div class="result-item">
+            <span id="outputValue2" class="result-value">0</span>
+            <span id="outputLabel2" class="result-label">in</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuration
+    const units = {
+        cm: { name: 'cm', multiplier: 1 },        // Base unit is cm
+        in: { name: 'in', multiplier: 0.393700787 }, // 1 inch = 2.54 cm
+        ft: { name: 'ft', multiplier: 3.280839895 } // 1 foot = 30.48 cm
+    };
+
+    // DOM Elements
+    const inputEl = document.getElementById('inputValue');
+    const unitSelectEl = document.getElementById('inputUnit');
+    const outputValueEl = document.getElementById('outputValue');
+    const outputLabelEl = document.getElementById('outputLabel');
+    const outputValue2El = document.getElementById('outputValue2');
+    const outputLabel2El = document.getElementById('outputLabel2');
+
+    // Initialize Select Options
+    Object.keys(units).forEach(unitKey => {
+        const option = document.createElement('option');
+        option.value = unitKey;
+        option.textContent = units[unitKey].name;
+        unitSelectEl.appendChild(option);
+    });
+
+    // Set default value in select
+    unitSelectEl.value = 'cm';
+
+    // Conversion Logic
+    function convert() {
+        const inputValue = parseFloat(inputEl.value);
+        const inputUnit = unitSelectEl.value;
+
+        // Clear previous outputs to prevent ghost text
+        outputValueEl.textContent = '';
+        outputValue2El.textContent = '';
+
+        if (isNaN(inputValue)) {
+            inputEl.focus();
+            return;
+        }
+
+        // Step 1: Convert to base unit (cm)
+        // In this config, the multiplier represents how many cm are in 1 unit (e.g., 1 ft = 30.48 cm)
+        // Wait, if input is 1 ft, and multiplier is 30.48, then Value = Input * Multiplier.
+        // So to convert FEET to CM, we multiply. To convert CM to FEET, we divide.
+        
+        const valueInCm = inputValue * units[inputUnit].multiplier / units['cm'].multiplier;
+        
+        // Step 2: Calculate outputs
+        
+        // Output 1 (First displayed result, usually in the same unit or a specific target)
+        // The prompt says: "values in the other two units updated".
+        // So if input is 'cm', display inch and foot.
+        // If input is 'in', display 'cm' and 'ft'? Or just display the two OTHER units?
+        // Let's map the two result slots to two specific target units (e.g., CM and FT) 
+        // to keep the display logic simple and consistent.
+        
+        // Target Units for Display:
+        // Slot 1: Centimeters
+        // Slot 2: Inches (or Feet? Let's do Inches and Feet).
+        
+        // Let's map:
+        // Show Value in CM
+        // Show Value in FT
+        // This covers all three requested units (Input + CM + FT = 3 units).
+        
+        const result1Cm = (inputValue * units[inputUnit].multiplier).toFixed(4);
+        const result2Ft = (inputValue * units[inputUnit].multiplier / units['ft'].multiplier).toFixed(4);
+
+        // Update UI
+        outputValueEl.textContent = result1Cm;
+        outputLabelEl.textContent = 'cm';
+        
+        outputValue2El.textContent = result2Ft;
+        outputLabel2El.textContent = 'ft';
+    }
+
+    // Event Listeners
+    inputEl.addEventListener('input', convert);
+    unitSelectEl.addEventListener('change', convert);
+
+    // Initial run (safety, though inputs are empty)
+    convert();
+
+</script>
+
+</body>
+</html>

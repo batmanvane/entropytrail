@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentient Canvas: The Echo Garden</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --fg-color: #e0e0e0;
+            --accent: #00ffcc;
+            --danger: #ff4a4a;
+            --panel-bg: rgba(20, 20, 20, 0.85);
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+            font-family: var(--font-main);
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #ui-layer.active {
+            opacity: 1;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 4px;
+            pointer-events: auto; /* Re-enable clicks for controls */
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--accent);
+        }
+
+        .stats {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid var(--fg-color);
+            color: var(--fg-color);
+            padding: 8px 16px;
+            font-family: var(--font-main);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+        }
+
+        button:hover {
+            background: var(--fg-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        button.danger:hover {
+            box-shadow: 0 0 15px var(--danger);
+        }
+
+        button.active {
+            background: var(--accent);
+            color: var(--bg-color);
+            border-color: var(--accent);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #overlay-msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            transition: opacity 1s;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0 0 10px 0;
+            text-shadow: 0 0 20px var(--accent);
+        }
+
+        p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <canvas id="garden"></canvas>
+    
+    <div id="overlay-msg">
+        <h1>THE ECHO GARDEN</h1>
+        <p class="blink">MEDITATE OR SPARK. DO NOT CLASH.</p>
+        <p style="font-size: 0.8rem; opacity: 0.7;">(Click to Initialize. Spacebar to Add/Remove Particles.)</p>
+    </div>
+</div>
+
+<div id="ui-layer">
+    <div class="top-bar">
+        <div class="glass-panel" style="pointer-events: none; margin: 0;">
+            <span class="logo">S E 01</span>
+        </div>
+        <div class="glass-panel" style="pointer-events: none; text-align: right;">
+            <div class="stats" id="score">ENTROPY: 0.0%</div>
+            <div class="stats" id="pulse">SYNC: STABLE</div>
+        </div>
+    </div>
+
+    <div class="controls glass-panel" style="margin-left: auto; margin-right: auto; margin-bottom: 40px;">
+        <button id="btn-meditate">Meditate (Heal)</button>
+        <button id="btn-solve">Solve (Remove)</button>
+        <button id="btn-malware" class="danger">Inject Malware</button>
+    </div>
+
+    <div style="display: flex; justify-content: space-around; padding-bottom: 20px;">
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; color: var(--accent); margin-bottom: 5px;" id="res-count">0</div>
+            <div>RESPONSES</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; color: var(--accent); margin-bottom: 5px;" id="pulse-count">0</div>
+            <div>PULSES</div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * THE ECHO GARDEN - A Non-Deterministic Procedural Simulation
+ * 
+ * Concept: A living digital ecosystem where particles (Echoes) react to user input.
+ * It's not a game, but a "Stress Test" for attention.
+ */
+
+const canvas = document.getElementById('garden');
+const ctx = canvas.getContext('2d');
+const uiLayer = document.getElementById('ui-layer');
+const overlay = document.getElementById('overlay-msg');
+const scoreEl = document.getElementById('score');
+const pulseEl = document.getElementById('pulse');
+const resCountEl = document.getElementById('res-count');
+const pulseCountEl = document.getElementById('pulse-count');
+const btnMeditate = document.getElementById('btn-meditate');
+const btnSolve = document.getElementById('btn-solve');
+const btnMalware = document.getElementById('btn-malware');
+
+let width, height;
+let particles = [];
+let widthHalf, heightHalf;
+let frame = 0;
+let entities = {
+    pleasure: 0,
+    tension: 0,
+    entropy: 0
+};
+let godModeActive = false;
+let matModeActive = false; // Meditation mode
+let lawModeActive = false; // Strict geometric laws
+
+// Constants
+const BASE_SPEED = 0.5 + Math.random();
+const MAX_PLEDGE = 500;
+
+// --- UTILITIES ---
+const random = (min, max) => Math.random() * (max - min) + min;
+const resize = () => {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    widthHalf = width / 2;
+    heightHalf = height / 2;
+    canvas.width = width;
+    canvas.height = height;
+    // Fill with noise
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, width, height);
+};
+
+// Audio Context for procedural sound (Web Audio API)
+const Audio = {
+    ctx: null,
+    init: () => {
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        Audio.ctx = new AudioContext();
+    },
+    playTone: (freq, type = 'sine', duration = 0.1, vol = 0.1) => {
+        if (!Audio.ctx) return;
+        const osc = Audio.ctx.createOscillator();
+        const gain = Audio.ctx.createGain();
+        
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, Audio.ctx.currentTime);
+        
+        gain.gain.setValueAtTime(vol, Audio.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(Audio.ctx.destination);
+        
+        osc.start();
+        osc.stop(Audio.ctx.currentTime + duration);
+    },
+    playNoise: (duration = 0.2) => {
+        if (!Audio.ctx) return;
+        const bufferSize = Audio.ctx.sampleRate * duration;
+        const buffer = Audio.ctx.createBuffer(1, bufferSize, Audio.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        const noise = Audio.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const gain = Audio.ctx.createGain();
+        gain.gain.value = 0.05;
+        gain.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + duration);
+        noise.connect(gain);
+        gain.connect(Audio.ctx.destination);
+        noise.start();
+    },
+    playPulse: () => Audio.playTone(150, 'sawtooth', 0.5, 0.05),
+    playDamage: () => {
+        Audio.playTone(100, 'square', 0.1, 0.2);
+        setTimeout(() => Audio.playTone(50, 'sawtooth', 0.3, 0.2), 100);
+    },
+    playWin: () => {
+        [440, 554, 659, 880].forEach((f, i) => setTimeout(() => Audio.playTone(f, 'sine', 1.5, 0.1), i * 200));
+    }
+};
+
+// --- PARTICLE ENGINE ---
+
+class Echo {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.history = []; // For tail trail
+        this.size = random(0.5, 2);
+        
+        // Vector math: Direction
+        this.vx = random(-2, 2);
+        this.vy = random(-2, 2);
+        
+        this.angle = Math.atan2(this.vy, this.vx);
+        this.speed = Math.sqrt(this.vx**2 + this.vy**2) * BASE_SPEED;
+        
+        // Properties
+        this.life = random(50, 200);
+        this.maxLife = this.life;
+        this.type = Math.random() > 0.8 ? 'entropic' : 'entropic'; // Mostly entropic
+        
+        // Neural state
+        this.neuralStrobe = 0;
+        
+        particles.push(this);
+        ctx.globalAlpha = 0.0;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+
+    isReady() {
+        // Ready to process meaning input (Click disruption)
+        // Life must be high, speed must be high
+        if (this.life > this.maxLife * 0.9 && Math.abs(this.speed) > 3) {
+            this.targetMode = true;
+            if (this.speed < 0) this.vx *= -1;
+            if (this.speed < 0) this.vy *= -1;
+            return true;
+        }
+        return false;
+    }
+
+    update(dt) {
+        // Movement physics
+        // Drag based on vibe
+        const drag = matModeActive ? 0.98 : 0.995;
+        
+        this.vx *= drag;
+        this.vy *= drag;
+        
+        const ax = Math.cos(this.angle) * this.vx;
+        const ay = Math.sin(this.angle) * this.vy;
+
+        this.x += ax;
+        this.y += ay;
+
+        // Perlin-ish pseudo-noise vector field force
+        const nx = (this.x - widthHalf) / width;
+        const ny = (this.y - heightHalf) / height;
+        const noise = Math.sin(nx * 0.5 + frame * 0.05) * Math.cos(ny * 0.3) * 0.5;
+        
+        if (!lawModeActive) {
+            this.vx += noise;
+            this.vy += noise * 0.5;
+        }
+
+        // Life cycle
+        this.life += Math.abs(this.vx) + Math.abs(this.vy);
+        if (this.life > this.maxLife) this.life = this.maxLife;
+        
+        // Syncing (Echoing)
+        this.neuralStrobe += 0.01;
+        const shimmer = Math.abs(Math.sin(this.neuralStrobe * 10)); // 0 to 1
+        
+        // Boundary interaction
+        if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+            // Wall bounce only if not in chaos mode
+            if(!godModeActive) {
+                this.vx *= -1;
+                this.vy *= -1;
+                this.x = this.x < 0 ? 0 : width;
+                this.y = this.y < 0 ? 0 : height;
+                
+                // Bounce sound pitch based on velocity
+                Audio.playTone(this.speed * 10, 'triangle', 0.05, 0.02);
+            } else {
+                // Delete particle on wall hit in chaos
+                return false;
+            }
+        }
+
+        // Update bounds for safety
+        if (this.x < -100) { this.x = width + 100; this.vx *= -1; }
+        if (this.x > width + 100) { this.x = -100; this.vx *= -1; }
+        if (this.y < -100) { this.y = height + 100; this.vy *= -1; }
+        if (this.y > height + 100) { this.y = -100; this.vy *= -1; }
+
+        return true;
+    }
+
+    draw(ctx) {
+        const opacity = 1 - (this.life / this.maxLife * 0.8);
+        
+        // Dynamic glow color based on tension vs pleasure
+        if (entities.entropy > 60) {
+            ctx.fillStyle = `rgba(255, ${255 - entities.entropy}, ${100 - entities.tension}, ${opacity})`;
+        } else if (matModeActive) {
+             ctx.fillStyle = `rgba(200, 255, 255, ${opacity})`;
+        } else {
+            ctx.fillStyle = `rgba(100, 200, 255, ${opacity})`;
+        }
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(frame * (entities.entropy > 0 ? this.speed : 0));
+        
+        // Draw shape
+        if (entities.entropy > 80) {
+            // Chaos shapes
+            if (Math.random() > 0.8) {
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size * 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else {
+            // Echo rings
+            const rings = Math.floor(this.life / 20);
+            for(let i=0; i<rings; i++) {
+                const scale = 1 + (i % 3) * 0.1;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size * scale, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(200, 255, 255, ${opacity * 0.3})`;
+                ctx.lineWidth = this.size / 3;
+                ctx.stroke();
+            }
+        }
+        
+        ctx.restore();
+    }
+}
+
+// --- SYSTEM ENGINE ---
+
+const System = {
+    drawGrid: () => {
+        ctx.strokeStyle = `rgba(0, 20, 20, ${entities.entropy > 50 ? 0.1 : 0.05})`;
+        ctx.lineWidth = 1;
+        const gridSize = 50 + (entities.entropy * 0.5);
+        
+        ctx.beginPath();
+        // Horizontal
+        for (let x = 0; x <= width; x += gridSize) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+        }
+        // Vertical
+        for (let y = 0; y <= height; y += gridSize) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+        }
+        ctx.stroke();
+    },
+    processEcho: (e, mouseX, mouseY) => {
+        const dx = e.x - mouseX;
+        const dy = e.y - mouseY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        // Interaction radius
+        const radius = 100 + (entities.entropy * 2);
+        
+        if (dist < radius) {
+            // Determine intent: Math.sqrt(dx*dx + dy*dy)
+            // If we are in "Solve" mode, clicks remove particles (Entropy drop)
+            // If "Meditate" mode, clicks stabilize particles
+            
+            if (!matModeActive) {
+                // Normal interaction: Click disrupts or vibrates
+                if (dist < e.size * 2 + 10) {
+                    // Disrupt
+                    e.vx += random(-10, 10);
+                    e.vy += random(-10, 10);
+                    entities.tension = Math.min(entities.tension + 5, 100);
+                    Audio.playNoise();
+                }
+            } else {
+                // Meditation Mode: Calm the chaos
+                if (dist < e.size * 5 + 30) {
+                    const calmFactor = 0.9; // Stronger drag
+                    e.vx *= calmFactor;
+                    e.vy *= calmFactor;
+                    e.maxLife += 5;
+                    entities.tension = Math.max(0, entities.tension - 2);
+                    entities.entropy = Math.max(0, entities.entropy - 1);
+                    Audio.playTone(100 + dist, 'sine', 0.05, 0.02);
+                }
+            }
+            return true; // Handled
+        }
+        return false;
+    }
+};
+
+const anxiety = {
+    update: () => {
+        // Dynamic UI updates
+        // High entropy = Red tint, jittery UI
+        // Low entropy = Blue tint, stable UI
+        
+        const intensity = entities.entropy / 100;
+        
+        if (intensity > 90) {
+            document.documentElement.style.setProperty('--bg-color', '#3a0000');
+            document.documentElement.style.setProperty('--fg-color', '#ff8888');
+            pulseEl.innerText = "CRITICAL FAILURE";
+            pulseEl.style.color = "var(--danger)";
+        } else if (intensity > 60) {
+            document.documentElement.style.setProperty('--bg-color', '#1a0505');
+            document.documentElement.style.setProperty('--fg-color', '#ffcccc');
+            pulseEl.innerText = "ALARM";
+            pulseEl.style.color = "#ff4a4a";
+        } else {
+            document.documentElement.style.setProperty('--bg-color', '#050505');
+            document.documentElement.style.setProperty('--fg-color', '#e0e0e0');
+            pulseEl.innerText = "SYNC: STABLE";
+            pulseEl.style.color = "var(--accent)";
+        }
+    }
+};
+
+// --- MAIN LOOP ---
+
+let lastTime = 0;
+const animate = (stamp) => {
+    const dt = (stamp - lastTime) / 1000;
+    lastTime = stamp;
+    frame++;
+
+    // 1. Clear & Draw Static
+    ctx.fillStyle = `rgba(5, 5, 5, 0.2)`; // Trails
+    ctx.fillRect(0, 0, width, height);
+    
+    System.drawGrid();
+
+    // 2. Spawn Rate
+    const birthRate = Math.floor(10 + entities.entropy * 1.5);
+    for(let i=0; i<birthRate; i++) {
+        if (reactiveMode) {
+            // Spawn from center
+            Echo(widthHalf, heightHalf);
+        } else {
+            // Random spawn
+            const x = Math.random() > 0.5 ? width/2 + 100 : Math.random() * width;
+            Echo(x, Math.random() * height);
+        }
+    }
+
+    // 3. Update & Draw Particles
+    // We sort particles by Y to create pseudo-depth if needed, 
+    // but for this engine, just standard array reverse iteration
+    
+    // Filter out dead logic (handled inside update but let's keep it lean)
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        
+        const alive = p.update();
+        
+        // Neural feedback
+        if (frame % p.life === 0) {
+            p.vx += random(-1, 1);
+            p.vy += random(-1, 1);
+        }
+
+        if (alive) {
+            p.draw(ctx);
+        } else {
+            // Particle hit wall in chaos mode, remove
+            if (i >= 0) particles.splice(i, 1);
+        }
+    }
+
+    // 4. Screen Shake / Visual Effects based on Entropy
+    if (entities.entropy > 85 && Math.random() > 0.9) {
+        canvas.style.filter = `blur(${entities.entropy*0.01}px) hue-rotate(${entities.entropy}deg)`;
+    } else {
+        canvas.style.filter = 'none';
+    }
+
+    // 5. Math Logic
+    let responses = 0;
+    let pulses = 0;
+    let aliveCount = 0;
+
+    particles.forEach(p => {
+        if (p.speed > 4) {
+            // Too fast = Tension / Entropy
+            if (p.speed > 8) {
+                entities.entropy += 0.1;
+                entities.tension += 0.2;
+            }
+        }
+    });
+
+    entities.entropy = Math.min(entities.entropy, 100);
+    entities.tension = Math.min(entities.tension, 100);
+    
+    entities.entropy -= (matModeActive ? 0.5 : 0.1);
+    entities.tension -= 0.1;
+
+    // Win Condition
+    if (entities.entropy < 0.1 && particles.length < 50 && frame > 1000) {
+        Audio.playWin();
+        overlay.style.opacity = 1;
+        overlay.innerHTML = "<h1>SYNC ACHIEVED</h1><p>The Garden is quiet.</p>";
+        matModeActive = false;
+        btnMeditate.classList.remove('active');
+        uiLayer.classList.remove('active'); // Hide controls
+    }
+
+    anxiety.update();
+
+    requestAnimationFrame(animate);
+};
+
+// --- CONTROLS ---
+
+window.addEventListener('resize', resize);
+window.addEventListener('mousedown', (e) => {
+    if (overlay.style.opacity != '1') {
+        restart();
+    } else {
+        // Click on win screen
+        window.location.reload();
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    // Don't do too many checks, it's expensive
+    let active = false;
+    for (let p of particles) {
+        if (System.processEcho(p, e.clientX, e.clientY)) {
+            active = true;
+            break;
+        }
+    }
+});
+
+// Initialize game instance
+const Reactive = {
+    init: () => {
+        resize();
+        document.body.style.pointerEvents = 'none';
+        
+        // Click to start
+        document.body.addEventListener('click', () => {
+            if (entities.entropy < 0.1 && particles.length < 10) {
+                // Game Start
+                uiLayer.classList.add('active');
+                document.body.style.pointerEvents = 'auto';
+                mouse = { x: widthHalf, y: heightHalf };
+                
+                // Attractions
+                setAttraction(mouse.x, mouse.y, 0.1);
+                setAttraction(mouse.x + 20, mouse.y - 20, 0.9);
+                setAttraction(mouse.x - 20, mouse.y + 20, 0.9);
+                
+                requestAnimationFrame(animate);
+            }
+        });
+    },
+    restart: () => {
+        particles = [];
+        entities.entropy = 0;
+        entities.tension = 0;
+        overlay.style.opacity = 0;
+    }
+};
+
+// Utility to create attraction points (handlers)
+function setAttraction(x, y, strength) {
+    // Simple attraction handler that adds velocity towards mouse
+    // (This is a pseudo-handler, handled inside mousemove event usually)
+}
+
+// --- UI INTERACTION WIRING ---
+
+btnMeditate.addEventListener('click', () => {
+    matModeActive = !matModeActive;
+    btnMeditate.classList.toggle('active');
+    Schedule.scheduleFrame(() => {
+        particles.forEach(p => Math.random() > 0.9 ? (p.trigger = !p.trigger) : null);
+    });
+});
+
+btnSolve.addEventListener('click', () => {
+    lawModeActive = !lawModeActive;
+    btnSolve.classList.toggle('active');
+    
+    if (lawModeActive) {
+        // Purge chaotic particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            if (Math.abs(particles[i].vx) > 1 || Math.abs(particles[i].vy) > 1) {
+                particles.splice(i, 1);
+            }
+        }
+    }
+});
+
+btnMalware.addEventListener('click', () => {
+    godModeActive = !godModeActive;
+    btnMalware.classList.toggle('active');
+    
+    if (godModeActive) {
+        Audio.playDamage();
+        // Inject chaos
+        for(let k=0; k<50; k++) {
+            Echo(random(0, width), random(0, height));
+        }
+        document.body.style.filter = "grayscale(100%) contrast(150%)";
+    } else {
+        document.body.style.filter = "none";
+        parties = [];
+    }
+});
+
+// SIMULATION
+const reactiveMode = true;
+
+// Core Loop Re-wiring for infinite simulation
+let mouse = {x: widthHalf, y: heightHalf};
+
+function update() {
+    // Core Logic
+    
+    // 1. Particles Update
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        const alive = p.update();
+        
+        if (alive) {
+            // Mouse Interaction Logic handled in draw/move
+            // We use dist check on click
+            // But for auto-reaction (the "Alive" concept):
+            // Particles that move towards mouse are happy
+            const dx = p.x - mouse.x;
+            const dy = p.y - mouse.y;
+            const speedToMouse = Math.sqrt(dx*dx + dy*dy);
+            
+            // Adjust velocity if close to mouse to simulate "intent"
+            if (speedToMouse < 150) {
+                // Gentle nudge
+                p.vx += (dx * 0.0001);
+                p.vy += (dy * 0.0001);
+            }
+            p.draw(ctx);
+        } else {
+            particles.splice(i, 1);
+        }
+    }
+}
+
+// Instead of the simple loop in animate, we need the procedural flow to be robust
+// This is a complete seizure of control for the "App":
+
+document.getElementById('garden').classList.add('hidden');
+document.getElementById('ui-layer').classList.remove('active');
+document.getElementById('ui-layer').classList.add('hidden');
+
+// Start the application immediately
+animate(0);
+
+// Setup Controls
+canvas.addEventListener('mousemove', (e) => {
+    mouse = { x: e.clientX, y: e.clientY };
+    // Attraction effect moving with mouse
+    particles.forEach(p => {
+        if (p.life > p.maxLife * 0.6) {
+            p.angle = atan2(mouse.y - p.y, mouse.x - p.x);
+        }
+    });
+});
+
+// --- CONTROLS IMPLEMENTATION ---
+
+document.getElementById('btn-meditate').onclick = () => {
+    matModeActive = !matModeActive;
+    btnMeditate.style.opacity = "0.5";
+    setTimeout(() => btnMeditate.style.opacity = "1", 200);
+};
+
+document.getElementById('btn-solve').onclick = () => {
+    lawModeActive = !lawModeActive;
+    btnSolve.style.opacity = "0.5";
+    setTimeout(() => btnSolve.style.opacity = "1", 200);
+};
+
+document.getElementById('btn-malware').onclick = () => {
+    godModeActive = !godModeActive;
+    btnMalware.style.opacity = "0.5";
+    setTimeout(() => btnMalware.style.opacity = "1", 200);
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sliding Tile Puzzle</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --board-bg: #16213e;
+            --tile-bg: #0f3460;
+            --tile-text: #e94560;
+            --tile-size: 80px;
+            --gap: 4px;
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: #fff;
+            font-family: var(--font-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+
+        .stat-box {
+            background: var(--board-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: #aaa;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        #game-container {
+            position: relative;
+            background-color: var(--board-bg);
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        #puzzle-board {
+            display: grid;
+            grid-template-columns: repeat(4, var(--tile-size));
+            grid-template-rows: repeat(4, var(--tile-size));
+            gap: var(--gap);
+        }
+
+        .tile {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            background-color: var(--tile-bg);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s ease-in-out, background-color 0.2s;
+            box-sizing: border-box;
+        }
+
+        /* The number overlay */
+        .tile .number {
+            position: absolute;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .tile.empty {
+            background-color: transparent;
+            cursor: default;
+        }
+
+        /* Fake 3D depth for the moving tiles */
+        .tile::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: calc(100% - 8px);
+            height: calc(100% - 8px);
+            background-color: rgba(0,0,0,0.2);
+            z-index: 3;
+            border-radius: 3px;
+            pointer-events: none;
+        }
+
+        .tile.moving {
+            transform: scale(0.9);
+            background-color: #533483;
+        }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: var(--tile-text);
+            color: white;
+            font-weight: bold;
+            transition: opacity 0.2s, transform 0.1s;
+            box-shadow: 0 4px 0 #9e2a3b;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        #win-message {
+            margin-top: 20px;
+            font-size: 2rem;
+            color: #4caf50;
+            font-weight: bold;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        #win-message.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        @media (max-width: 500px) {
+            :root {
+                --tile-size: 14vh; /* Responsive sizing */
+                --gap: 2px;
+            }
+            h1 { font-size: 1.5rem; }
+            .stat-box { padding: 8px 15px; font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>TILE PUZZLE</h1>
+
+    <div class="stats-bar">
+        <div class="stat-box">
+            <span class="stat-label">MOVES</span>
+            <span id="move-count">0</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">TIME</span>
+            <span id="time-display">00:00</span>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="puzzle-board">
+            <!-- Tiles generated by JS -->
+        </div>
+    </div>
+
+    <div id="win-message">CHALLENGE SOLVED!</div>
+
+    <div class="controls">
+        <button id="btn-new1">New Game (4x4)</button>
+        <button id="btn-new2">New Game (3x3)</button>
+        <button id="btn-shuffle">Shuffled</button>
+    </div>
+
+    <script>
+        /**
+         * Sliding Tile Puzzle Game
+         * Uses a Grid placement approach for collision detection and movement.
+         */
+        
+        const boardEl = document.getElementById('puzzle-board');
+        const moveCountEl = document.getElementById('move-count');
+        const timeDisplayEl = document.getElementById('time-display');
+        const winMsg = document.getElementById('win-message');
+        
+        let gridSize = 4;
+        let tiles = []; // Stores objects: { value: number, el: HTMLElement, row: number, col: number }
+        let emptyTile = null; // The object instance of the empty slot
+        let moves = 0;
+        let timerId = null;
+        let seconds = 0;
+        let isGameActive = false;
+
+        // DOM Elements for buttons
+        const btnNew1 = document.getElementById('btn-new1');
+        const btnNew2 = document.getElementById('btn-new2');
+        const btnShuffle = document.getElementById('btn-shuffle');
+
+        // --- Initialization ---
+
+        function initGame(size = 4) {
+            stopTimer();
+            gridSize = size;
+            moves = 0;
+            seconds = 0;
+            moveCountEl.textContent = moves;
+            timeDisplayEl.textContent = "00:00";
+            winMsg.classList.remove('show');
+            isGameActive = true;
+            
+            generateTiles(size);
+            renderBoard();
+            startTimer();
+        }
+
+        function generateTiles(size) {
+            const totalTiles = size * size;
+            tiles = [];
+            
+            // Create empty array for numbers 1 to N (which represents 0 in our logic)
+            let numbers = Array.from({length: totalTiles}, (_, i) => i + 1);
+            const emptyVal = size * size; // The value we draw as nothing
+
+            // Create the array including the empty tile
+            let boardArr = [...numbers, emptyVal];
+
+            // Generate permutations until we get one that is solvable
+            // Solvability check:
+            // For a grid on an even width (e.g. 4x4), array is solvable if the empty tiles (i.e. empty tile in array) is happening 
+            // on an even position from the right, OR on an odd position from the right with an odd number of inversions.
+            let valid = false;
+            while (!valid) {
+                // Fisher-Yates Shuffle
+                for (let i = boardArr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [boardArr[i], boardArr[j]] = [boardArr[j], boardArr[i]];
+                }
+                valid = isSolvable(boardArr);
+            }
+
+            // Map boardArr to tile objects
+            boardArr.forEach((num, index) => {
+                tiles.push({
+                    value: num,
+                    el: null,
+                    row: Math.floor(index / size),
+                    col: index % size
+                });
+            });
+
+            emptyTile = tiles.find(t => t.value === emptyVal);
+        }
+
+        function isSolvable(arr) {
+            let inversions = 0;
+            // Count inversions
+            for (let i = 0; i < arr.length; i++) {
+                let v1 = arr[i];
+                if (v1 < arr.length) { 
+                    for (let j = i + 1; j < arr.length; j++) {
+                        if (arr[j] < arr.length && v1 > arr[j]) {
+                            inversions++;
+                        }
+                    }
+                }
+            }
+
+            // Find index of empty tile (0-based index in the array)
+            let emptyIndex = arr.length - 1 - 1; // logic: array is 0..N, empty is N. 
+            // Wait, my array construction has 1..N, then N is the empty.
+            // The length is N^2. The last element is emptyVal.
+            // If we iterate through, empty indices range from 0 to N^2 - 1.
+            // My array construction puts emptyVal at the end, but we shuffle.
+            // The original array was 1..N, empty is N.
+            
+            // Correct empty index calculation based on shuffled array:
+            emptyIndex = arr.indexOf(arr.length);
+
+            // If array length (N^2) is even (e.g. 4x4=16)
+            if (arr.length % 2 !== 0) {
+                // Odd grid width (e.g. 3x3). Solvable if inversions is even.
+                // Note: My implementation treats 'N' as the empty, effectively removing it from inversions.
+                // Actually, standard definition uses the 0-indexing or simple inversions ignoring 0/empty.
+                // If we ignore 0 (val N here), we count inversions of [1..N-1].
+                // If width is odd, always solvable if we just shuffle inversions correctly?
+                // No, standard puzzle: Odd width -> even inversions = solvable.
+                return inversions % 2 === 0;
+            } else {
+                // Even grid width (4x4).
+                let emptyRowFromBottom = 1 + Math.floor((arr.length - 1 - emptyIndex) / arr.length);
+                // Logic: 
+                // If number of inversions is odd, the empty square must be on an even row counting from the bottom.
+                // If number of inversions is even, the empty square must be on an odd row counting from the bottom.
+                if (inversions % 2 === 0) {
+                    return emptyRowFromBottom % 2 !== 0; // odd row from bottom
+                } else {
+                    return emptyRowFromBottom % 2 === 0; // even row from bottom
+                }
+            }
+        }
+
+        // --- Rendering ---
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            
+            // Specific styling for 3x3 is tricky due to CSS grid setup, 
+            // so we use inline styles to calculate width/height and grain.
+            // Wait, CSS Grid uses fractional units (40% etc) or fixed.
+            // Since we define --tile-size in CSS, we just override width for 3x3.
+            
+            // We iterate through the ORDER of tiles in the array, NOT the grid layout map.
+            // Because index in 'tiles' determines the DOM order of absolute elements if we use CSS Grid.
+            // But we are using CSS Grid to place them. The background image pattern is determined by the index.
+            // For the number to appear in the wrong place, the DOM element must be in the wrong grid cell.
+            
+            // However, a simpler approach for a "grain" background is to simply give each tile
+            // a different angle/image based on its OBJECT value, regardless of position.
+            
+            let styleSheet = '';
+            if (gridSize === 3) {
+                styleSheet = 'style="margin-bottom: 40px; margin-right: 40px;"'; // Spacing for visual resize
+            }
+
+            tiles.forEach(tile => {
+                const numberElem = document.createElement('span');
+                numberElem.className = 'number';
+                numberElem.textContent = tile.value === (gridSize * gridSize) ? '' : tile.value;
+                
+                const div = document.createElement('div');
+                div.className = 'tile';
+                if (tile.value === (gridSize * gridSize)) {
+                    div.classList.add('empty');
+                }
+                div.appendChild(numberElem);
+                
+                // Click handler
+                div.onclick = () => handleTileClick(tile);
+                
+                // If it's the empty tile, add "even" moving class for visual consistency? 
+                // No, empty doesn't move visually.
+                // Actually, in the IDLE state, the grid shows value.
+                // When we move tile A to position P, Tile A's visual content stays "A".
+                // The background image logic:
+                // The background image I used in Liquid Recall is hardcoded in CSS: 
+                // background-image: radial-gradient... + repeating linear-gradient...
+                // The key is: The visual background is DRAWN based on the TILE CLASS or CONTENT.
+                
+                // Re-think visual logic:
+                // Instead of a hardcoded grain that relies on grid position, 
+                // we will rely on the 'number' content and a subtle color shift to represent the "content" of the tile.
+                
+                // To make it look good without a huge background image asset:
+                // 1. The "Empty" tile is a cutout hole.
+                // 2. All other numbers have a distinct background color based on their value?
+                //    No, that's hard to generate randomly without huge file.
+                // 3. Let's stick to the CSS Grid background. 
+                //    The background is a "Frame". The "Content" is solid color.
+                //    I will use the 'number' and a consistent color style.
+                
+                div.style.backgroundColor = getTileColor(tile.value);
+                tile.el = div;
+                
+                boardEl.appendChild(div);
+            });
+        }
+
+        // Helper to determine a distinct color for a tile so it looks interesting
+        // HSL(Color, Saturation, Lightness)
+        function getTileColor(val) {
+            // Base HSL logic for a nice gradient look
+            // Darker values for higher numbers
+            const hue = 200; 
+            // Calculate lightness to differentiate
+            const lightness = 15 + ((val % 10) * 15); 
+            return `hsla(${hue}, 60%, ${lightness}%, 0.4)`;
+        }
+
+        // --- Game Logic ---
+
+        function handleTileClick(tile) {
+            if (!isGameActive) return;
+
+            // Check if tile is the empty tile (distance check is useless here, empty is empty)
+            // We can just check position.
+            if (tile.row === emptyTile.row && tile.col === emptyTile.col) return;
+
+            const distTile = Math.abs(tile.row - emptyTile.row) + Math.abs(tile.col - emptyTile.col);
+            
+            if (distTile === 1) {
+                moveTile(tile);
+            }
+        }
+
+        function moveTile(tile) {
+            // Update grid positions
+            const tempRow = tile.row;
+            const tempCol = tile.col;
+            const tempEl = tile.el;
+
+            tile.row = emptyTile.row;
+            tile.col = emptyTile.col;
+            tile.el = tempEl; // DOM Elements are swapped in the tiles array array order? 
+            // Wait. We are NOT using DOM order for rendering grid.
+            // If I swap tiles[row][col], the tile object follows the new coordinates.
+            
+            // Update previous empty slot's position info
+            emptyTile.row = tempRow;
+            emptyTile.col = tempCol;
+            // emptyTile.el should point to the tile that moved into its spot?
+            // No, emptyTile is a "ghost" reference to the hole. We don't need an element for it 
+            // because it is background color transparent.
+            
+            // Animation
+            tile.el.classList.add('moving');
+            tileEl.fakeMove(); // 16px
+            setTimeout(() => tileEl.fadeOut(), 16);
+            setTimeout(() => boardEl.appendChild(tileEl), 33); // Disable transitions/Jitter
+            setTimeout(() => tileEl.slideTo(newRect), 33); // Snap to grid
+            
+            moves++;
+            moveCountEl.textContent = moves;
+            
+            // Play sound? No request for libraries. No sound.
+            
+            if (checkWin()) {
+                gameWon();
+            }
+        }
+        
+        // Simplified Move Logic
+        // Since we calculate coordinates based on state, we assume the grid logic is perfect.
+        
+        function moveTile(tileObj) {
+            const currentRow = tileObj.row;
+            const currentCol = tileObj.col;
+
+            // Swap logical positions
+            tileObj.row = emptyTile.row;
+            tileObj.col = emptyTile.col;
+
+            emptyTile.row = currentRow;
+            emptyTile.col = currentCol;
+
+            // Visual update
+            const el = tileObj.el;
+            const rect = document.getElementById('puzzle-board').getBoundingClientRect();
+
+            // Calculate starting rect
+            const startX = currentCol * 48 + 10; // 48px = 80 - 40 gap/2 
+            const startY = currentRow * 48 + 10; // wait, gap is CSS.
+            
+            // We need accurate grid geometry.
+            const gridRect = boardEl.getBoundingClientRect();
+            const gap = 4;
+            const size = 80; // Defined in CSS
+
+            // Old Position (Start)
+            const oldX = gridRect.left + Math.min(currentCol, 15) * (size + gap) + gap; 
+            // Simplified Math
+            const startX_ = gridRect.left + currentCol * (size + gap) + gap;
+            const startY_ = gridRect.top + currentRow * (size + gap) + gap;
+            const endX_ = gridRect.left + tileObj.col * (size + gap) + gap;
+            const endY_ = gridRect.top + tileObj.row * (size + gap) + gap;
+
+            // Visualize
+            el.classList.add('moving');
+            setPos(el, startX_, startY_);
+            
+            moves++;
+            moveCountEl.textContent = moves;
+
+            // Wait for user to click/slide
+            setTimeout(() => {
+                setPos(el, endX_, endY_);
+                el.classList.remove('moving');
+            }, 16); // Small delay to simulate literal slide? 
+            // CSS Grid just jumps unless we use Absolute positioning and transition.
+            // Transition requires 0 in top/left or calc expressions.
+            
+            // Let's do CSS Grid jump. It snaps instantly.
+            // To make it look nice, we just update the background.
+            
+            checkWin();
+        }
+
+        // --- Timer ---
+        function startTimer() {
+            stopTimer();
+            timerId = setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const secs = (seconds % 60).toString().padStart(2, '0');
+                timeDisplayEl.textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerId) clearInterval(timerId);
+        }
+
+        // --- Checking Win ---
+        function checkWin() {
+            const boardSize = gridSize * gridSize;
+            // values 1 to boardSize.
+            // Check if tiles are in order.
+            for (let i = 0; i < boardSize - 1; i++) {
+                const tile = tiles[i]; // tiles array is in grid order!
+                if (tile.row === Math.floor(i / gridSize) && tile.col === i % gridSize) {
+                    if (tile.value !== i + 1) {
+                        return false;
+                    }
+                } else {
+                    return false; // Simple check: does the tile at Grid Pos X have Value X+1?
+                }
+            }
+            return true;
+        }
+
+        function gameWon() {
+            isGameActive = false;
+            setTimeout(() => {
+                winMsg.classList.add('show');
+                stopTimer();
+            }, 300);
+        }
+
+        // --- Event Listeners ---
+        btnNew1.addEventListener('click', () => initGame(4));
+        btnNew2.addEventListener('click', () => initGame(3));
+        btnShuffle.addEventListener('click', () => initGame(4)); // Re-solve/shuffle
+        
+        // Load initial state
+        window.onload = () => initGame(4);
+
+    </script>
+</body>
+</html>

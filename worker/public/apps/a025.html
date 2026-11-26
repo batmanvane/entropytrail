@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusPlan - Interactive Planning Tool</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border: #e5e7eb;
+            --danger: #ef4444;
+            --success: #10b981;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            background: var(--bg-color);
+            padding: 0.25rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            font-weight: 600;
+        }
+
+        /* Main Container */
+        main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        /* Project Apis */
+        .project-column {
+            grid-column: span 3;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Main Canvas */
+        .main-canvas {
+            grid-column: span 9;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .project-column { grid-column: span 6; }
+            .project-column.details { grid-column: span 6; }
+            .main-canvas { grid-column: span 12; }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        /* Timeline Visual */
+        .timeline-container {
+            position: relative;
+            padding-bottom: 2rem;
+        }
+
+        .timeline-node {
+            position: relative;
+            padding-right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            border-right: 2px solid var(--border);
+            margin-right: 1rem;
+            padding-bottom: 2rem;
+        }
+
+        .timeline-node::after {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: 0.5rem;
+            width: 10px;
+            height: 10px;
+            background: var(--card-bg);
+            border: 2px solid var(--primary);
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .timeline-node.last::after {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .time-simple {
+            font-size: 0.875rem;
+            color: var(--text-sub);
+            margin-bottom: 0.5rem;
+        }
+
+        .time-label {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        /* Task List */
+        .task-list {
+            list-style: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .task-list.collapsed {
+            max-height: 200px;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .task-item:hover {
+            background: var(--bg-color);
+        }
+
+        .task-checkbox {
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid var(--border);
+            border-radius: 0.25rem;
+            margin-right: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .task-checkbox.checked {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .task-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 0.7rem;
+        }
+
+        .task-content {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .task-text {
+            font-size: 0.95rem;
+        }
+
+        .task-text.completed {
+            text-decoration: line-through;
+            color: var(--text-sub);
+        }
+
+        .task-role {
+            font-size: 0.75rem;
+            color: var(--primary);
+            background: #e0e7ff;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.25rem;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .task-time {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+            margin-left: 0.5rem;
+        }
+
+        /* Panes */
+        .input-pane {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .input-pane input {
+            flex: 1;
+            padding: 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            font-size: 0.9rem;
+        }
+
+        .input-pane button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .input-pane button:hover {
+            background: var(--primary-hover);
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-box {
+            background: var(--bg-color);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+        }
+
+        /* Progress Bar */
+        .progress-bg {
+            background: var(--bg-color);
+            height: 6px;
+            border-radius: 3px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, var(--primary), #818cf8);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .toggle-label {
+            margin: 0 1rem;
+            font-size: 0.9rem;
+            color: var(--text-sub);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .toggle-label.active {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>
+            FocusPlan 
+            <span class="badge">Draft</span>
+        </h1>
+        <div style="font-size: 0.85rem; color: var(--text-sub)">
+            Total Time: <span id="header-time">0h 0m</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="dashboard">
+            
+            <!-- INPUT SECTION -->
+            <div class="project-column">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Add Task</div>
+                    </div>
+                    <div class="input-pane">
+                        <input type="text" id="taskInput" placeholder="E.g., Write API docs">
+                        <button id="addTaskBtn">Add</button>
+                    </div>
+                    <div class="details-grid">
+                        <div>
+                            <label style="font-size:0.75rem; color:var(--text-sub)">Duration (m)</label>
+                            <input type="number" id="durationInput" value="30" style="width:100%; padding:0.4rem; border:1px solid var(--border); margin-top:0.25rem;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem; color:var(--text-sub)">Role</label>
+                            <select id="roleInput" style="width:100%; padding:0.4rem; border:1px solid var(--border); margin-top:0.25rem;">
+                                <option value="Dev">Dev</option>
+                                <option value="Design">Design</option>
+                                <option value="Testing">Testing</option>
+                                <option value="Boss">Boss</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TIMELINE VISUALIZATION -->
+            <div class="project-column">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Timeline</div>
+                    </div>
+                    <div id="timelineContainer" class="timeline-container">
+                        <div class="time-simple">No tasks yet. Add one to get started.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAIN WORKSPACE -->
+            <div class="main-canvas">
+                
+                <!-- EXPANDED WORKSPACE -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Expanded Workspace</div>
+                    </div>
+                    
+                    <div class="toggle-container">
+                        <div class="toggle-label active" id="viewCollapsed" onclick="app.toggleView(false)">Collapsed</div>
+                        <div class="toggle-label" id="viewExpanded" onclick="app.toggleView(true)">Expanded</div>
+                    </div>
+
+                    <div id="viewCollapsed" class="task-list">
+                        <!-- JS Injected -->
+                    </div>
+
+                    <div id="viewExpanded" class="task-list collapsed" style="display:none;">
+                        <div style="padding: 1rem; text-align: center; color: var(--text-sub);">
+                            Switch to Expanded View to populate details
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- ALPHA ARCHITECTURE ---
+
+        const app = (() => {
+            // State
+            let tasks = [];
+            let startTime = new Date().getTime();
+            let expanded = false;
+
+            // DOM Elements
+            const els = {
+                input: document.getElementById('taskInput'),
+                duration: document.getElementById('durationInput'),
+                role: document.getElementById('roleInput'),
+                addBtn: document.getElementById('addTaskBtn'),
+                taskList: document.getElementById('viewCollapsed'),
+                timeline: document.getElementById('timelineContainer'),
+                headerTime: document.getElementById('header-time'),
+                viewCollapsed: document.getElementById('viewCollapsed'),
+                viewExpanded: document.getElementById('viewExpanded')
+            };
+
+            // Utils
+            const formatTime = (ms) => {
+                const totalMinutes = Math.floor(ms / 60000);
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = totalMinutes % 60;
+                return `${hours}h ${minutes}m`;
+            };
+
+            const sortTasks = (tasks) => {
+                return tasks.slice().sort((a, b) => a.start - b.start || a.end - b.end);
+            };
+
+            // Actions
+            const addTask = () => {
+                const text = els.input.value.trim();
+                const duration = parseInt(els.duration.value) || 30;
+                const role = els.role.value;
+
+                if (!text) return;
+
+                const now = new Date().getTime();
+                
+                tasks.push({
+                    id: Date.now(),
+                    text,
+                    duration,
+                    role,
+                    start: 0, // Will calc delay
+                    end: 0
+                });
+
+                // Clear input
+                els.input.value = '';
+                els.duration.value = 30;
+                
+                render();
+            };
+
+            const toggleTaskComplete = (id) => {
+                const task = tasks.find(t => t.id === id);
+                if (task) {
+                    task.completed = !task.completed;
+                    render();
+                }
+            };
+
+            const deleteTask = (id) => {
+                tasks = tasks.filter(t => t.id !== id);
+                render();
+            };
+
+            const recalculateTimeline = () => {
+                if (tasks.length === 0) {
+                    tasks.forEach(t => t.start = 0);
+                    return;
+                }
+
+                // Simple heuristic: place badly fit tasks at start
+                const calendarSlots = tasks.sort((a, b) => b.duration - a.duration);
+                
+                // Greedy: just put them in slots
+                let currentTime = 0;
+                // Use a map to index tasks
+                const taskMap = new Map(tasks.map(t => [t.id, t]));
+
+                calendarSlots.forEach(task => {
+                    taskMap.set(task.id, task);
+                    task.start = currentTime;
+                    task.end = currentTime + task.duration;
+                    currentTime += task.duration;
+                });
+
+                tasks = tasks.map(t => taskMap.get(t.id));
+            };
+
+            const updateHeaderTime = () => {
+                const endTime = expanded ? new Date().getTime() : startTime;
+                els.headerTime.textContent = formatTime(endTime - startTime);
+            };
+
+            // Rendering
+            const htmlTaskItem = (task) => `
+                <li class="task-item" id="task-${task.id}">
+                    <div class="task-checkbox ${task.completed ? 'checked' : ''}" 
+                         onclick="app.toggleTaskComplete(${task.id})">
+                    </div>
+                    <div class="task-content">
+                        <span class="task-text ${task.completed ? 'completed' : ''}">
+                            ${task.text}
+                        </span>
+                        <span class="task-role">${task.role}</span>
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <span class="task-time">${task.completed ? '✓' : '+'}${task.duration}m</span>
+                        <button style="background:none; border:none; color:var(--danger); cursor:pointer; padding:0;"
+                                onclick="app.deleteTask(${task.id})">×</button>
+                    </div>
+                </li>
+            `;
+
+            const render = () => {
+                if (tasks.length === 0) return;
+
+                recalculateTimeline();
+                updateExpandedView();
+                renderTimeline();
+                renderTaskList();
+                updateHeaderTime();
+            };
+
+            const renderTaskList = () => {
+                els.taskList.innerHTML = tasks.sort((a,b) => a.start - b.start).map(t => htmlTaskItem(t)).join('');
+            };
+
+            const renderTimeline = () => {
+                // Look for incompatible rollout (this is a simplified dependency check)
+                // For this MVP, we show everything for 24h, but render it visually
+
+                if (tasks.length > 4) els.timeline.style.display = 'none';
+                else els.timeline.style.display = 'block';
+
+                els.timeline.innerHTML = tasks.map((task, index) => {
+                    const isLast = index === tasks.length - 1;
+                    return `
+                        <div class="timeline-node ${isLast ? 'last' : ''}">
+                            <div class="time-simple">
+                                ${task.start < 86400000 ? '12:00' : `${task.start / 3600000}h` // Fake offset for visual
+                            </div>
+                            ${task.duration > 60 ? '<div class="time-label">Large Block</div>' : ''}
+                            <div class="time-label">${task.text}</div>
+                        </div>
+                    `;
+                }).join('');
+            };
+
+            const updateExpandedView = () => {
+                els.taskList.innerHTML = ''; // Reset
+                if (tasks.length === 0) {
+                    els.taskList.innerHTML = '<div style="padding:1rem; color:var(--text-sub)">Empty</div>';
+                    return;
+                }
+
+                tasks.forEach(task => {
+                    const item = document.createElement('li');
+                    item.className = 'task-item';
+                    item.innerHTML = htmlTaskItem(task);
+                    els.taskList.appendChild(item);
+                });
+            };
+
+            const toggleView = (val) => {
+                expanded = val;
+                if (expanded) render();
+            };
+
+            // Listeners
+            els.addBtn.addEventListener('click', addTask);
+            els.input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addTask();
+            });
+
+            // Init
+            // Create Sample Data for First Run
+            const init = () => {
+                tasks.push({ id: 1, text: 'Setup Repo', duration: 40, role: 'Dev', completed: false });
+                tasks.push({ id: 2, text: 'Design System', duration: 60, role: 'Design', completed: false });
+                tasks.push({ id: 3, text: 'Review PRs', duration: 30, role: 'Boss', completed: false });
+                
+                render();
+                updateExpandedView(); // Seed expanded view
+            };
+
+            return {
+                init,
+                addTask,
+                toggleTaskComplete,
+                deleteTask,
+                toggleView,
+                render
+            };
+        })();
+
+        // Start App
+        document.addEventListener('DOMContentLoaded', app.init);
+
+    </script>
+</body>
+</html>

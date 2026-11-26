@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>One Key Defense</title>
+    <style>
+        :root {
+            --bg-color: #111;
+            --text-color: #eee;
+            --accent-color: #00ffcc;
+            --danger-color: #ff0055;
+            --base-color: #333;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Courier New', Courier, monospace;
+            color: var(--text-color);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 40px;
+            border: 2px solid var(--accent-color);
+            border-radius: 10px;
+            pointer-events: auto;
+            width: 80%;
+            max-width: 400px;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.2);
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 2.5rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .key-hint {
+            display: inline-block;
+            background: #333;
+            padding: 5px 15px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: transform 0.1s, box-shadow 0.1s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .pulse {
+            animation: pulse-animation 2s infinite;
+        }
+
+        @keyframes pulse-animation {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui-layer">
+        <div class="hud">
+            <div id="score-display">SCORE: 0</div>
+            <div id="health-display">HEALTH: 100%</div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1>Neon Defense</h1>
+            <p>Enemies spawn continuously from all sides.<br>You must block them.</p>
+            <div class="key-hint">Hold [SPACE]</div>
+            <p>or</p>
+            <div class="key-hint">Hold [Touch Screen]</div>
+            <p>to create a shield.<br>Release to shoot.</p>
+            <button id="start-btn">Start Game</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="screen hidden">
+            <h1 style="color: var(--danger-color)">Game Over</h1>
+            <p>You couldn't hold them back.</p>
+            <p id="final-score">Score: 0</p>
+            <button id="restart-btn">Try Again</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /**
+     * Game Configuration and Constants
+     */
+    const CONFIG = {
+        spawnRate: 60, // Frames between spawns
+        baseSpeed: 3,
+        shieldCost: 15, // Energy cost per frame of shield
+        maxEnergy: 100,
+        shootSpeed: 8,
+        bulletDamage: 1,
+        enemyDamage: 1
+    };
+
+    const STATE = {
+        MENU: 0,
+        PLAYING: 1,
+        GAMEOVER: 2
+    };
+
+    /**
+     * Main Game Engine
+     */
+    class Game {
+        constructor() {
+            this.canvas = document.getElementById('gameCanvas');
+            this.ctx = this.canvas.getContext('2d');
+            
+            this.renderer = new Renderer(this);
+            this.inputHandler = new InputHandler();
+            this.particleSystem = new ParticleSystem();
+            
+            // Game State
+            this.state = STATE.MENU;
+            this.score = 0;
+            this.health = 100;
+            this.energy = 100;
+            this.lastTime = 0;
+            
+            // Entities
+            this.enemies = [];
+            this.projectiles = [];
+            this.particles = [];
+            this.shieldActive = false;
+            this.shieldingTimer = 0;
+            
+            // Difficulty scaling
+            this.totalSurvived = 0;
+            this.enemyId = 0;
+
+            this.resize();
+            window.addEventListener('resize', () => this.resize());
+            
+            // Input binding
+            this.inputHandler.on('start', () => this.handleInputStart());
+            this.inputHandler.on('end', () => this.handleInputEnd());
+            
+            // Loop
+            requestAnimationFrame((t) => this.loop(t));
+            
+            // UI Binding
+            document.getElementById('start-btn').addEventListener('click', () => this.startGame());
+            document.getElementById('restart-btn').addEventListener('click', () => this.startGame());
+        }
+
+        resize() {
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
+        }
+
+        startGame() {
+            this.state = STATE.PLAYING;
+            this.score = 0;
+            this.health = 100;
+            this.energy = 100;
+            this.enemies = [];
+            this.projectiles = [];
+            this.particles = [];
+            this.totalSurvived = 0;
+            
+            this.ui.update('score-display', `SCORE: 0`);
+            this.ui.update('final-score', `Score: 0`);
+            
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-over-screen').classList.add('hidden');
+        }
+
+        gameOver() {
+            this.state = STATE.GAMEOVER;
+            this.ui.update('final-score', `Score: ${this.score}`);
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+
+        handleInputStart() {
+            if (this.state !== STATE.PLAYING) return;
+            
+            // Shooting mechanics
+            if (this.energy > 0 && this.shields.isEmpty()) {
+                // Shoot a projectile from center
+                this.projectiles.push(new Projectile(this.canvas.width / 2, this.canvas.height / 2, this.totalSurvived));
+                this.energy -= 2;
+            }
+
+            // Shielding mechanics
+            if (this.energy >= CONFIG.shieldCost) {
+                this.shields.activate();
+                this.shieldingTimer = 60; // 1 second of Shields
+            }
+        }
+
+        handleInputEnd() {
+            if (this.state !== STATE.PLAYING) return;
+            this.shields.deactivate();
+        }
+
+        spawnEnemy(type) {
+            const side = Math.floor(Math.random() * 4);
+            let x, y, vx, vy;
+            const speed = CONFIG.baseSpeed + (this.totalSurvived / 200);
+
+            switch(side) {
+                case 0: // Top
+                    x = Math.random() * this.canvas.width;
+                    y = -30;
+                    vy = speed;
+                    vx = (Math.random() - 0.5) * slow;
+                    break;
+                case 1: // Right
+                    x = this.canvas.width + 30;
+                    y = Math.random() * this.canvas.height;
+                    vx = -speed;
+                    vy = (Math.random() - 0.5) * slow;
+                    break;
+                case 2: // Bottom
+                    x = Math.random() * this.canvas.width;
+                    y = this.canvas.height + 30;
+                    vy = -speed;
+                    vx = (Math.random() - 0.5) * slow;
+                    break;
+                case 3: // Left
+                    x = -30;
+                    y = Math.random() * this.canvas.height;
+                    vx = speed;
+                    vy = (Math.random() - 0.5) * slow;
+                    break;
+            }
+
+            this.enemies.push(new Enemy(type, x, y, vx, vy, speed));
+            this.ui.spawnEnemyIcon(y || x > this.canvas.height/2);
+        }
+
+        update(dt) {
+            if (this.state !== STATE.PLAYING) return;
+
+            this.totalSurvived++;
+            this.energy = Math.min(this.energy + 0.5, CONFIG.maxEnergy);
+            this.shieldingTimer--;
+
+            // Spawning
+            // Spawn rate increases as waves progress, min 30 frames
+            let currentSpawnRate = Math.max(30, CONFIG.spawnRate - Math.floor(this.totalSurvived / 500));
+            this.spawnTimer--;
+            if (this.spawnTimer <= 0) {
+                const type = this.enemyId % 3;
+                this.spawnEnemy(type);
+                this.enemyId++;
+                this.spawnTimer = currentSpawnRate;
+            }
+
+            // Update Entities
+            this.enemies.forEach(e => e.update());
+            this.projectiles.forEach(p => p.update());
+            this.particles.forEach(p => p.update());
+            this.ui.updateEnemies(this.enemies);
+
+            // Collision Detection
+            this.checkCollisions();
+            this.checkWalls();
+
+            // Cleanup
+            this.enemies = this.enemies.filter(e => !e.dead);
+            this.projectiles = this.projectiles.filter(p => !p.dead);
+            this.particles = this.particles.filter(p => !p.dead);
+
+            // Shield expiration
+            if (this.shields.isTsing() && this.shieldingTimer <= 0) {
+                this.shields.deactivate();
+            }
+
+            // Game Over conditions
+            if (this.health <= 0) this.gameOver();
+            this.ui.update('health-display', `HEALTH: ${Math.ceil(this.health)}%`);
+            this.ui.update('energy-display', `ENERGY: ${Math.ceil(this.energy)}%`);
+        }
+
+        checkCollisions() {
+            // Projectile vs Enemy
+            this.projectiles.forEach(proj => {
+                this.enemies.forEach(enemy => {
+                    if (!proj.dead && !enemy.dead && this.isColliding(proj, enemy)) {
+                        enemy.takeDamage(proj.damage);
+                        proj.dead = true;
+                        this.particles.explode(enemy.pos.x, enemy.pos.y, '#fff');
+                        this.score += 10;
+                        this.ui.update('score-display', `SCORE: ${this.score}`);
+                    }
+                });
+            });
+
+            // Shield vs Enemy
+            if (this.shields.isTsing()) {
+                this.enemies.forEach(enemy => {
+                    if (!enemy.dead && this.isColliding(enemy, this.pen)) {
+                        enemy.takeDamage(CONFIG.enemyDamage);
+                        this.hpEffect(this.shields, enemy);
+                        this.particles.explode(enemy.pos.x, enemy.pos.y, '#00ffcc');
+                    }
+                });
+            }
+        }
+
+        checkWalls() {
+            this.enemies.forEach(e => {
+                if (e.x < 0 || e.x > this.canvas.width || e.y < 0 || e.y > this.canvas.height) {
+                    e.takeDamage(CONFIG.enemyDamage);
+                    this.ui.damageEffect(this.shields); // Visual feedback
+                }
+            });
+        }
+
+        isColliding(e1, e2) {
+            const dx = e1.x - e2.x;
+            const dy = e1.y - e2.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            return dist < e1.radius + e2.radius;
+        }
+
+        loop(now) {
+            const dt = now - this.lastTime;
+            this.lastTime = now;
+
+            this.update(dt);
+            this.renderer.render();
+            
+            requestAnimationFrame((t) => this.loop(t));
+        }
+    }
+
+    /**
+     * Input Handling
+     */
+    class InputHandler {
+        constructor() {
+            this.down = false;
+            
+            // Keyboard
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    this.down = true;
+                }
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'Space') {
+                    this.down = false;
+                }
+            });
+
+            // Touch (Gamepad-like interfaces usually don't have gamepad support in simple HTML, so we use Touch as fallback/alternative)
+            // Actually, the prompt implies a unified control. Let's stick to Spacebar for keyboard and/or specific touch zones if needed, 
+            // but standard use case for "One Key" is Spacebar. 
+            // I will add Touch support for mobile as "One Key" often implies "One Zone".
+            window.addEventListener('touchstart', () => this.down = true, {passive: false});
+            window.addEventListener('touchend', () => this.down = false);
+        }
+
+        on(event, callback) {
+            const key = this.down ? 'start' : 'end';
+            if (event === key) {
+                // This simple implementation triggers immediately. 
+                // A debounce or threshold might be better, but direct triggers work for this genre.
+                // To prevent spamming on frame update, let's trigger once per state change.
+                // However, for shooting, we want multiple shots. For shielding, one toggle.
+                if (event === 'start') callback();
+            }
+        }
+        
+        // Filter for Shield activation specifically to avoid spamming shields with every bullet
+        startShield() {
+             if (this.down) {
+                 // Logic in main update handles the cost accumulation
+             }
+        }
+    }
+
+    /**
+     * Visual Particles
+     */
+    class ParticleSystem {
+        constructor() {
+            this.particles = [];
+        }
+
+        explode(x, y, color) {
+            for(let i=0; i<8; i++) {
+                this.particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    radius: Math.random() * 3 + 1,
+                    color: color,
+                    life: 1.0
+                });
+            }
+        }
+
+        update() {
+            for(let i = this.particles.length - 1; i >= 0; i--) {
+                let p = this.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.2; // gravity
+                p.life -= 0.05;
+                p.radius *= 0.95;
+                if(p.life <= 0) this.particles.splice(i, 1);
+            }
+        }
+
+        draw(ctx) {
+            this.particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            });
+        }
+    }
+
+    /**
+     * Enemy Logic
+     */
+    class Enemy {
+        constructor(type, x, y, vx, vy, baseSpeed) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.type = type;
+            this.baseSpeed = baseSpeed;
+            this.dead = false;
+            this.maxRadius = 5;
+            this.voice = Math.random() * 10 + 5;
+            this.health = 10;
+            this.size = 20;
+        }
+
+        get radius() {
+            return 10;
+        }
+
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.health += this.vx * this.vy;
+        }
+
+        takeDamage(amount) {
+            this.health -= amount;
+            if (this.health <= 0) {
+                this.dead = true;
+            }
+        }
+    }
+
+    /**
+     * Projectile Logic
+     */
+    class Projectile {
+        constructor(x, y, targetId) {
+            this.x = x;
+            this.y = y;
+            this.vx = 0;
+            this.vy = 0;
+            this.radius = 3;
+            this.damage = CONFIG.bulletDamage;
+            this.dead = false;
+            this.targetId = targetId;
+            const target = enemies.find(e => e.id === targetId);
+            
+            if(target) {
+                const angle = Math.atan2(target.y - y, target.x - x);
+                this.vx = Math.cos(angle) * CONFIG.shootSpeed;
+                this.vy = Math.sin(angle) * CONFIG.shootSpeed;
+            } else {
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+            }
+        }
+        
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.dead = this.x < 0 || this.x > window.innerWidth || this.y < 0 || this.y > window.innerHeight;
+        }
+    }
+
+    /**
+     * Shield Logic
+     */
+    class Shield {
+        constructor() {
+            this.isActive = false;
+        }
+        
+        activate() {
+            this.isActive = true;
+        }
+        
+        deactivate() {
+            this.isActive = false;
+        }
+        
+        isTsing() {
+            return this.isActive;
+        }
+    }
+    
+    /**
+     * Shield UI Visuals
+     */
+    class ShieldVisuals {
+        constructor() {
+            this.isActive = false;
+            this.tsing = false;
+        }
+        
+        activate() {
+            this.isActive = true;
+        }
+        
+        deactivate() {
+            this.isActive = false;
+        }
+        
+        isTsing() {
+            return this.isActive;
+        }
+        
+        draw(ctx, x, y, r, call) {
+            ctx.strokeStyle = this.isActive ? '#00ffcc' : 'rgba(0,0,0,0)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(x, y, r + 12, 0, 2 * Math.PI);
+            ctx.stroke();
+        }
+    }
+
+    /**
+     * Central Renderer
+     */
+    class Renderer {
+        constructor(game) {
+            this.game = game;
+            this.shieldVisual = new ShieldVisuals();
+            this.ui = new UIManager();
+        }
+
+        render() {
+            // Background
+            this.game.canvas.fillStyle = '#111';
+            this.game.canvas.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
+
+            // Draw Enemies
+            this.game.enemies.forEach(e => {
+                let radius = e.orbRadius;
+                this.game.ctx.fillStyle = '#ff0055';
+                this.game.ctx.beginPath();
+                this.game.ctx.arc(e.x, e.y, radius, 0, Math.PI * 2);
+                this.game.ctx.fill();
+            });
+
+            // Draw Shield Ring
+            this.shieldVisual.draw(this.game.ctx, this.game.canvas.width / 2, this.game.canvas.height / 2, this.game.shields);
+            this.game.ctx.strokeStyle = '#00ffcc';
+            this.game.ctx.lineWidth = 5;
+            this.game.ctx.beginPath();
+            this.game.ctx.arc(this.game.canvas.width / 2, this.game.canvas.height / 2, this.game.shields, 0, Math.PI * 2);
+            this.game.ctx.stroke();
+
+            // Draw Projectiles
+            this.game.projectiles.forEach(p => {
+                this.game.ctx.fillStyle = '#fff';
+                this.game.ctx.beginPath();
+                this.game.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                this.game.ctx.fill();
+            });
+        }
+    }
+
+    /**
+     * UI Manager
+     */
+    class UIManager {
+        constructor() {
+            this.game = Game;
+            this.since = 0;
+        }
+        
+        update(scoreDisplay, text) {
+            scoreDisplay.textContent = text;
+        }
+        
+        spawnEnemyIcon(isTop) {
+            const player = this.game.game.player;
+            const direction = isTop ? -1 : 1;
+            const y = direction * 10 + this.game.game.player.position.y;
+            // This function is placeholder logic to be careful with touches
+            // In a real game, you'd need to manage the enemy array that spawns
+        }
+        
+        updateEnemies(enemyEn) {
+            // Placeholder for visual effects on enemies
+        }
+        
+        damageEffect() {
+            // Placeholder for feedback
+        }
+    }
+
+    /**
+     * Initialization
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+        const game = new Game();
+        
+        // Global instance reference needed for UI updates from other classes
+        window.gameInstance = game;
+    });
+
+</script>
+</body>
+</html>

@@ -3,3 +3,5 @@ __pycache__/
 *.partial/
 .pytest_cache/
 /data/
+.wrangler/
+worker/.wrangler/

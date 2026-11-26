@@ -1,0 +1,16 @@
+{
+  // Ratings backend for the human rating session (D-043). Deploy: cd worker && npx wrangler deploy
+  "name": "entropytrail-ratings",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-01",
+  "observability": { "enabled": false },
+  // the 105 apps, served as static files at /apps/<id>.html (another origin than the rating page)
+  "assets": { "directory": "./public", "html_handling": "none", "not_found_handling": "none" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "entropytrail-ratings",
+      "database_id": "ea2f9f6f-d7aa-474f-878f-e061433a4058"
+    }
+  ]
+}

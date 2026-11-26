@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Card Reader</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        h1 { font-size: 1.25rem; margin: 0; font-weight: 600; }
+        h2 { font-size: 0.9rem; color: var(--text-sub); margin: 0; font-weight: 400; }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            gap: 2rem;
+        }
+
+        .card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 1rem;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 2rem;
+        }
+
+        .card {
+            aspect-ratio: 3/4;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 1rem;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:active { transform: scale(0.98); }
+        .card:hover { border-color: var(--primary); }
+
+        .card svg { width: 32px; height: 32px; fill: var(--text-sub); margin-bottom: 0.5rem; }
+        
+        .card span {
+            font-size: 0.75rem;
+            text-align: center;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+
+        /* Loading Prompt Styles */
+        #setup-overlay {
+            background: var(--surface);
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+            border: 1px solid var(--border);
+        }
+
+        .btn {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: background 0.2s;
+        }
+
+        .btn:hover { background: var(--primary-hover); }
+        .btn.secondary { background: var(--bg); color: var(--text-main); }
+        .btn.secondary:hover { background: #e2e8f0; }
+        .btn.danger { background: #fee2e2; color: var(--danger); }
+        .btn.danger:hover { background: #fecaca; }
+
+        .hidden { display: none !important; }
+
+        /* Toast Notification */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .toast {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-top: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        
+        /* Context Menu */
+        .context-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 150px;
+            display: none;
+        }
+        .context-item {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .context-item:hover { background: var(--bg); color: var(--primary); }
+        .context-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>The Card Reader</h1>
+            <h2>Batch Bookmarker</h2>
+        </div>
+        <button id="show-help-btn" class="btn secondary" style="font-size: 0.8rem;">? How it works</button>
+    </header>
+
+    <main id="app-root" class="hidden">
+        <div style="text-align: center;">
+            <h3>Your Bookmarks</h3>
+            <p style="color: var(--text-sub); font-size: 0.9rem;">Click a card to Open | Right-click to Delete</p>
+        </div>
+
+        <div id="card-grid" class="card-container">
+            <!-- Cards injected here -->
+        </div>
+    </main>
+
+    <!-- Setup / Help Overlay -->
+    <div id="setup-overlay">
+        <h2 id="setup-title">Getting Started</h2>
+        <p id="setup-desc" style="margin-bottom: 1.5rem; color: var(--text-sub);">
+            This tool helps you organize multiple links across different tabs without typing the "Open in New Tab" commands repeatedly.
+        </p>
+        
+        <div id="action-area">
+            <button id="start-btn" class="btn">Create First Bookmark</button>
+        </div>
+
+        <div id="instructions-area" class="hidden" style="margin-top: 2rem; text-align: left; background: var(--bg); padding: 1rem; border-radius: 8px;">
+            <strong>Step 1:</strong> Click "Create First Bookmark" below.
+            <hr style="border: 0; border-top: 1px solid var(--border);">
+            <strong>Step 2:</strong> A tab will open. Edit the title and URL to your preference.
+            <hr style="border: 0; border-top: 1px solid var(--border);">
+            <strong>Step 3:</strong> Save the tab.
+            <hr style="border: 0; border-top: 1px solid var(--border);">
+            <strong>Step 4:</strong> Repeat for as many refs as you need.
+            <hr style="border: 0; border-top: 1px solid var(--border);">
+            <strong>Done:</strong> Click the "Cards" view to open all of them at once.
+        </div>
+
+        <button id="reset-btn" class="btn danger">Clear Everything</button>
+    </div>
+
+    <div class="toast-container">
+        <div id="toast" class="toast">
+            <span id="toast-icon"></span>
+            <span id="toast-msg"></span>
+        </div>
+    </div>
+
+<script>
+/**
+ * The Card Reader Application
+ * A zero-dependency tool for batch bookmarking browser tabs.
+ */
+
+class CardReader {
+    constructor() {
+        this.app = document.getElementById('app-root');
+        this.overlay = document.getElementById('setup-overlay');
+        this.grid = document.getElementById('card-grid');
+        this.toastContainer = document.getElementById('toast');
+        this.toastMsg = document.getElementById('toast-msg');
+        this.toastIcon = document.getElementById('toast-icon');
+        
+        this.state = {
+            bookmarks: [],
+            maxCards: 15
+        };
+
+        this.init();
+    }
+
+    async init() {
+        // Request Storage Permission (Required for Chrome DevTools to ensure safe context)
+        try {
+            if ('storage' in window && typeof storage !== 'undefined') {
+                await storage.requestPermission({ origin: location.origin }, 'storage');
+                console.log('Storage access granted');
+            }
+        } catch (e) {
+            console.warn('Storage permission not granted, using default storage');
+        }
+
+        // Restore state
+        try {
+            const stored = localStorage.getItem('card_reader_data');
+            if (stored) {
+                this.state.bookmarks = JSON.parse(stored);
+            }
+        } catch (e) {
+            console.warn('Could not parse stored data');
+        }
+
+        // Event Listeners
+        document.getElementById('show-help-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.toggleOverlay();
+        });
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            this.createPlaceholderBookmark();
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            if(confirm('Are you sure you want to clear all your bookmark cards?')) {
+                this.state.bookmarks = [];
+                localStorage.removeItem('card_reader_data');
+                this.showCards();
+                this.updateOverlay('Everything cleared. Ready to start fresh.');
+            }
+        });
+
+        // Setup URL parameter to handle deep linking to specific cards
+        this.handleDeepLink();
+
+        this.toggleOverlay();
+    }
+
+    toggleOverlay() {
+        this.overlay.classList.toggle('hidden');
+        const isHidden = this.overlay.classList.contains('hidden');
+        this.app.classList.toggle('hidden', isHidden);
+        
+        if (!isHidden) {
+            document.getElementById('instructions-area').classList.add('hidden');
+            document.getElementById('action-area').classList.remove('hidden');
+        }
+    }
+
+    handleDeepLink() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const cardIndexStr = urlParams.get('card');
+        
+        if (cardIndexStr) {
+            // client-side access for demo purposes
+            // Note: In a real cross-origin scenario, we'd watch for window.location changes
+            // but for bookmarks, we usually rely on the initial page load.
+            // We'll just ignore deep links for this simple context or try to find the card.
+        }
+    }
+
+    updateState() {
+        localStorage.setItem('card_reader_data', JSON.stringify(this.state.bookmarks));
+        this.showCards();
+    }
+
+    showToast(message, type = 'success') {
+        this.toastMsg.textContent = message;
+        this.toastIcon.textContent = type === 'success' ? '&#9989;' : '&#9888;';
+        this.toast.classList.add('show');
+        setTimeout(() => {
+            this.toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // --- Core Logic ---
+
+    createPlaceholderBookmark() {
+        const newCard = {
+            id: Date.now().toString(),
+            title: 'New Tab',
+            url: 'https://rudderstack.com/article/10-ways-to-boost-customer-retention/', // Default demo URL
+            opened: false
+        };
+
+        this.state.bookmarks.push(newCard);
+        this.updateState();
+        
+        // Trigger UI update manually to bypass overlay
+        this.grid.innerHTML = '';
+        this.state.bookmarks.forEach(card => this.render(card));
+        this.updateActive();
+        
+        // Switch to list view
+        this.toggleOverlay();
+        this.updateOverlay('Card created. Edit fields to customize. Press Save.');
+        this.showCards();
+    }
+
+    saveCurrentBookmark(targetId) {
+        const targetIndex = this.state.bookmarks.findIndex(b => b.id === targetId);
+        
+        if (targetIndex === -1) return;
+
+        const savedUrl = window.location.href;
+        
+        this.state.bookmarks[targetIndex] = {
+            id: this.state.bookmarks[targetIndex].id,
+            title: document.getElementById(`card-${targetIndex}`).getAttribute('data-title'),
+            url: savedUrl,
+            opened: false
+        };
+
+        this.showToast('Bookmark Card Saved!');
+        setTimeout(() => this.updateState(), 300);
+    }
+
+    deleteBookmark(id) {
+        if(!confirm('Delete this card?')) return;
+        
+        this.state.bookmarks = this.state.bookmarks.filter(b => b.id !== id);
+        this.updateState();
+        this.showToast('Card deleted');
+    }
+
+    // --- Rendering ---
+
+    render(card, index) {
+        if (card.opened) return;
+
+        const cardEl = document.createElement('div');
+        cardEl.className = 'card';
+        cardEl.setAttribute('data-id', card.id);
+        cardEl.setAttribute('data-title', card.title);
+        cardEl.setAttribute('data-index', index);
+        cardEl.setAttribute('tabindex', '0'); // Allow keyboard focus
+
+        // Icon
+        const svg = `
+            <svg viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+        `;
+
+        const span = document.createElement('span');
+        span.textContent = card.title;
+
+        cardEl.innerHTML = svg + span;
+        this.grid.appendChild(cardEl);
+
+        // Interaction
+        const removeCard = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.button !== 2) this.showToast('Left click to delete or Right click', 'error');
+            this.deleteBookmark(card.id);
+        };
+
+        cardEl.addEventListener('click', (e) => {
+            this.openBookmark(card);
+        });
+
+        cardEl.addEventListener('contextmenu', removeCard);
+        
+        // Clean up old listeners if re-rendering (simple implementation assumes no re-render, usually state updates only)
+        // But if we had a generic render, we'd need to remove listeners.
+    }
+
+    openBookmark(card) {
+        try {
+            window.open(card.url, '_blank');
+            // Update state locally to show it's opened
+            const index = this.state.bookmarks.findIndex(b => b.id === card.id);
+            if (index !== -1) {
+                this.state.bookmarks[index].opened = true;
+                this.state.bookmarks[index].userOpenTime = Date.now();
+            }
+            // Delay update slightly so click animation plays
+            setTimeout(() => this.updateState(), 100);
+        } catch (error) {
+            console.error('Unable to open URL', error);
+        }
+    }
+
+    // --- Helpers ---
+
+    updateActive() {
+        // In a more complex app, we might need to remove specific listeners when state changes
+        // Here, since we replace innerHTML, it's handled in render.
+        this.grid.innerHTML = '';
+    }
+
+    showCards() {
+        if(this.grid.children.length === 0) return;
+        
+        // Update all listeners
+        const cards = this.grid.querySelectorAll('.card');
+        cards.forEach((el) => {
+            // Rebind dynamic listeners for cleaner code
+            el.style.backgroundColor = 'transparent';
+            el.addEventListener('click', () => this.openBookmark(JSON.parse(el.parentElement.getAttribute('data-card'))));
+            el.addEventListener('contextmenu', (e) => { e.preventDefault(); this.deleteBookmark(el.getAttribute('data-id')); });
+        });
+    }
+
+    updateOverlay(msg) {
+        document.getElementById('setup-desc').innerHTML = msg || '';
+    }
+}
+
+// Initialize Application when DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+    window.app = new CardReader();
+});
+
+</script>
+</body>
+</html>

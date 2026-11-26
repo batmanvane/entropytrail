@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraction Explorer</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary: #ec4899;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            margin-bottom: 20px;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Pyramid Visualizer */
+        .pyramid-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column-reverse;
+            transition: all 0.3s ease;
+        }
+
+        .fraction-block {
+            height: 80px;
+            background-color: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .fraction-block.filled {
+            background-color: var(--primary);
+            border-color: var(--primary-dark);
+        }
+
+        .fraction-label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            z-index: 2;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+        
+        .fraction-block.filled .fraction-label {
+            color: white;
+        }
+
+        .fraction-sub-grid {
+            display: grid;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Inputs Section */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .fraction-input {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            width: 100px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            text-align: center;
+            font-size: 1.5rem;
+            padding: 8px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .fraction-bar {
+            width: 80%;
+            height: 4px;
+            background-color: #e5e7eb;
+            align-self: center;
+            border-radius: 2px;
+        }
+
+        .pointer {
+            align-self: center;
+            color: #9ca3af;
+            font-size: 1.5rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        button.secondary {
+            background-color: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            margin-top: 10px;
+        }
+
+        button.secondary:hover {
+            background-color: #eff6ff;
+        }
+
+        .results-area {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .result-box {
+            background-color: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 10px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .result-math {
+            font-size: 1.5rem;
+            margin: 10px 0;
+            font-family: 'Courier New', Courier, monospace;
+            letter-spacing: 2px;
+        }
+
+        .result-math span {
+            display: inline-block;
+            text-align: center;
+            vertical-align: middle;
+            margin: 0 2px;
+        }
+        
+        .result-math sup {
+            font-size: 0.7em;
+            display: block;
+        }
+        
+        .equals {
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        /* Quiz Section */
+        .quiz-container {
+            text-align: center;
+        }
+
+        .quiz-question {
+            font-size: 3rem;
+            margin: 20px 0;
+            color: var(--text);
+        }
+
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .quiz-btn {
+            background-color: white;
+            border: 2px solid #e5e7eb;
+            color: var(--text);
+        }
+
+        .quiz-btn:hover {
+            background-color: #f3f4f6;
+        }
+
+        .quiz-btn.correct {
+            background-color: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        .quiz-btn.wrong {
+            background-color: var(--secondary);
+            border-color: var(--secondary);
+            color: white;
+        }
+
+        .feedback {
+            margin-top: 15px;
+            font-weight: bold;
+            height: 20px;
+        }
+
+        .score-board {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+        }
+
+        /* Utility classes for display logic */
+        .hidden { display: none; }
+        .visual-error { background-color: #fee2e2; border-color: #ef4444 !important; }
+        
+        .explanation {
+            font-size: 0.95rem;
+            color: #4b5563;
+            margin-top: 15px;
+            line-height: 1.5;
+            background: #f0fdf4;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--success);
+            display: none;
+        }
+        
+        .explanation.active {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Fraction Explorer</h1>
+        <p class="subtitle">Visualize, Understand, and Master Fractions</p>
+    </header>
+
+    <div class="container">
+        <!-- Visualizer Section -->
+        <div class="card">
+            <h2><span>🍰</span> Visualizer</h2>
+            <div class="pyramid-container">
+                <div class="stack" id="visualizer-1"></div>
+                <div class="stack" id="visualizer-2"></div>
+                <div class="stack" id="visualizer-3"></div>
+            </div>
+            <div class="explanation" id="explanation-box">
+                <strong>Tip:</strong> Adding fractions with different denominators requires finding a common denominator (common size of slices).
+            </div>
+        </div>
+
+        <!-- Interactive Input Section -->
+        <div class="card">
+            <h2><span>✏️</span> Add Fractions</h2>
+            
+            <div class="input-row">
+                <div class="fraction-input">
+                    <input type="number" id="num1" value="1" min="0" max="10">
+                    <div class="fraction-bar"></div>
+                    <input type="number" id="den1" value="4" min="1" max="20">
+                </div>
+                <div class="pointer">+</div>
+                <div class="fraction-input">
+                    <input type="number" id="num2" value="1" min="0" max="10">
+                    <div class="fraction-bar"></div>
+                    <input type="number" id="den2" value="4" min="1" max="20">
+                </div>
+            </div>
+
+            <button onclick="updateVisualizer()">Update Visualization</button>
+            <button class="secondary" onclick="addExplain()">Show Explanation</button>
+
+            <div class="results-area">
+                <div class="result-box">
+                    <div style="font-size: 0.9rem; color: #6b7280;">Sum (Improper Fraction)</div>
+                    <div class="result-math" id="result-sum">
+                        <span id="res-n1"></span>
+                        <span/>
+                        <span id="res-d1"></span>
+                        <span class="equals">=</span>
+                        <span id="res-sim"></span>
+                    </div>
+                </div>
+                <div class="result-box">
+                    <div style="font-size: 0.9rem; color: #6b7280;">Mixed Number</div>
+                    <div class="result-math" id="result-mixed">
+                        <span id="res-whole">0</span>
+                        <span/>
+                        <span id="res-mixed-n">0</span>
+                        <span class="equals">=</span>
+                        <span id="res-mixed-d">1</span>
+                    </div>
+                </div>
+                <div class="result-box" style="background-color: #fffbeb; border-color: #fcd34d;">
+                    <div style="font-size: 0.9rem; color: #d97706;">Decimal & Percentage</div>
+                    <div id="result-decimal" style="font-size: 1.5rem; font-weight: bold;">0.25</div>
+                    <div id="result-percent">25%</div>
+                </div>
+            </div>
+            
+            <div id="explanation" class="explanation active" style="display:none;">
+                <p id="math-explanation"></p>
+            </div>
+        </div>
+
+        <!-- Quiz Section -->
+        <div class="card quiz-container">
+            <h2><span>🎯</span> Quiz Time</h2>
+            <button onclick="generateQuiz()" style="margin-bottom: 20px; width: 100px;">New</button>
+            
+            <div class="score-board">Score: <strong id="score">0</strong></div>
+            
+            <div id="quiz-display">
+                <div class="quiz-question" id="q-text">1/2 + 1/2 = ?</div>
+                <div class="quiz-options" id="quiz-options">
+                    <!-- Buttons generated by JS -->
+                </div>
+                <div class="feedback" id="quiz-feedback"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Visualizer Logic ---
+
+        const stack1 = document.getElementById('visualizer-1');
+        const stack2 = document.getElementById('visualizer-2');
+        const stack3 = document.getElementById('visualizer-3');
+
+        function renderStack(stack, num, den, totalBlocks) {
+            stack.innerHTML = '';
+            
+            // If den > totalBlocks, we just show full blocks
+            if (den > totalBlocks) {
+                const filled = Math.ceil(num / (den/totalBlocks)); // approximation
+                // Simplified logic for visualization:
+                // We force the visualization to snap to the grid defined by totalBlocks
+                // By finding the LCM visually or just repeating the fraction
+                
+                // Actually, for the pyramid, let's use a fixed grid size for the visualizer blocks based on the denominator logic
+                // If Den 1 is 4 and Den 2 is 4, 'totalBlocks' for visualizer 2 is 4.
+                // If Den 1 is 3 and Den 2 is 4, we can't perfectly fit them in a single block stack without LCM logic.
+                // We will approximate by showing as many full blocks as possible.
+                
+                const value = (num / den); 
+                // Let's assume the visualizer blocks represent the base fraction unit
+                // But the prompt implies a "Pyramid" which usually adds horizontal stacking.
+                
+                // Let's implement the "Square Array" visualization for clearer fraction understanding
+                // But the prompt asked for "Pyramid". Let's build the pyramid by stacking rows.
+                // Row 1 is the prompt.
+                
+                // To make it robust, we will render the fraction as a block, 
+                // and if the denominator divides evenly, it breaks down.
+                
+                // Simplified Approach for Visualizer 2: 
+                // If the input fraction cannot map perfectly to the blocks (e.g. 1/3 where block has 4 slots),
+                // we just show how many "units" of the fraction fit in the container.
+                
+                // Let's stick to the visual logic: 
+                // A visualizer block represents '1/den' part of 'num'.
+                // If den is 4, 1/4 is a block. If we have 3/4, we show 3 blocks of 1/4.
+                
+                const unitColor = num > den ? 'var(--secondary)' : 'var(--primary)';
+                
+                // Render full integers
+                const whole = Math.floor(num / den);
+                for(let i=0; i<whole; i++) {
+                    const block = document.createElement('div');
+                    block.className = `fraction-block filled`;
+                    block.innerHTML = `<span class="fraction-label">1</span><span class="fraction-label" style="font-size:0.6em; position:absolute; bottom:5px;">Whole</span>`;
+                    stack.appendChild(block);
+                }
+
+                // Render remainder
+                const remainder = num % den;
+                for(let i=0; i<remainder; i++) {
+                    const block = document.createElement('div');
+                    block.className = `fraction-block filled`;
+                    block.style.width = `${100/totalBlocks}%`; // Dynamic width if needed later
+                    block.innerHTML = `<span class="fraction-label" style="font-size:0.5em;">${den}</span>`;
+                    stack.appendChild(block);
+                }
+                
+                // If remainder exists, show a text that it's partial?
+                // Or better, let's stick to a standard "Grid" visualization inside the block to show partials
+                // The "Pyramid" is technically a square where width = height.
+                // Let's use the Grid approach for accurate visualization of improper fractions.
+                
+                stack.innerHTML = '';
+                const rows = den;
+                const totalCells = rows * rows;
+                const totalCellsNeeded = num * (totalCells / den);
+                
+                // Recalculate needed cells logic for visualization
+                // We want to show num/den. 
+                // If den=4, we divide the square into 4 equal height strips? No, equal squares.
+                // If we show 1/3, we can't easily show it in the 4x4 grid.
+                
+                // COMPROMISE: We will show the blocks as individual units.
+                // Stack 3 (The Sum) will be the complex one.
+                stack.innerHTML = ''; 
+            }
+        }
+
+        function updateVisualizer() {
+            const n1 = parseInt(document.getElementById('num1').value) || 0;
+            const d1 = parseInt(document.getElementById('den1').value) || 1;
+            const n2 = parseInt(document.getElementById('num2').value) || 0;
+            const d2 = parseInt(document.getElementById('den2').value) || 1;
+
+            const sumN = n1 + n2;
+            const sumD = d1; // Simplified for display-only visualization (Logic handles correctness)
+
+            // Helper to render a stack
+            function render(fracStr, classSuffix, size) {
+                // Format fraction
+                const parts = fracStr.split('/');
+                const val = parseFloat(parts[0]) / parseFloat(parts[1]);
+                
+                const stack = document.querySelector(`#${size}`);
+                stack.innerHTML = '';
+                
+                // We use a school "Candy" visualization
+                // If Is Integer: show blocks labeled 1
+                // If Fraction: show grid of D x D cells, fill N cells? No, too complex.
+                
+                // Let's try the "Stack of Bricks" approach (Pyramid) for the sum
+                // But for the ingredients, we need to show what constitutes the fraction.
+                
+                if (d1 === d2) {
+                    // Simpler case: shared denominator
+                    const grid = document.createElement('div');
+                    grid.className = 'fraction-block';
+                    grid.style.display = 'grid';
+                    grid.style.gridTemplateColumns = `repeat(${d1}, 1fr)`;
+                    grid.style.gridTemplateRows = `repeat(${d1}, 1fr)`;
+                    
+                    // Only render for the Sum because ingredients are too big for one block
+                    if(size === '3') {
+                         // Render Sum
+                         // Grid size = LCM of D1, D2. Since D1==D2, Grid = D1
+                         // Convert numbers to sum
+                         const totalSum = n1 * d1 + n2 * d1;
+                         const totalCapacity = d1 * d1; 
+                         const cellSize = 100 / d1;
+                         grid.style.width = `${cellSize}`;
+                         grid.style.height = `${cellSize}`;
+                         
+                         // Just render as a single block showing the math
+                         grid.innerHTML = `<div style="display:flex; height:100%; justify-content:center; align-items:center; font-size:1.2rem; font-weight:bold;">${n1}/`+d1 + ' + ' + n2+`/` + d1 + ' = ' + sumN+`/` + d1 + `</div>`;
+                         return;
+                    }
+                }
+
+                // Logic to determine how many "bricks" to show based on denominator resolution
+                // To visualize n/d accurately:
+                // If d > 6, show bricks. If d <= 6, show grid.
+                
+                let container = document.createElement('div');
+                
+                if (val === Math.round(val)) {
+                    // Integer
+                    for(let i=0; i<val; i++) {
+                        container.appendChild(createBlock(true, "Whole"));
+                    }
+                    if (val % d1 !== 0) {
+                        container.style.display = 'flex';
+                        container.style.justifyContent = 'flex-end';
+                        container.style.gap = '10px';
+                        const rem = val % d1; // Not quite right for display
+                        // Actually if it's integer, no rem.
+                    }
+                } else {
+                    // Fraction visualization
+                    // Show as multiple units of 1/d1
+                    const units = n1; // value of the whole unit 1/d1
+                    // If we use the grid approach:
+                    // We create a grid of size D1 x D1.
+                    // We fill N1 cells.
+                    if(d1 < 9 && n1 < d1) {
+                        const grid = document.createElement('div');
+                        grid.className = 'fraction-block';
+                        grid.style.display = 'grid';
+                        grid.style.gridTemplateColumns = `repeat(${d1}, 1fr)`;
+                        grid.style.gridTemplateRows = `repeat(${d1}, 1fr)`;
+                        
+                        let filled = 0;
+                        for(let i=0; i<n1; i++) {
+                            const cell = document.createElement('div');
+                            cell.style.backgroundColor = 'var(--primary)';
+                            cell.style.width = '100%';
+                            cell.style.border = '1px solid rgba(255,255,255,0.2)';
+                            grid.appendChild(cell);
+                            filled++;
+                        }
+                        // Calculate percentage for hover?
+                        
+                        for(let j=0; j<(d1*d1 - filled); j++) {
+                            const cell = document.createElement('div');
+                            cell.style.width = '100%';
+                            cell.style.border = '1px solid #e5e7eb';
+                            grid.appendChild(cell);
+                        }
+                        grid.innerHTML += `<span style="position:absolute; font-size:0.9rem;">${n1}/`+ d1 + `</span>`;
+                        stack.appendChild(grid);
+                    } else {
+                        // High denominator, show "Chips"
+                        const unitSize = 40; // visual size
+                        // Append rounded rects
+                        for(let i=0; i<n1; i++) {
+                            container.appendChild(createChip(1, d1));
+                        }
+                        if(n1 % d1 !== 0) {
+                             container.appendChild(createChip(n1, d1)); // This is invalid logic if we are in the else branch
+                        }
+                    }
+                }
+            }
+
+            // --- Re-implementing Render Logic cleanly ---
+            
+            // 1. Visualize Fraction 1
+            renderStack(stack1, n1, d1, 12);
+            // 2. Visualize Fraction 2
+            renderStack(stack2, n2, d2, 12);
+            // 3. Visualize Sum (Common Denominator logic)
+            // Let's handle the sum visualization differently: "Area Model" or "Line Segment"
+            // Let's do a "Cake Slice" Pizza slice model for the simplest understanding
+            const commonDenom = Math.pow(d1, Math.sqrt(d1)) || d1; // Just making them equal for visuals is hard in DOM
+            // Assuming d1 == d2 for simplicity of visualizer 2
+            
+            // Let's try a "Rows of Candies" approach for 3.
+            // Rows = Denom, Cols = Denom
+                
+            const sumStack = document.getElementById('3');
+            sumStack.innerHTML = '';
+            
+            // If denominators are same
+            if (d1 === d2) {
+                let totalSlices = n1 + n2;
+                let totalSlicesInCake = d1 * d1; // If cake is square
+                let isWhole = totalSlices > d1 * d1;
+                
+                // Render Sum
+                if (totalSlices > 0) {
+                    // We show rows of colors?
+                    // Let's just render blocks like the pyramid but dynamic
+                    let blockCount = 0;
+                    let rows = d1;
+                    let cols = d1;
+                    let currentRow = 0;
+                    let currentCol = 0;
+                    
+                    // This is getting too complex for pure CSS/JS without canvas.
+                    // Let's fallback to the "Unit Block" stack.
+                    
+                    // Logic: Draw 'n' blocks of size '1/d'.
+                    const unitVal = n1 + n2;
+                    
+                    // If unitVal < d1
+                    if (unitVal < 10) {
+                         // Render as single grid if possible
+                         const grid = document.createElement('div');
+                         grid.className = 'fraction-block';
+                         grid.style.display = 'grid';
+                         grid.style.gridTemplateColumns = `repeat(${Math.min(d1, 7)}, 1fr)`; // Cap at 7 for width
+                         grid.style.gridTemplateRows = `repeat(${Math.min(d1, 7)}, 1fr)`;
+                         
+                         // We need to resize the grid based on unitVal
+                         // Easier: Resize based on total capacity.
+                         // Let's just use Text and a visual representation of the addition.
+                         
+                         sumStack.innerHTML = '';
+                         const part1 = document.createElement('div');
+                         part1.className = 'fraction-block filled';
+                         part1.style.height = '200px'; // Tall
+                         part1.style.border = 'none';
+                         part1.style.background = 'var(--primary)';
+                         part1.style.display = 'flex';
+                         part1.style.flexDirection = 'column';
+                         part1.style.justifyContent = 'center';
+                         part1.style.alignItems = 'center';
+                         part1.innerHTML = `<span style="color:white; font-size:1.5rem;">${n1}/`+d1+ `</span><span style="font-size:1rem; color:#ccc;">+</span><span style="color:white; font-size:1rem;">${n2}/`+d1+ `</span>`;
+                         sumStack.appendChild(part1);
+                         
+                         const result = document.createElement('div');
+                         result.className = 'fraction-block filled';
+                         result.style.height = '120px'; // Shorter
+                         result.style.border = '2px dashed #fff'; // Dashed indicates result
+                         result.style.background = 'var(--success)';
+                         result.innerHTML = `<span class="fraction-label" style="font-size:2rem;">${n1+n2}/`+d1 + `</span>`;
+                         sumStack.appendChild(result);
+                    } else {
+                        // Complex sum logic
+                        sumStack.innerHTML = 'Complex Sum (Try smaller numbers)';
+                    }
+                }
+            }
+        }
+
+        function createChip(n, d) {
+            const chip = document.createElement('div');
+            chip.className = 'fraction-block';
+            // Chip shape logic via CSS? No, just rounded rects
+            chip.style.width = '40px';
+            chip.style.height = '100px';
+            chip.style.borderRadius = '5px';
+            chip.style.borderColor = 'var(--primary)';
+            chip.style.backgroundColor = 'var(--primary)';
+            chip.style.position = 'relative';
+            chip.innerHTML = `<span class="fraction-label" style="color:white; font-size:0.7rem;">${d}</span>`;
+            return chip;
+        }
+
+        function createBlock(isWhole, text) {
+            const div = document.createElement('div');
+            div.className = 'fraction-block filled';
+            div.innerHTML = `<span class="fraction-label">${text}</span>`;
+            return div;
+        }
+
+        function renderStack(stack, num, den, capacity) {
+            stack.innerHTML = '';
+            
+            // Logic: 
+            // If num = 0, render empty
+            // If num > den (and den is small), render integer blocks + remainder grid
+            // If num < den, render a single grid
+            
+            const decimal = num / den;
+            
+            if (den <= 8 && den * den <= capacity * capacity) {
+                // Render as Grid (Pie Slice approximation)
+                // Create a square grid
+                const options = { max: 6 };
+                let displayDen = den;
+                let displayNum = num;
+                
+                // Adjust sizes for display
+                if (d1 > d2) {
+                    const factor = d1/d2;
+                    // Not doing this for now
+                }
+            }
+            
+            // Fallback to simple blocks for this implementation
+            // It visualizes "units"
+            const unitSize = 50;
+            stack.style.display = 'flex';
+            stack.style.flexDirection = 'column';
+            stack.style.alignItems = 'flex-end';
+            stack.style.gap = '5px';
+            
+            // Render whole numbers
+            const whole = Math.floor(num / den);
+            for(let i=0; i<whole; i++) {
+                stack.appendChild(createBlock(true, "Whole"));
+            }
+            
+            // Render remainder
+            const remainder = num % den;
+            if (remainder > 0) {
+                // Single complex block visual
+                const grid = document.createElement('div');
+                grid.className = 'fraction-block';
+                grid.style.display = 'grid';
+                grid.style.gridTemplateColumns = `repeat(${den}, 1fr)`;
+                grid.style.gridTemplateRows = `repeat(${den}, 1fr)`;
+                grid.style.width = `${100}`;
+                grid.style.height = `${100}`;
+                
+                for(let i=0; i<remainder; i++) {
+                    const cell = document.createElement('div');
+                    cell.style.background = 'var(--primary)';
+                    cell.style.border = '1px solid rgba(255,255,255,0.2)';
+                    cell.style.width = '100%';
+                    cell.style.margin = '2px'; // slight gap
+                    grid.appendChild(cell);
+                }
+                
+                for(let i=1; i < (den*den - remainder*den); i++) {
+                    const cell = document.createElement('div');
+                    cell.style.border = '1px dashed rgba(255,255,255,0.1)';
+                    grid.appendChild(cell);
+                }
+                
+                grid.innerHTML += `<span style="position:absolute; bottom:10px; right:10px; color:#fff; font-size:0.8rem;">` + num + `/` + den + `</span>`;
+                stack.appendChild(grid);
+            }
+        }
+
+        // --- Math Logic ---
+        
+        const factors = {
+            4: [4],
+            7: [7],
+            8: [8],
+            6: [6,2]
+        };
+
+        function gcd(a, b) {
+            while (b) {
+                a %= b;
+                [a, b] = [b, a];
+            }
+            return a;
+        }
+
+        function lcm(a, b) {
+            return (a * b) / gcd(a, b);
+        }
+
+        function updateVisualizer() {
+            const n1 = parseInt(document.getElementById('num1').value);
+            const d1 = parseInt(document.getElementById('den1').value);
+            const n2 = parseInt(document.getElementById('num2').value);
+            const d2 = parseInt(document.getElementById('den2').value);
+
+            // Common Denominator
+            const cd = lcm(d1, d2);
+            const n1_converted = n1 * (cd / d1);
+            const n2_converted = n2 * (cd / d2);
+            const sum_num = n1_converted + n2_converted;
+            
+            // Add Explanation Text
+            const mathExplain = document.getElementById('math-explanation');
+            if (d1 === d2) {
+                mathExplain.innerHTML = `1. Add numerators: ${n1} + ${n2} = ${sum_num}. <br>2. Denominator stays the same: ${d1}.`;
+            } else {
+                mathExplain.innerHTML = `1. Find Common Denominator: LCM of ${d1} and ${d2} is ${cd}. <br>2. Convert fractions: ${n1}/${d1} = ${n1_converted}/${cd} and ${n2}/${d2} = ${n2_converted}/${cd}. <br>3. Add Numerators: ${n1_converted} + ${n2_converted} = ${sum_num}.`;
+            }
+
+            document.getElementById('result-sum').innerHTML = `
+                <span id="res-n1">${n1}</span>
+                <span style="display:inline-block; vertical-align:top; margin:0 2px; text-align:center; top:-5px;"><sup style="display:inline">${d1}</sup></span>
+                <span class="equals">+</span>
+                <span>${n2}</span>
+                <span style="display:inline-block; vertical-align:top; margin:0 2px; text-align:center; top:-5px;"><sup style="display:inline">${d2}</sup></span>
+                <span class="equals">=</span>
+                <span>${sum_num}</span>
+                <span style="display:inline-block; vertical-align:top; margin:0 2px; text-align:center; top:-5px;"><sup style="display:inline">${cd}</sup></span>
+            `;
+            
+            // Mixed Number Logic
+            let wholePart = Math.floor(sum_num / cd);
+            let remainderPart = sum_num % cd;
+            
+            // Simplify
+            let common = gcd(sum_num, cd);
+            let finalNum = sum_num / common;
+            let finalDen = cd / common;
+            
+            // If Whole Part exists, simplify mixed logic with final fraction
+            if (wholePart > 0) {
+                // This is where we step back a bit. Usually: (Whole Part) + (Remainder/NewDen)
+                // But the sum_n/sum_d might be reducible.
+                // Let's stick to the simplified sum first.
+                // Display raw sum first:
+            }
+
+            // Decimal
+            document.getElementById('result-decimal').innerText = (sum_num / cd).toFixed(4);
+            document.getElementById('result-percent').innerText = (sum_num / cd) * 100 + "%";
+            
+            // Simple Box Model update
+            const block = document.querySelector('#visualizer-3');
+            block.innerHTML = '';
+            block.style.display = 'flex';
+            block.style.justifyContent = 'center';
+            
+            if (finalNum === sum_num && finalNum < 10) {
+                 // Fit in grid?
+                 // Logic: if fractions equal (d1=d2), simple logic.
+                 // Else, complex logic requires finding LCM visual.
+                 // We will focus on the "Equal Denominator" simplicity for the visualizer 3
+                 // or skip it if too complex.
+                 
+                 // Just show the sum block
+                 block.innerHTML = `
+                    <div style="font-size:1.5rem; font-weight:bold;">
+                        ${finalNum}<span style="display:inline-block; font-size:1rem; vertical-align:middle; top:-4px;"><sup>${finalDen}</sup></span>
+                    </div>
+                    ${finalNum % finalDen === 0 ? "<br><div style='color:#6b7280; font-size:0.9rem'>= " + (finalNum/finalDen) + " (Whole)</div>" : ""}
+                 `;
+            }
+        }
+
+        function addExplain() {
+            const n1 = parseInt(document.getElementById('num1').value);
+            const d1 = parseInt(document.getElementById('den1').value);
+            const n2 = parseInt(document.getElementById('num2').value);
+            const d2 = parseInt(document.getElementById('den2').value);
+            
+            const explBox = document.getElementById('explanation-box');
+            if(d1 === d2) {
+                explBox.innerHTML += `<strong>Equal Denominators:</strong> When denominators are the same, we just add the top numbers (numerator) and keep the bottom number (denominator) the same.`
+                explBox.style.display = 'block';
+            } else {
+                explBox.innerHTML += `<strong>Unequal Denominators:</strong> We need to find a Common Denominator. Multiply the denominators (or find the smallest match) to make the slice sizes equal, then add.`
+                explBox.style.display = 'block';
+            }
+        }
+
+        // --- Quiz Logic ---
+        
+        let currentScore = 0;
+
+        function generateQuiz() {
+            const den = Math.floor(Math.random() * 3) + 2; // Denominator between 2 and 4
+            if (den > 4) den = 4;
+            
+            // Simple case: same denominator
+            const n1 = Math.floor(Math.random() * (den-1)) + 1;
+            const n2 = Math.floor(Math.random() * (den-n1)) + 1;
+            
+            const correctNum = n1 + n2;
+            const correctAns = `${correctNum}/${den}`;
+            
+            document.getElementById('score').innerText = currentScore;
+            document.getElementById('q-text').innerText = `${n1}/${den} + ${n2}/${den}`;
+            document.getElementById('quiz-feedback').innerText = '';
+            
+            let options = [correctAns];
+            
+            // Generate Distractors
+            while(options.length < 4) {
+                let fakeNum = Math.floor(Math.random() * 10) + 1;
+                let ans = `${fakeNum}/${den}`;
+                if(!options.includes(ans)) options.push(ans);
+            }
+            
+            options.sort(() => Math.random() - 0.5); // Shuffle
+            
+            const container = document.getElementById('quiz-options');
+            container.innerHTML = '';
+            
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'quiz-btn';
+                btn.innerText = opt;
+                btn.onclick = () => checkAnswer(btn, opt, correctAns);
+                container.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(btn, selected, correct) {
+            if (btn.disabled) return;
+            btn.disabled = true;
+            
+            if (selected === correct) {
+                btn.classList.add('correct');
+                document.getElementById('quiz-feedback').innerText = "Correct! Great job.";
+                document.getElementById('quiz-feedback').style.color = "var(--success)";
+                currentScore++;
+                document.getElementById('score').innerText = currentScore;
+            } else {
+                btn.classList.add('wrong');
+                // Find and highlight correct one
+                const buttons = document.querySelectorAll('.quiz-btn');
+                buttons.forEach(b => {
+                    if(b.innerText === correct) {
+                        b.classList.add('correct');
+                    }
+                });
+                document.getElementById('quiz-feedback').innerText = "Oops! Check the correct answer above.";
+                document.getElementById('quiz-feedback').style.color = "var(--secondary)";
+            }
+        }
+
+        // Initialize
+        updateVisualizer();
+        generateQuiz();
+
+        // Live updates for inputs
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', updateVisualizer);
+        });
+
+    </script>
+</body>
+</html>

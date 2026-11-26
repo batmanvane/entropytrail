@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Pythagorean Theorem</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #8b5cf6;
+            --accent: #ef4444;
+            --bg: #f8fafc;
+            --panel-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--panel-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 0;
+            font-size: 1.8rem;
+            color: var(--text);
+        }
+
+        .canvas-container {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            position: relative;
+            width: 100%;
+            height: 450px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+            background: #f1f5f9;
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 200px;
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .value-display {
+            font-weight: bold;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .equation-row {
+            background: var(--primary);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 2.5rem;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5);
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pythagorean Theorem Visualizer</h1>
+        
+        <div class="equation-row" id="equation-display">
+            a² + b² = c²
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="slider-a">Side A (Base)</label>
+                    <span class="value-display" id="val-a">3</span>
+                </div>
+                <input type="range" id="slider-a" min="1" max="20" value="3">
+            </div>
+
+            <div class="control-group">
+                <div class="label-row">
+                    <label for="slider-b">Side B (Height)</label>
+                    <span class="value-display" id="val-b">4</span>
+                </div>
+                <input type="range" id="slider-b" min="1" max="20" value="4">
+            </div>
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="pythagorasCanvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('pythagorasCanvas');
+        const ctx = canvas.getContext('2d');
+        const sliderA = document.getElementById('slider-a');
+        const sliderB = document.getElementById('slider-b');
+        const valA = document.getElementById('val-a');
+        const valB = document.getElementById('val-b');
+        const equationDisplay = document.getElementById('equation-display');
+
+        let a = parseInt(sliderA.value);
+        let b = parseInt(sliderB.value);
+
+        function resizeCanvas() {
+            // Get the container bounds
+            const container = document.querySelector('.canvas-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            draw();
+        }
+
+        // Helper to draw triangle from points
+        function drawTriangle(points) {
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            ctx.lineTo(points[1].x, points[1].y);
+            ctx.lineTo(points[2].x, points[2].y);
+            ctx.closePath();
+            ctx.fillStyle = '#dbeafe'; // Light Blue
+            ctx.fill();
+        }
+
+        // Helper to draw square
+        function drawSquare(points, color, label) {
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            ctx.lineTo(points[1].x, points[1].y);
+            ctx.lineTo(points[2].x, points[2].y);
+            ctx.lineTo(points[3].x, points[3].y);
+            ctx.closePath();
+            
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Stroke matches fill color but darker
+            ctx.strokeStyle = adjustColor(color, -40); 
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw label
+            if (label) {
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                // Position label slightly outside or inside depending on context
+                ctx.fillText(label, points[0].x + 10, points[0].y - 5);
+            }
+        }
+
+        // Helper to draw text label (side length)
+        function drawTextLabel(text, x, y) {
+            ctx.fillStyle = '#334155';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x, y);
+        }
+
+        function adjustColor(color, amount) {
+            // Very simple hex adjuster for demo purposes
+            // In production, use a proper library, but inline requires this hack
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16) + amount;
+            const g = parseInt(hex.substr(2, 2), 16) + amount;
+            const b = parseInt(hex.substr(4, 2), 16) + amount;
+            return '#' + (0x1000000 + (Math.min(255, Math.max(0, r)) * 0x10000) + (Math.min(255, Math.max(0, g)) * 0x100) + (Math.min(255, Math.max(0, b)))).toString(16).slice(1);
+        }
+
+        function calculatePoints() {
+            const centerX = canvas.width / 2;
+            const startY = 150;
+            const scale = 30; // Pixels per unit
+
+            // Define points relative to center (center would be intersection of hypotenuse and vertical leg)
+            // Let's place the right angle of the large triangle on the left
+            // The vertical line (b) is vertical, Horizontal line (a) is horizontal.
+            
+            // The "Center" of the canvas (bottom left of triangle)
+            // Actually, let's position the triangle such that the right angle (0,0) is at the bottom-left of the triangle area.
+            
+            const left = centerX - (a * 2); // Offset to leave space
+            const top = startY - (b * 2);   // Offset to center visually vertically
+
+            // The 3 main vertices of the big right triangle
+            // Bottom-Left (Right Angle)
+            const p0 = { x: left, y: top };
+            // Bottom-Right (Base = a)
+            const p1 = { x: left + (a * scale), y: top };
+            // Top-Right (Height = b)
+            const p2 = { x: left + (a * scale), y: top - (b * scale) };
+
+            // Points for Square on Side A (Bottom)
+            const s0a = p0;
+            const s1a = p1;
+            const s2a = { x: left - (a * scale), y: top }; // Extend leftwards to form square
+            const s3a = { x: left - (a * scale), y: top - (b * scale) };
+            // p1 is side b (height). The square on side b is vertical.
+            // p0 is side a (base). The square on side a is horizontal.
+            // p2 is hypotenuse.
+
+            // Points for Square on Side B (Vertical/Hypotenuse 2)
+            const s0b = p2;
+            const s1b = { x: left + (a * scale) + (b * scale), y: top - (b * scale) };
+            const s2b = { x: left + (a * scale), y: top - (b * scale) - (b * scale) };
+            const s3b = p1;
+            
+            // Points for Hypotenuse Square (Square on Side A scaled + B scaled)
+            // The hypotenuse is the line segment p0 to p2.
+            // Wait, standard proof diagram:
+            // Triangle is T0(p0), T1(p1), T2(p2). Right angle at T0.
+            // Square on a (T0-T1): Extends "down". 
+            // Square on b (T0-T2): Extends "left".
+            // Square on c (T1-T2): Extends "out" from hypotenuse.
+            
+            // Let's refine coordinates to be cleaner.
+            // Origin at T0 (Right Angle)
+            const originX = left;
+            const originY = top;
+            // Point T0 (0,0)
+            const tr0 = { x: originX, y: originY };
+            // Point T1 (a,0)
+            const tr1 = { x: originX + (a * scale), y: originY };
+            // Point T2 (0,b)
+            const tr2 = { x: originX, y: originY - (b * scale) };
+
+            // Square on A (Bottom) - Extends Down
+            const sqA0 = tr0;
+            const sqA1 = tr1;
+            const sqA2 = { x: originX + (a * scale), y: originY + (a * scale) };
+            const sqA3 = { x: originX, y: originY + (a * scale) };
+
+            // Square on B (Side) - Extends Left
+            const sqB0 = tr0;
+            const sqB1 = tr2;
+            const sqB2 = { x: originX - (b * scale), y: originY - (b * scale) };
+            const sqB3 = { x: originX - (b * scale), y: originY };
+
+            // Square on Hypotenuse (c) - Extends Away
+            // Perpendicular distance needed isn't as simple as just scaling.
+            // We need to construct the lines perpendicular to hypotenuse extending outwards.
+            // However, for a simple visualizer, we can calculate the specific points.
+            // Or simpler:
+            // Let's just define the square based on the hypotenuse length c.
+            // Vector T1->T2 is (-a, b).
+            // We need to place a square of size c on this vector.
+            // Midpoint of T1-T2: mx, my
+            const midX = (tr1.x + tr2.x) / 2;
+            const midY = (tr1.y + tr2.y) / 2;
+            
+            // The hypotenuse length squared
+            const hypLenSq = (a*scale)*(a*scale) + (b*scale)*(b*scale); // Actually just scale^2 * (a^2 + b^2)
+            const hypLen = Math.sqrt(hypLenSq);
+
+            // We want to scale up the leg lengths to fill the hypotenuse? No, the visual usually shows the squares attached.
+            // To make it look "tight" (like the classic proof), the height of the hypotenuse square should equal c.
+            // But calculating rotated points that perfectly align without rotation matrix math is tedious.
+            // Let's use the standard Fourier transformation logic for rotation:
+            // Rotate points around the center of the hypotenuse by 90 deg? No.
+            
+            // Easier approach for "clean" visual:
+            // Create square on side B (height) with color Purple
+            // Create square on side A (base) with color Blue
+            // Create square on side C (hypotenuse) with color Orange.
+            
+            // Recalculating Hypotenuse Square points properly:
+            // We have vector PT1 (a*scale, 0) and PT2 (0, b*scale). 
+            // We want a square on the diagonal.
+            // Let's project the length of A and B onto the hypotenuse for the depth of the square?
+            // Actually, standard diagrams often vary the depth. 
+            // Let's make the depth of the H-square equal to the sum of scaled A and B? No.
+            // Let's calculate the height of the hypotenuse square correctly.
+            // Height = (scale * scale * (a+b)) / c? No.
+            
+            // Visual Approximation Strategy:
+            // Find the endpoints of the hypotenuse square (SQ_C0 and SQ_C3) are T1 and T2.
+            // Find SQ_C1 and SQ_C2 by computing intersection of lines perpendicular to Hypotenuse, length = c.
+            // Actually, let's just make the "outward" depth exactly 'c'.
+            // Vector normalized: (-a, b) / c.
+            // Rotate 90 deg: (-b, -a) / c.
+            // Projected vector of depth c: (-b, -a).
+            //
+            // Let's verify.
+            // If we take a unit square (1,0) and (0,1). Hypotenuse sqrt(2).
+            // Normalized hyp: (-1, 1)/1.414.
+            // Perpendicular: (-1, -1)/1.414 * sqrt(2) = (-1,-1).
+            // Distance from T1 to T2 is sqrt(2).
+            
+            // So:
+            // PT1 is start. PT2 is end.
+            // We need vector (-b*scale, -a*scale). Let's call this V.
+            // V magnitude = scale * sqrt(a^2 + b^2) = scale * hyp_len.
+            // This vector points exactly outwards from the triangle perpendicular to hypotenuse.
+            // The length of the square side we are drawing should be hyp_len * scale.
+            // So V is exactly the correct dimensional vector to form the square outward from T1 and T2.
+
+            const rectHypWidth = Math.sqrt(hypLenSq);
+            
+            // The vector (-b*scale, -a*scale) actually has length scale * sqrt(a^2 + b^2) = rectHypWidth.
+            // So this vector represents exactly the size of the side perpendicular to the hypotenuse.
+            // Let's project it from T1 and T2.
+            
+            const sqC1 = { x: tr1.x + (-b * scale), y: tr1.y - (a * scale) }; // Point 1
+            const sqC2 = { x: tr2.x + (-b * scale), y: tr2.y - (a * scale) }; // Point 2
+            
+            // Let's check if this works for 3,4,5 (scaled by 30)
+            // a=3, b=4. scale=30. H_len = 5*30 = 150.
+            // Vector: (-4*30, -3*30) = (-120, -90). Length sqrt(14400+8100) = sqrt(22500) = 150. Correct.
+            
+            const sqC0 = tr1;
+            const sqC3 = tr2;
+
+            return {
+                triangle: [tr0, tr1, tr2],
+                sqA: [sqA0, sqA1, sqA2, sqA3],
+                sqB: [sqB0, sqB1, sqB2, sqB3],
+                sqC: [sqC0, sqC1, sqC2, sqC3],
+                labels: {
+                    a: { x: originX + (a*scale)/2, y: originY + (a*scale)/2 },
+                    b: { x: originX - (b*scale)/2, y: originY - (b*scale)/2 },
+                    c: { x: (tr1.x + tr2.x)/2, y: (tr1.y + tr2.y)/2 },
+                    valA: { x: originX, y: originY + (a*scale) }, // Near A
+                    valB: { x: originX + (a*scale), y: originY - (b*scale)/2 }, // Near B
+                    valC: { x: (tr1.x + tr2.x)/2, y: (tr1.y + tr2.y)/2 }, // Near C
+                }
+            };
+        }
+
+        function draw() {
+            // Clear Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Layout
+            const left = (canvas.width / 2) - (200); // Center x minus half the bounding box of squares
+            const top = (canvas.height / 2); // Center y (roughly)
+
+            // Calculate Geometry
+            const data = calculatePoints();
+            
+            // Draw Squares
+            // 1. Square on Side A (Base) - Blue
+            drawSquare(data.sqA, '#bfdbfe', 'a²');
+            
+            // 2. Square on Side B (Height) - Purple
+            drawSquare(data.sqB, '#ddd6fe', 'b²');
+
+            // 3. Square on Hypotenuse (Orange)
+            drawSquare(data.sqC, '#tomato', 'c²'); // tomato is roughly red/orange inline
+
+            // Draw Triangle
+            ctx.beginPath();
+            ctx.moveTo(data.triangle[0].x, data.triangle[0].y);
+            ctx.lineTo(data.triangle[1].x, data.triangle[1].y);
+            ctx.lineTo(data.triangle[2].x, data.triangle[2].y);
+            ctx.closePath();
+            
+            // Stroke Triangle
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Fill Triangle with semi-transparent white to see coordinates? 
+            // Or maybe faint blue
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+            ctx.fill();
+
+            // Draw Characters (a, b, c) inside/along sides
+            /*
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            ctx.fillText('a', data.labels.a.x, data.labels.a.y);
+            ctx.fillText('b', data.labels.b.x, data.labels.b.y);
+            ctx.fillText('c', data.labels.c.x, data.labels.c.y);
+            */
+
+            // Draw "a²", "b²", "c²" labels on squares (handled by drawSquare)
+
+            // Draw Value Labels (Current numbers) outside
+            ctx.fillStyle = '#64748b';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(`Side a: ${a}`, data.triangle[0].x - 15, data.triangle[0].y + 15);
+            ctx.fillText(`Side b: ${b}`, data.triangle[0].x + 15, data.triangle[1].y - 15);
+            ctx.fillText(`Hypotenuse: ${Math.round(Math.sqrt(a*a + b*b))}`, data.triangle[1].x - 20, data.triangle[2].y - 10);
+        }
+
+        // Event Listeners
+        function update() {
+            a = parseInt(sliderA.value);
+            b = parseInt(sliderB.value);
+            
+            valA.textContent = a;
+            valB.textContent = b;
+
+            // Format equation
+            // a² + b² = c²
+            // Display numbers
+            const hyp = Math.sqrt(a*a + b*b).toFixed(2);
+            equationDisplay.textContent = `${a}² + ${b}² = ${hyp}²`;
+
+            draw();
+        }
+
+        sliderA.addEventListener('input', update);
+        sliderB.addEventListener('input', update);
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Initialize
+        resizeCanvas();
+
+    </script>
+</body>
+</html>

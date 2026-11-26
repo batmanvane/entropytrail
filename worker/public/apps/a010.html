@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Math: Fraction Explorer</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --success: #10b981;
+            --error: #ef4444;
+            --border: #e5e7eb;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 { color: var(--primary); margin-bottom: 10px; }
+        h2 { margin-top: 40px; margin-bottom: 20px; border-bottom: 2px solid var(--primary); display: inline-block; padding-bottom: 5px; }
+        h3 { margin-top: 15px; color: #4b5563; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+        }
+
+        /* Grid Layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+
+        /* Fraction Input Styling */
+        .fraction-input-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 1.5rem;
+        }
+
+        input[type="number"] {
+            width: 80px;
+            text-align: center;
+            font-size: 1.2rem;
+            padding: 5px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            -moz-appearance: textfield;
+        }
+
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        .fraction-bar {
+            width: 100%;
+            height: 4px;
+            background-color: var(--text);
+            align-self: flex-start;
+            margin: 2px 0;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover { background-color: var(--primary-hover); }
+        .btn-secondary { background-color: #6b7280; }
+        .btn-secondary:hover { background-color: #4b5563; }
+
+        /* Visualizer Styles */
+        .visualizer-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .bar-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 45%;
+        }
+
+        .bar {
+            height: 40px;
+            width: 100%;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.5s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+        }
+
+        .bar-fill.green { background-color: var(--success); }
+        .bar-fill.red { background-color: var(--error); }
+
+        .fraction-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .operator { font-size: 2rem; font-weight: bold; color: var(--primary); margin: 0 10px; }
+
+        /* Info Cards */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        
+        @media(min-width: 600px) { .info-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .info-card {
+            background: #f0f9ff;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .result-area {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-top: 20px;
+            font-weight: bold;
+            min-height: 60px;
+        }
+
+        .result-explanation {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Master Math: Fractions</h1>
+        <p>Learn, Calculate, and Visualize fractions interactively.</p>
+    </header>
+
+    <!-- SECTION 1: THE CALCULATOR -->
+    <section>
+        <h2>1. The Calculator</h2>
+        <div class="card">
+            <div class="grid-2">
+                <div>
+                    <div class="fraction-input-container">
+                        <input type="number" id="num1" placeholder="1" min="0">
+                        <div class="fraction-bar"></div>
+                        <input type="number" id="den1" placeholder="1" min="1" value="1">
+                    </div>
+                    <div class="fraction-display" id="frac1">1/1</div>
+                </div>
+                
+                <div>
+                    <!-- Operator selection -->
+                    <div style="display:flex; justify-content:space-between; margin: 15px 0;">
+                        <button class="btn btn-secondary" onclick="setOp('add')" id="btn-add">+</button>
+                        <button class="btn btn-secondary" onclick="setOp('sub')" id="btn-sub">-</button>
+                        <button class="btn btn-secondary" onclick="setOp('mul')" id="btn-mul">×</button>
+                        <button class="btn btn-secondary" onclick="setOp('div')" id="btn-div">÷</button>
+                    </div>
+                    
+                    <div class="fraction-input-container">
+                        <input type="number" id="num2" placeholder="1" min="0">
+                        <div class="fraction-bar"></div>
+                        <input type="number" id="den2" placeholder="1" min="1" value="1">
+                    </div>
+                    <div class="fraction-display" id="frac2">1/1</div>
+                </div>
+            </div>
+
+            <button class="btn" onclick="calculate()">Calculate</button>
+            
+            <div class="result-area" id="calc-result">Result will appear here</div>
+            <div class="result-explanation" id="calc-explanation"></div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: THE VISUALIZER -->
+    <section>
+        <h2>2. Visual Comparator</h2>
+        <div class="card">
+            <p style="margin-bottom:15px; color:#666;">Compare two fractions easily. Pick a whole number to split into.</p>
+            
+            <div class="visualizer-container">
+                <!-- Fraction A -->
+                <div class="bar-wrapper">
+                    <div class="fraction-display" style="font-size:1rem; margin-bottom:5px;">Fraction A</div>
+                    <input type="number" id="vis-num1" value="1" style="width:50px; display:inline-block;">
+                    <div class="fraction-bar" style="margin-left: auto;"></div>
+                    <input type="number" id="vis-den1" value="4" style="width:50px; display:inline-block;">
+                </div>
+
+                <div class="operator">VS</div>
+
+                <!-- Fraction B -->
+                <div class="bar-wrapper">
+                    <div class="fraction-display" style="font-size:1rem; margin-bottom:5px;">Fraction B</div>
+                    <input type="number" id="vis-num2" value="1" style="width:50px; display:inline-block;">
+                    <div class="fraction-bar" style="margin-left: auto;"></div>
+                    <input type="number" id="vis-den2" value="3" style="width:50px; display:inline-block;">
+                </div>
+            </div>
+
+            <!-- The Bars -->
+            <div style="display:flex; gap: 20px; justify-content:center; flex-wrap:wrap;">
+                <div style="text-align:center;">
+                    <div class="bar">
+                        <div class="bar-fill green" id="bar-a" style="width: 25%;"></div>
+                    </div>
+                    <small>Whole: <span id="gen-op1"></span></small>
+                </div>
+                <div style="text-align:center;">
+                    <div class="bar">
+                        <div class="bar-fill red" id="bar-b" style="width: 33.33%;"></div>
+                    </div>
+                    <small>Whole: <span id="gen-op2"></span></small>
+                </div>
+            </div>
+            
+            <div class="result-area" id="vis-result" style="margin-top:20px;"></div>
+            <button class="btn btn-secondary" onclick="randomizeVisualizer()" style="margin-top:15px;">Randomize Values</button>
+        </div>
+    </section>
+
+    <!-- SECTION 3: LEARNING -->
+    <section>
+        <h2>3. Learn the Basics</h2>
+        <div class="card">
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3>Numerators & Denominators</h3>
+                    <p>A fraction represents parts of a whole. The <strong>Denominator</strong> (bottom) tells you how many equal parts the whole is cut into. The <strong>Numerator</strong> (top) tells you how many of those parts you have.</p>
+                </div>
+                <div class="info-card">
+                    <h3>Common Denominators</h3>
+                    <p>To add or subtract fractions with different bottom numbers, you must find a <strong>Common Denominator</strong>. The easiest one is the "Least Common Multiple" (LCM) of the two denominators.</p>
+                </div>
+                <div class="info-card">
+                    <h3>Proper vs. Improper</h3>
+                    <p><strong>Proper</strong> fractions are less than 1 (top is smaller than bottom). <strong>Improper</strong> fractions are greater than 1 (top is larger than bottom), like 5/4 (one whole and a quarter left over).</p>
+                </div>
+                <div class="info-card">
+                    <h3>Mixed Numbers</h3>
+                    <p>This combines a whole number and a fraction. For example, 1 1/4 is the same as the improper fraction 5/4.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+    // --- STATE & CONFIG ---
+    let currentOp = 'add'; // add, sub, mul, div
+    const letters = {'add': 'Plus', 'sub': 'Minus', 'mul': 'Times', 'div': 'Divide'};
+
+    // --- HELPER FUNCTIONS ---
+
+    // Calculate LCM for simplifying
+    function lcm(a, b) {
+        return (a * b) / gcd(a, b);
+    }
+
+    // Calculate GCD
+    function gcd(a, b) {
+        if (!b) return a;
+        return gcd(b, a % b);
+    }
+
+    // Simplify a fraction by dividing both by GCD
+    function simplify(n, d) {
+        if (d === 0) return {n:0, d:1};
+        const common = gcd(Math.abs(n), Math.abs(d));
+        return { n: n / common, d: d / common };
+    }
+
+    // Format number to string
+    function formatNum(n) {
+        return n >= 0 ? n : `-${Math.abs(n)}`;
+    }
+
+    // --- CALCULATOR LOGIC ---
+
+    function getInputs() {
+        const n1 = parseInt(document.getElementById('num1').value) || 1;
+        const d1 = parseInt(document.getElementById('den1').value) || 1;
+        const n2 = parseInt(document.getElementById('num2').value) || 1;
+        const d2 = parseInt(document.getElementById('den2').value) || 1;
+        
+        // Update display strings
+        document.getElementById('frac1').innerText = n1 + '/' + d1;
+        document.getElementById('frac2').innerText = n2 + '/' + d2;
+
+        return { n: n1, d: d1, n2: n2, d2: d2 };
+    }
+
+    function updateVisualizer() {
+        // Always use current inputs to update visual bar widths
+        const inputs = getInputs();
+        const widthA = document.getElementById('bar-a');
+        const widthB = document.getElementById('bar-b');
+        
+        const op1 = document.getElementById('gen-op1');
+        const op2 = document.getElementById('gen-op2');
+
+        // Calculate percentage
+        const pctA = (inputs.n / inputs.d) * 100;
+        const pctB = (inputs.n2 / inputs.d2) * 100;
+
+        widthA.style.width = pctA + '%';
+        widthB.style.width = pctB + '%';
+
+        // Denominators: if divisors are simple numbers, show them. 
+        // Otherwise show "whole" (implied).
+        op1.innerText = inputs.d; 
+        op2.innerText = inputs.d2;
+    }
+
+    function calculate() {
+        const { n: n1, d: d1, n: n2, d: d2 } = getInputs();
+        let finalN = 0;
+        let finalD = 1;
+        let explanation = "";
+
+        const commonDenom = lcm(d1, d2);
+        const factor1 = commonDenom / d1;
+        const factor2 = commonDenom / d2;
+
+        if (currentOp === 'add') {
+            finalN = (n1 * factor1) + (n2 * factor2);
+            finalD = commonDenom;
+            explanation = `Common denominator is ${commonDenom}. <br>`;
+            if(factor1 !== 1) explanation += `First fraction: ${n1}/${d1} = ${n1*factor1}/${commonDenom} <br>`;
+            if(factor2 !== 1) explanation += `Second fraction: ${n2}/${d2} = ${n2*factor2}/${commonDenom} <br>`;
+        } 
+        else if (currentOp === 'sub') {
+            finalN = (n1 * factor1) - (n2 * factor2);
+            finalD = commonDenom;
+            explanation = `Common denominator is ${commonDenom}. <br>`;
+        }
+        else if (currentOp === 'mul') {
+            finalN = n1 * n2;
+            finalD = d1 * d2;
+            explanation = `Multiply numerators and multiply denominators.`;
+        }
+        else if (currentOp === 'div') {
+            finalN = n1 * d2;
+            finalD = d1 * n2;
+            explanation = `Keep the first, change to multiply, flip the second.`;
+        }
+
+        const result = simplify(finalN, finalD);
+        
+        // Equivalents to Integer (Optional)
+        let mixed = "";
+        const sign = result.n < 0 ? "- " : "";
+        const signElem = result.n < 0 ? "&nbsp;<span style='text-decoration:overline'>×</span>&nbsp;" : "&nbsp;&plusmn;&nbsp;"; // poor man's zero
+        let integerPart = Math.floor(result.n);
+        
+        // Handling negative numbers for mixed numbers logic
+        let absN = Math.abs(result.n);
+        let absD = Math.abs(result.d);
+        
+        if (absN >= absD) {
+            let quotient = Math.floor(absN / absD);
+            let remainder = absN % absD;
+            mixed = " " + quotient + " &frac34;" // placeholder
+            
+            // Better Mixed Number Renderer
+            mixed = " <span style='background:white; padding:0 5px; font-size:0.9em; margin:0 5px; border-right:1px solid #ccc;'>";
+            if (finalN < 0) mixed += quotient;
+            else mixed += quotient;
+            mixed += "</span> <span style='font-size:1.2em'>";
+            if (remainder === 0) mixed += "<s>0</s>"; // placeholder
+            else mixed += (result.n < 0 ? "- " : "") + remainder + "/" + absD;
+            mixed += "</span>";
+        }
+
+        const resText = `${result.n}/${result.d} ${mixed}`;
+        const signHtml = result.n < 0 ? "<span style='color:var(--error)'>(-)</span> " : "";
+        const finalHtml = `<div>${signHtml}<span style="font-size:1.5rem">${Math.abs(result.n)}<br><span style="font-size:1rem">${Math.abs(result.d)}</span></span> ${mixed}</div>`;
+        
+        // Format decimal for explanation
+        const dec = finalN / finalD;
+        const isWhole = dec.toString().includes('.') && dec % dec.toString().split('.')[0] !== 0;
+
+        const resArea = document.getElementById('calc-result');
+        const explArea = document.getElementById('calc-explanation');
+        
+        if (dec > 1000) {
+             resArea.innerHTML = "Too large to calculate";
+             explArea.innerHTML = "";
+        } else {
+            resArea.innerHTML = finalHtml; // Using HTML for layout
+            if(result.n < 0) explArea.innerHTML = "The result is negative.";
+            else explArea.innerHTML = `This can be written as a decimal: ${dec.toFixed(4)}. ${explanation}`;
+        }
+    }
+
+    // --- VISUALIZER LOGIC ---
+
+    function updateVisualizerBarInputs() {
+        const n1 = parseInt(document.getElementById('vis-num1').value) || 1;
+        const d1 = parseInt(document.getElementById('vis-den1').value) || 1;
+        const n2 = parseInt(document.getElementById('vis-num2').value) || 1;
+        const d2 = parseInt(document.getElementById('vis-den2').value) || 1;
+        const visResult = document.getElementById('vis-result');
+
+        const itemA = `${n1}/${d1}`;
+        const itemB = `${n2}/${d2}`;
+        const valA = n1/d1;
+        const valB = n2/d2;
+        let comparison = "";
+        let colorA = "green";
+        let colorB = "red";
+        let textA = "Fraction A is larger";
+        let textB = "Fraction B is larger";
+
+        if (valA === valB) {
+            comparison = "Equal";
+            colorA = "#10b981";
+            colorB = "#10b981";
+            textA = "Equal";
+            textB = "Equal";
+        } else if (valA > valB) {
+            comparison = "A is larger";
+        } else {
+            comparison = "B is larger";
+        }
+
+        const html = `
+            <div style="display:inline-block; text-align:center; margin: 10px;">
+                <div style="font-size:1.2rem; font-weight:bold;">${itemA}</div>
+                <div class="bar" style="height:20px; margin-top:5px; border-radius:10px;">
+                    <div class="bar-fill ${colorA}" style="width: ${valA*100}%;"></div>
+                </div>
+            </div>
+            <div style="display:inline-block; text-align:center; margin: 10px;">
+                <div style="font-size:1.2rem; font-weight:bold;">${itemB}</div>
+                <div class="bar" style="height:20px; margin-top:5px; border-radius:10px;">
+                    <div class="bar-fill ${colorB}" style="width: ${valB*100}%;"></div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('gen-op1').innerText = "divides into";
+        document.getElementById('gen-op2').innerText = "divides into";
+        
+        document.getElementById('vis-result').innerHTML = 
+            `<div style="color: #666; margin-bottom:5px;">Visual Comparison:</div>
+             ${html}
+             <div style="font-size:1.1rem; margin-top:10px;">Result: ${comparison}</div>
+             <div style="font-size:0.9rem; color:#888;">Whole number is divided into ${d1} and ${d2} parts.</div>`;
+            
+        // Update main bars just in case
+        updateVisualizer();
+    }
+
+    function setOp(op) {
+        currentOp = op;
+        document.querySelectorAll('.btn').forEach(b => b.classList.remove('btn-secondary')); // reset visual
+        document.getElementById('btn-' + op).classList.remove('btn-secondary');
+        
+        // Logic for displaying text in result area
+        const text = `Result: ${letters[op] === 'Plus' ? '+' : letters[op] === 'Minus' ? '-' : letters[op] === 'Times' ? '×' : '÷'}";
+    }
+
+    function randomizeVisualizer() {
+        const d1 = Math.floor(Math.random() * 9) + 2; // 2-10
+        const d2 = Math.floor(Math.random() * 9) + 2;
+        const n1 = Math.floor(Math.random() * d1) + 1;
+        const n2 = Math.floor(Math.random() * d2) + 1;
+
+        document.getElementById('vis-num1').value = n1;
+        document.getElementById('vis-den1').value = d1;
+        document.getElementById('vis-num2').value = n2;
+        document.getElementById('vis-den2').value = d2;
+
+        updateVisualizerBarInputs();
+    }
+
+    // --- EVENT LISTENERS ---
+
+    function setOperatorText() {
+        // Sync buttons
+        if(currentOp === 'add') document.getElementById('btn-add').classList.remove('btn-secondary');
+        if(currentOp === 'sub') document.getElementById('btn-sub').classList.remove('btn-secondary');
+        if(currentOp === 'mul') document.getElementById('btn-mul').classList.remove('btn-secondary');
+        if(currentOp === 'div') document.getElementById('btn-div').classList.remove('btn-secondary');
+    }
+
+    // Initialize
+    window.onload = function() {
+        setOperatorText();
+    };
+
+    // Inputs listener for buttons
+    const btns = document.querySelectorAll('.btn-secondary');
+    btns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            setOperatorText();
+        });
+    });
+
+    // Inputs listener for visualizer
+    const visInputs = [
+        document.getElementById('vis-num1'), 
+        document.getElementById('vis-den1'), 
+        document.getElementById('vis-num2'), 
+        document.getElementById('vis-den2')
+    ];
+    visInputs.forEach(inp => {
+        inp.addEventListener('change', updateVisualizerBarInputs);
+    });
+
+</script>
+
+</body>
+</html>

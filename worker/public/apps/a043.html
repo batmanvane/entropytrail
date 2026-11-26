@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraction Quiz</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #22c55e;
+            --error: #ef4444;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+            font-size: 2rem;
+        }
+
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0 5px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .numerator {
+            border-bottom: 2px solid currentColor;
+            padding-bottom: 2px;
+            line-height: 1.2;
+            width: 100%;
+            text-align: center;
+        }
+
+        .denominator {
+            padding-top: 2px;
+            line-height: 1.2;
+            width: 100%;
+            text-align: center;
+        }
+
+        .operator {
+            font-size: 1.8rem;
+            margin: 0 10px;
+        }
+
+        .question-area {
+            font-size: 1.5rem;
+            margin: 2rem 0;
+            word-break: break-word;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        button {
+            padding: 1rem;
+            font-size: 1rem;
+            border: 2px solid #e5e7eb;
+            background: white;
+            color: var(--text);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        button:hover:not([disabled]) {
+            border-color: var(--primary);
+            background-color: #eef2ff;
+        }
+
+        button:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        button.correct {
+            background-color: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        button.wrong {
+            background-color: var(--error);
+            border-color: var(--error);
+            color: white;
+        }
+
+        .feedback-area {
+            margin-top: 2rem;
+            min-height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .feedback-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .explanation {
+            font-size: 0.95rem;
+            color: #4b5563;
+            font-style: italic;
+        }
+
+        .controls {
+            margin-top: 2rem;
+        }
+
+        .next-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 1rem;
+        }
+
+        .next-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: #e5e7eb;
+            border-radius: 3px;
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .start-screen, .result-screen {
+            padding: 2rem 0;
+        }
+
+        .result-score {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 1rem 0;
+        }
+
+        .result-message {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            color: #4b5563;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Progress Bar -->
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="start-screen">
+        <h1>Fraction Challenge</h1>
+        <p style="margin-bottom: 2rem; font-size: 1.1rem;">Test your skills in adding and comparing fractions!</p>
+        <button class="next-btn" onclick="game.start()">Start Quiz</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="hidden">
+        <div id="question-container" class="question-area">
+            <!-- Question injected via JS -->
+        </div>
+
+        <div class="options-grid" id="options-container">
+            <!-- Options injected via JS -->
+        </div>
+
+        <div class="feedback-area" id="feedback-area">
+            <div id="feedback-message" class="feedback-text"></div>
+            <div id="feedback-explanation" class="explanation"></div>
+        </div>
+
+        <div class="controls" id="controls-area">
+            <button class="next-btn" id="next-btn" onclick="game.nextQuestion()">Next Question</button>
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="result-screen hidden">
+        <h1>Quiz Complete!</h1>
+        <div id="final-score" class="result-score"></div>
+        <p id="final-message" class="result-message"></p>
+        <button class="next-btn" onclick="game.restart()">Play Again</button>
+    </div>
+</div>
+
+<script>
+    // Game State
+    const GameState = {
+        start: 'start',
+        playing: 'playing',
+        waiting: 'waiting',
+        finished: 'finished'
+    };
+
+    const questionTypes = ['add', 'compare'];
+
+    function generateGCD(a, b) {
+        return b === 0 ? a : generateGCD(b, a % b);
+    }
+
+    function generateLCM(a, b) {
+        return (a * b) / generateGCD(a, b);
+    }
+
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function simplify(r, d) {
+        if (d === 0) return { n: 0, d: 1 };
+        const neg = (r < 0) ^ (d < 0);
+        const rAbs = Math.abs(r);
+        const dAbs = Math.abs(d);
+        const common = generateGCD(rAbs, dAbs);
+        return {
+            n: neg ? Math.floor(-rAbs / common) : Math.floor(rAbs / common),
+            d: dAbs / common
+        };
+    }
+
+    function compareFractions(n1, d1, n2, d2) {
+        const common = generateLCM(d1, d2);
+        const n1Adj = (n1 * (common / d1));
+        const n2Adj = (n2 * (common / d2));
+        return n1Adj > n2Adj ? 1 : (n1Adj < n2Adj ? -1 : 0);
+    }
+
+    function addFractions(n1, d1, n2, d2) {
+        const common = generateLCM(d1, d2);
+        const n1Adj = (n1 * (common / d1));
+        const n2Adj = (n2 * (common / d2));
+        const resultN = n1Adj + n2Adj;
+        const resultD = common;
+        return simplify(resultN, resultD);
+    }
+
+    class FractionQuiz {
+        constructor() {
+            this.score = 0;
+            this.currentQuestionIndex = 0;
+            this.currentQuestion = null;
+            this.isAnswered = false;
+            
+            // DOM Elements
+            this.startScreen = document.getElementById('start-screen');
+            this.gameScreen = document.getElementById('game-screen');
+            this.resultScreen = document.getElementById('result-screen');
+            this.questionContainer = document.getElementById('question-container');
+            this.optionsContainer = document.getElementById('options-container');
+            this.feedbackMessage = document.getElementById('feedback-message');
+            this.feedbackExplanation = document.getElementById('feedback-explanation');
+            this.nextBtn = document.getElementById('next-btn');
+            this.controlsArea = document.getElementById('controls-area');
+            this.progressFill = document.getElementById('progress-fill');
+        }
+
+        start() {
+            this.score = 0;
+            this.currentQuestionIndex = 0;
+            this.startScreen.classList.add('hidden');
+            this.resultScreen.classList.add('hidden');
+            this.gameScreen.classList.remove('hidden');
+            this.renderProgress();
+            this.loadQuestion();
+        }
+
+        restart() {
+            this.start();
+        }
+
+        loadQuestion() {
+            this.isAnswered = false;
+            this.nextBtn.disabled = true;
+            this.nextBtn.textContent = (this.currentQuestionIndex === 9) ? "Finish Quiz" : "Next Question";
+            this.feedbackMessage.textContent = "";
+            this.feedbackExplanation.textContent = "";
+            
+            // Generate Question
+            let type;
+            do {
+                type = questionTypes[Math.floor(Math.random() * questionTypes.length)];
+            } while (type === questionTypes[0] && this.currentQuestionIndex > 2); // Try to ensure variety
+
+            let n1, d1, n2, d2;
+            
+            if (type === 'add') {
+                // Add fractions with result < 1 to keep numbers manageable
+                const type2 = Math.random() > 0.5 ? 'proper' : 'improper';
+                
+                if (type2 === 'proper') {
+                    d1 = getRandomInt(2, 5);
+                    d2 = getRandomInt(2, 5);
+                    while (d1 === d2) d2 = getRandomInt(2, 5);
+                    n1 = getRandomInt(1, d1 - 1);
+                    n2 = getRandomInt(1, d2 - 1);
+                } else {
+                    d1 = getRandomInt(2, 4);
+                    d2 = getRandomInt(2, 4);
+                    while (d1 === d2) d2 = getRandomInt(2, 4);
+                    n1 = getRandomInt(1, d1 + 1);
+                    n2 = getRandomInt(1, d2 + 1);
+                }
+            } else {
+                // Compare fractions: generate two fractions
+                do {
+                    d1 = getRandomInt(3, 7);
+                    d2 = getRandomInt(3, 7);
+                    while (d1 === d2) { d2 = getRandomInt(3, 7); }
+                } while (generateGCD(d1, d2) > 1); // Avoid simple multiples for variety
+
+                n1 = getRandomInt(1, d1);
+                n2 = getRandomInt(1, d2);
+            }
+
+            // Calculate correct answer
+            let correctAnswer = null;
+            if (type === 'add') {
+                const res = addFractions(n1, d1, n2, d2);
+                correctAnswer = res.n + "/" + res.d;
+                n2 = n2; // Keep n2 for logic explanation if needed
+            } else {
+                correctAnswer = compareFractions(n1, d1, n2, d2); // 1, -1, or 0
+            }
+
+            // Generate Distractors
+            let options = [];
+            if (type === 'add') {
+                // Wrong math or wrong simplification
+                let val1 = correctAnswer.split('/');
+                let wrongSimplification = val1[0] * getRandomInt(2,3) + "/" + val1[1] * getRandomInt(2,3);
+                options.push(wrongSimplification);
+                
+                let val2 = correctAnswer.split('/');
+                let val3 = (parseInt(val2[0]) + 1) + "/" + val2[1]; // Change numerator
+                options.push(val3);
+
+                let val4 = correctAnswer.replace('/', '/'); // Typo option
+                options.push stored; // placeholder logic replaced
+                // Add generated option to ensure enough distractors
+                let optionStr = correctAnswer.split('/')[0] + "/" + correctAnswer.split('/')[1];
+                let wrong = optionStr.split('/')[0] + getRandomInt(1,2) + "/" + optionStr.split('/')[1]*(getRandomInt(1,2)); 
+                options.push(wrong);
+                
+                if (options.length < 4) {
+                     let correctNums = correctAnswer.split("/");
+                     options.push(parseInt(correctNums[0]) + parseInt(correctAnswer.split("/")[0]) + "/" + parseInt(correctNums[1]));
+                }
+            } else {
+                // Shop or selected waste group
+            }
+            
+            // Refactored Distracter Generation with logic inputs
+            options = [correctAnswer];
+            do {
+                let wrong = this.generateDistractor(correctAnswer, type, n1, d1, n2, d2);
+                options.push(wrong);
+            } while (options.length < 4 && !this.contains(options, wrong));
+
+            // Shuffle Options
+            options = this.shuffleArray(options);
+
+            // Render
+            this.renderQuestion(type, n1, d1, n2, d2, correctAnswer);
+            this.renderOptions(options);
+            this.renderProgress();
+        }
+
+        generateDistractor(correctAns, type, n1, d1, n2, d2) {
+            if (type === 'add') {
+                let ans = correctAns.split("/");
+                if (Math.random() > 0.5) {
+                    // Change Numerator
+                    return (parseInt(ans[0]) + 1) + "/" + ans[1];
+                } else {
+                    // Change Denominator
+                    return ans[0] + "/" + (parseInt(ans[1]) + 1);
+                }
+            } else {
+                // Compare Logic Distractors
+                if (correctAns === "1" || correctAns === "-1" || correctAns === "0") {
+                    // Return a fraction that looks close
+                    let n = Math.floor(Math.random()*2) + 1;
+                    let d = d1 * d2;
+                    let compare = compareFractions(n,d, n2, d2);
+                    if(Math.random() > 0.5) return (n + 1) + "/" + d;
+                    return n + "/" + (d + 1);
+                } else {
+                    // Force a random comparison result
+                    return this.shuffleArray(["1", "-1", "0"])[0];
+                }
+            }
+        }
+
+        contains(arr, item) {
+            return arr.some(el => item + "" === el + "");
+        }
+
+        containsNum(elStr, str, neg, pos) {
+            return(elStr+"").includes(str+"");
+            }
+            
+        shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        renderQuestion(type, n1, d1, n2, d2, correct) {
+            this.isAnswered = false;
+            this.feedbackMessage.textContent = "";
+            this.feedbackExplanation.textContent = "";
+            
+            const html = `
+                <div class="fraction">
+                    <span class="numerator">${n1}</span>
+                    <span class="denominator">${d1}</span>
+                </div>
+                <span class="operator">${type}</span>
+                <div class="fraction">
+                    <span class="numerator">${n2}</span>
+                    <span class="denominator">${d2}</span>
+                </div>
+            `;
+            this.questionContainer.innerHTML = html;
+        }
+        
+        renderOptions(options) {
+            this.optionsContainer.innerHTML = "";
+            options.forEach(opt => {
+                // Handle string or number options for input handling
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                if(objsucheckCorrectAnswer, correctAnswer, button, text):
+                    // Simplify string formatting: "n/d"
+                    btn.textContent = typeof opt === 'object' ? `${opt.n}/${opt.d}` : opt;
+                    btn.onclick = () => this.checkAnswer(opt, btn);
+                    this.optionsContainer.appendChild(btn);
+                }
+            );
+        }
+        
+        checkAnswer(selected, btnElement) {
+            if (this.isAnswered) return;
+            this.isAnswered = true;
+            
+            let correctName = this.correctAnswer;
+            let isCorrect = false;
+            let explanation = "";
+            
+            if (selected.n === correctNums[0]) isCorrect = true;
+            
+            // Check if selected is correct answer object
+            if (
+                selected.n === correctNums[0]
+                && selected.d === correctNums[1]
+            ) {
+                isCorrect = true;
+                this.score++;
+                btnElement.classList.add('correct');
+                explanation = "Great job! That matches the correct addition.";
+            } else if(
+                // Handle Compare Options
+                selected === 1 && correct === 1 ||
+                selected === -1 && correct === -1 ||
+                selected === 0 && correct === 0
+            ) {
+                btnElement.classList.add('correct');
+                isCorrect = true;
+                this.score++;
+                explanation = "Correct comparison.";
+            } else {
+                btnElement.classList.add('wrong');
+                explanation = "Not quite right.";
+            }
+            
+            this.feedbackMessage.textContent = isCorrect ? "Correct!" : "Incorrect";
+            this.feedbackMessage.style.color = isCorrect ? "var(--success)" : "var(--error)";
+            this.feedbackExplanation.textContent = explanation;
+            
+            this.nextBtn.disabled = false;
+        }
+    }
+
+    // Initialize Game
+    const game = new FractionQuiz();
+
+</script>
+</body>
+</html>

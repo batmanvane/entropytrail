@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    <style>
+        :root {
+            --primary-color: #ba4949;
+            --bg-color: #fafafa;
+            --text-color: #333;
+            --accent-color: #00796b;
+            --reset-color: #777;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            transition: background-color 0.5s;
+        }
+
+        .container {
+            text-align: center;
+            background: white;
+            padding: 3rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        /* Dynamic Status Text */
+        .status-label {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .status-label.break {
+            color: var(--accent-color);
+        }
+
+        /* Timer Counter */
+        .timer-display {
+            font-size: 6rem;
+            font-weight: bold;
+            margin: 1rem 0;
+            color: var(--text-color);
+            font-variant-numeric: tabular-nums; /* Keeps numbers from jumping */
+            line-height: 1;
+        }
+
+        /* Tabs for switching modes */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            color: #aaa;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            color: #333;
+            border-bottom: 2px solid var(--primary-color);
+            font-weight: bold;
+        }
+
+        /* Stats Counter */
+        .stats {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stats-value {
+            font-weight: bold;
+            color: var(--accent-color);
+            font-size: 1.2rem;
+            margin-left: 10px;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        button.control-btn {
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button.control-btn:active {
+            transform: scale(0.98);
+        }
+
+        .button-start {
+            background-color: var(--primary-color);
+            color: white;
+            flex: 2;
+        }
+
+        .button-pause {
+            background-color: #f0f0f0;
+            color: #888;
+            display: none; /* Hidden by default */
+        }
+
+        .button-reset {
+            background-color: transparent;
+            color: var(--reset-color);
+            flex: 1;
+        }
+
+        .button-reset:hover {
+            background-color: #f5f5f5;
+            color: #555;
+        }
+
+        /* Animation class */
+        .bump {
+            animation: bump 0.3s ease-out;
+        }
+
+        @keyframes bump {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Specific styling for break mode adjustments */
+        body.break-mode .status-label {
+            color: var(--accent-color);
+        }
+        body.break-mode .button-start {
+            background-color: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" id="tab-work">Work</button>
+            <button class="tab-btn" id="tab-break">Break</button>
+        </div>
+
+        <div class="status-label" id="status-text">Work</div>
+        <div class="timer-display" id="timer">25:00</div>
+
+        <div class="controls">
+            <button class="control-btn button-start" id="start-btn">Start</button>
+            <button class="control-btn button-pause" id="pause-btn">Pause</button>
+            <button class="control-btn button-reset" id="reset-btn">Reset</button>
+        </div>
+
+        <div class="stats">
+            Completed Work Phases: <span class="stats-value" id="phase-count">0</span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const WORK_TIME = 25 * 60; // 25 minutes in seconds
+        const BREAK_TIME = 5 * 60; // 5 minutes in seconds
+
+        // State
+        let timeLeft = WORK_TIME;
+        let isRunning = false;
+        let isWorkMode = true;
+        let intervalId = null;
+        let completedPhases = 0;
+
+        // DOM Elements
+        const timerDisplay = document.getElementById('timer');
+        const statusText = document.getElementById('status-text');
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const phasesDisplay = document.getElementById('phase-count');
+        const tabWork = document.getElementById('tab-work');
+        const tabBreak = document.getElementById('tab-break');
+        const body = document.body;
+
+        // Utilities
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateDisplay() {
+            timerDisplay.textContent = formatTime(timeLeft);
+            // Update title for tab switching convenience
+            document.title = `${timerDisplay.textContent} - ${isWorkMode ? 'Work' : 'Break'}`;
+        }
+
+        function setWorkMode() {
+            isWorkMode = true;
+            timeLeft = WORK_TIME;
+            isRunning = false;
+            clearInterval(intervalId);
+            
+            statusText.textContent = "Work";
+            statusText.className = "status-label";
+            tabWork.classList.add('active');
+            tabBreak.classList.remove('active');
+            body.classList.remove('break-mode');
+            
+            updateDisplay();
+            updateButtons();
+        }
+
+        function setBreakMode() {
+            isWorkMode = false;
+            timeLeft = BREAK_TIME;
+            isRunning = false;
+            clearInterval(intervalId);
+            
+            statusText.textContent = "Break";
+            statusText.className = "status-label break";
+            tabWork.classList.remove('active');
+            tabBreak.classList.add('active');
+            body.classList.add('break-mode');
+            
+            updateDisplay();
+            updateButtons();
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            isRunning = true;
+            updateButtons();
+
+            intervalId = setInterval(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                    updateDisplay();
+                } else {
+                    completePhase();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(intervalId);
+            saveState();
+            updateButtons();
+        }
+
+        function completePhase() {
+            clearInterval(intervalId);
+            isRunning = false;
+            saveState();
+
+            // Visual feedback
+            timerDisplay.classList.add('bump');
+            setTimeout(() => timerDisplay.classList.remove('bump'), 300);
+
+            // Update incremented state
+            if (isWorkMode) {
+                completedPhases++;
+                phasesDisplay.textContent = completedPhases;
+            }
+
+            // Switch mode
+            if (isWorkMode) {
+                setBreakMode();
+            } else {
+                // Simple logic: switch back to work immediately
+                // In a production app, this might ask confirmation or allow multiple short breaks
+                setWorkMode();
+            }
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            if (isWorkMode) {
+                timeLeft = WORK_TIME;
+            } else {
+                timeLeft = BREAK_TIME;
+            }
+            updateDisplay();
+        }
+
+        function switchTab(e) {
+            e.preventDefault();
+            if (isRunning) {
+                pauseTimer();
+            }
+            
+            if (e.target.id === 'tab-work') {
+                setWorkMode();
+            } else {
+                setBreakMode();
+            }
+        }
+
+        // UI Updates
+        function updateButtons() {
+            if (isRunning) {
+                startBtn.textContent = "Pause";
+                startBtn.className = "control-btn button-pause"; // Visual style swap if desired, keeping simple classes for now or toggling background
+                // Let's use the class logic from CSS
+                startBtn.className = "control-btn button-pause";
+                pauseBtn.style.display = "block";
+                // Add specific color for pause button distinctness
+                startBtn.style.backgroundColor = "#f0f0f0";
+                startBtn.style.color = "#888";
+            } else {
+                startBtn.textContent = "Start";
+                startBtn.style.backgroundColor = ""; // Reset to default CSS var
+                startBtn.style.color = "";
+                pauseBtn.style.display = "none";
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem('pomotimer_mode', isWorkMode ? 'work' : 'break');
+            localStorage.setItem('pomotimer_time', timeLeft);
+            localStorage.setItem('pomotimer_running', isRunning);
+        }
+
+        function loadState() {
+            const savedMode = localStorage.getItem('pomotimer_mode');
+            const savedTime = parseInt(localStorage.getItem('pomotimer_time'));
+            const savedRunning = localStorage.getItem('pomotimer_running') === 'true';
+
+            if (!isNaN(savedTime)) {
+                timeLeft = savedTime;
+            }
+
+            if (savedMode === 'break') {
+                setBreakMode();
+            } else {
+                setWorkMode();
+            }
+
+            if (savedRunning) {
+                isRunning = true;
+                clearInterval(intervalId); // Clear in case it ran out, logic below handles start
+                intervalId = setInterval(() => {
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        updateDisplay();
+                    } else {
+                        completePhase();
+                    }
+                }, 1000);
+            } else {
+                updateButtons();
+            }
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', toggleTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        resetBtn.addEventListener('click', resetTimer);
+        tabWork.addEventListener('click', switchTab);
+        tabBreak.addEventListener('click', switchTab);
+
+        // Initialize
+        loadState();
+
+    </script>
+</body>
+</html>

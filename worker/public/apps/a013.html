@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraction Mastery Quiz</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --success: #22c55e;
+            --error: #ef4444;
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--card);
+            width: 100%;
+            max-width: 600px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        /* Question Styling */
+        .question-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .question-text {
+            font-size: 1.25rem;
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        .math-expression {
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+            gap: 8px;
+            margin: 0 5px;
+            padding: 0 10px;
+            background: #eee;
+            border-radius: 8px;
+        }
+
+        .fraction-bar {
+            display: block;
+            width: 80%;
+            border-top: 2px solid black;
+            margin: 2px auto;
+            position: relative;
+        }
+
+        .numerator {
+            position: absolute;
+            top: -15px;
+            width: 100%;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .denominator {
+            position: absolute;
+            bottom: -15px;
+            width: 100%;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        /* Options Grid */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 480px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .option-btn {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            color: var(--text);
+        }
+
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .option-btn:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        /* Feedback States */
+        .option-btn.correct {
+            background: #dcfce7;
+            border-color: var(--success);
+            color: #166534;
+        }
+
+        .option-btn.wrong {
+            background: #fee2e2;
+            border-color: var(--error);
+            color: #991b1b;
+        }
+
+        /* Feedback Message */
+        .feedback-area {
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: 600;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .feedback-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .feedback-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Next Button */
+        .next-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: none; /* Hidden initially */
+        }
+
+        .next-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Screens */
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* Start & End Screen */
+        .start-btn, .restart-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .start-btn:hover, .restart-btn:hover {
+            background: #16a34a;
+        }
+
+        .final-score {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 20px 0;
+        }
+
+        .score-message {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-light);
+            margin-bottom: 30px;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header class="header">
+        <h1>Fraction Quiz</h1>
+    </header>
+
+    <main class="content">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen active">
+            <h2>Ready to test your skills?</h2>
+            <p style="margin: 20px 0; color: var(--text-light);">
+                The quiz consists of 10 questions involving adding and comparing fractions. 
+                You will see one question at a time with immediate feedback.
+            </p>
+            <button class="start-btn" onclick="startQuiz()">Start Quiz</button>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz-screen" class="screen">
+            <div class="question-meta">
+                <span id="progress-text">Question 1 of 10</span>
+                <span id="score-text">Score: 0</span>
+            </div>
+
+            <div id="math-container" class="question-text"></div>
+
+            <div class="options-grid" id="options-container">
+                <!-- Options injected via JS -->
+            </div>
+
+            <div id="feedback" class="feedback-area"></div>
+
+            <button id="next-btn" class="next-btn" onclick="nextQuestion()">Next Question</button>
+        </div>
+
+        <!-- End Screen -->
+        <div id="end-screen" class="screen">
+            <h2>Quiz Completed!</h2>
+            <div class="final-score" id="final-score-display">8/10</div>
+            <p class="score-message" id="final-message">Great job!</p>
+            <button class="restart-btn" onclick="restartQuiz()">Try Again</button>
+        </div>
+    </main>
+</div>
+
+<script>
+    // Simple Fraction Logic Helper
+    const MathUtils = {
+        gcd: (a, b) => b === 0 ? a : MathUtils.gcd(b, a % b),
+        
+        simplify: (x, y) => {
+            const common = MathUtils.gcd(x, y);
+            return { num: x / common, den: y / common };
+        },
+
+        add: (x1, y1, x2, y2) => {
+            // x1/y1 + x2/y2 = (x1*y2 + x2*y1) / (y1*y2)
+            const y = y1 * y2;
+            const x = x1 * y2 + x2 * y1;
+            return MathUtils.simplify(x, y);
+        }
+    };
+
+    // Quiz Data Generator (10 Questions)
+    const generateQuestions = () => {
+        const questions = [];
+
+        // 1. Simple addition (Same denominator)
+        questions.push({
+            q: `What is ${Math.random()} + ${Math.random()} ?`, // Fallback
+            q_html: generateFractionHTML(2, 5) + ' + ' + generateFractionHTML(3, 5) + ' = ?',
+            options: generateOptions('add', 2, 3, 5),
+            correctIdx: 0 // 23/5 -> 23/5
+        });
+
+        // 2. Simple addition (Different denominator)
+        questions.push({
+            q: `Add `,
+            q_html: generateFractionHTML(1, 2) + ' + ' + generateFractionHTML(1, 3) + ' = ?',
+            options: generateOptions('add', 1, 1, 2, 3),
+            correctIdx: 0 // 5/6
+        });
+
+        // 3. Addition with simplification
+        questions.push({
+            q: `Add `,
+            q_html: generateFractionHTML(3, 4) + ' + ' + generateFractionHTML(1, 4) + ' = ?',
+            options: generateOptions('add', 3, 1, 4),
+            correctIdx: 0 // 4/4 = 1
+        });
+
+        // 4. Addition of mixed numbers (represented as improper fractions for simplicity in UI, but labeled concept)
+        // Let's stick to simple fractions for UI clarity, ask a harder one.
+        // Q: 1/2 + 1/4 + 1/4
+        questions.push({
+            q: `Calculate `,
+            q_html: generateFractionHTML(1, 2) + ' + ' + generateFractionHTML(1, 4) + ' + ' + generateFractionHTML(1, 4) + ' = ?',
+            options: generateOptions('add', [[1, 2], [1, 4], [1, 4]]), // Chain add
+            correctIdx: 4 // 1 (4/4)
+        });
+
+        // 5. Comparison (<)
+        questions.push({
+            q: `Which fraction is larger: `,
+            q_html: generateFractionHTML(2, 3) + ' or ' + generateFractionHTML(3, 4) + '?',
+            options: ['&lt;', '&gt;', '&equals;'], // <, >, =
+            correctIdx: 1 // 8/12 vs 9/12 -> 9/12 is larger
+        });
+
+        // 6. Comparison (Simplification required)
+        questions.push({
+            q: `Which is larger: `,
+            q_html: generateFractionHTML(2, 4) + ' or ' + generateFractionHTML(1, 2) + '?',
+            options: ['<', '>', '=', 'Cannot Compare'],
+            correctIdx: 1 // Equal
+        });
+
+        // 7. Comparison (Cross multiply)
+        questions.push({
+            q: `Compare `,
+            q_html: generateFractionHTML(6, 7) + ' and ' + generateFractionHTML(7, 8) + ':',
+            options: ['<', '>', '='],
+            correctIdx: 1 // 48/56 vs 49/56 -> 7/8 is larger
+        });
+
+        // 8. Addition Result > 1
+        questions.push({
+            q: `What is 3/4 + 1/2?`,
+            options: ['5/4', '5/6', '1 1/2', '4/4'],
+            correctIdx: 0 // 5/4
+        });
+
+        // 9. Subtraction (Hidden requirement: "Missing part")
+        // A - B = C. A and C given.
+        questions.push({
+            q: `Which number is missing? `,
+            q_html: generateFractionHTML(5, 12) + '-' + generateFractionHTML('?', '[missing]', 12) + ' = ' + generateFractionHTML(2, 12),
+            options: ['1', '3', '2', '4'],
+            correctIdx: 2 // 5 - 3 = 2
+        });
+
+        // 10. Order of operations (Addition then Compare)
+        // Calculate A + B, then compare to C.
+        const res = MathUtils.add(1, 3, 1, 3); // 2/3
+        questions.push({
+            q: `Is ` + generateFractionHTML(1, 3) + ' + ' + generateFractionHTML(1, 3) + ' less than ` + generateFractionHTML(1, 2) + '?',
+            options: ['Yes', 'No'],
+            correctIdx: 1 // 2/3 is not less than 1/2 (2/3 = 4/6, 1/2 = 3/6)
+        });
+
+        // Override the first hardcoded questions to use the generator pattern cleanly
+        // Resolution: We will just manually define the 10 questions in the array below to ensure exactness.
+        // The generator above was a prototype. Let's swap for explicit array.
+        
+        return [
+            {
+                q: `Solve: `,
+                q_html: 'What is 1/4 + 2/4 = ?',
+                options: ['3/8', '3/4', '1', '1/8'],
+                correctIdx: 1
+            },
+            {
+                q: `Solve: `,
+                q_html: `What is 1/2 + 1/3 = ?`,
+                options: ['2/5', '3/5', '5/6', '1'],
+                correctIdx: 2 // 3/6 + 2/6 = 5/6
+            },
+            {
+                q: `Compare: `,
+                q_html: `Which is greater: 2/3 or 3/5?`,
+                options: ['2/3 is greater', '3/5 is greater', 'They are equal'],
+                correctIdx: 0 // 10/15 vs 9/15
+            },
+            {
+                q: `Solve: `,
+                q_html: `Find the sum: 3/8 + 2/8`,
+                options: ['5/16', '6/16', '5/8', '5/4'],
+                correctIdx: 2
+            },
+            {
+                q: `Solve: `,
+                q_html: `Calculate: 3/4 + 1/2`,
+                options: ['5/6', '3/6', '5/4', '1'],
+                correctIdx: 2 // 3/4 + 2/4 = 4/4 = 1? Wait. 5/4 is 1.25. 3/4 is 0.75 + 0.5 is 1.25.
+                // Wait, 3/4 + 2/4 = 5/4. 
+                // Let's check options. 5/6 (0.83), 3/6 (0.5), 5/4 (1.25), 1 (1). 
+                // No, 3/4 + 1/2 = 6/12 + 6/12 = 12/12 = 1? No. 3/4=9/12, 1/2=6/12. 15/12 = 5/4.
+            },
+            {
+                q: `Compare: `,
+                q_html: `Compare 1/3 and 3/9`,
+                options: ['Equal', '1/3 is bigger', '3/9 is bigger'],
+                correctIdx: 0
+            },
+            {
+                q: `Solve: `,
+                q_html: `What is 2/5 of 10/10?`, // Word problem style
+                options: ['2/5', '1/2', '1/5', '4/5'],
+                correctIdx: 0
+            },
+            {
+                q: `Solve: `,
+                q_html: `Find missing number: 7/8 - 2/8 = ?`,
+                options: ['5/8', '5/16', '3/8', '9/8'],
+                correctIdx: 0
+            },
+            {
+                q: `Logic: `,
+                q_html: `Which fraction represents half of a quarter?`,
+                options: ['1/2 of 1/4', '1/8', '1/16', '1'],
+                correctIdx: 1
+            },
+            {
+                q: `Solve: `,
+                q_html: `Add: 1/4 + 1/4 + 1/4`,
+                options: ['1/3', '1', '3/4', '4/3'],
+                correctIdx: 1
+            }
+        ];
+    };
+
+    // Helper to generate clean HTML for fractions
+    function generateFractionHTML(num, den, isPlaceholder = false, placeholderVal = '') {
+        if (isPlaceholder) {
+            return `
+                <div class="math-expression">
+                    <span class="numerator">${placeholderVal}</span>
+                    <span class="fraction-bar"></span>
+                    <span class="denominator">${den}</span>
+                </div>`;
+        }
+        return `
+                <div class="math-expression">
+                    <span class="numerator">${num}</span>
+                    <span class="fraction-bar"></span>
+                    <span class="denominator">${den}</span>
+                </div>`;
+    }
+
+    // Helper to generate option HTML for display initially
+    function generateOptionsDisplay(optObj) {
+        let html = '';
+        optObj.forEach(opt => {
+            if (opt.text === '[missing]{3}') {
+                 html += `<div class="option-btn" id="opt-missing">3/8</div>`; // Hide correct answer index 0
+            } else {
+                html += `<div class="option-btn" onclick="checkAnswer(0, ${opt}, ${optObj}, ${opt.idx})">${opt.text}</div>`;
+            }
+        });
+        return html;
+    }
+
+    // State variables
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let questions = [];
+    let isAnswered = false;
+
+    // DOM Elements
+    const screens = {
+        start: document.getElementById('start-screen'),
+        quiz: document.getElementById('quiz-screen'),
+        end: document.getElementById('end-screen')
+    };
+    
+    const ui = {
+        progress: document.getElementById('progress-text'),
+        score: document.getElementById('score-text'),
+        math: document.getElementById('math-container'),
+        options: document.getElementById('options-container'),
+        feedback: document.getElementById('feedback'),
+        nextBtn: document.getElementById('next-btn')
+    };
+
+    function startQuiz() {
+        questions = generateQuestions();
+        currentQuestionIndex = 0;
+        score = 0;
+        showScreen('quiz');
+        loadQuestion();
+    }
+
+    function showScreen(name) {
+        Object.values(screens).forEach(el => el.classList.remove('active'));
+        screens[name].classList.add('active');
+    }
+
+    function loadQuestion() {
+        isAnswered = false;
+        const q = questions[currentQuestionIndex];
+        
+        // Update Meta
+        ui.progress.innerText = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+        ui.score.innerText = `Score: ${score}`;
+        
+        // Math Container
+        ui.math.innerHTML = q.q_html;
+        
+        // Options
+        ui.options.innerHTML = q.options.map((opt, idx) => {
+            // If it's the missing number question
+            if (q.q.includes('missing')) {
+                 return `<button class="option-btn" id="opt-missing" style="display:none">3/8</button>`; // Hide UI
+            }
+            return `<button class="option-btn" onclick="checkAnswer(${idx}, ${opt}, ${q}, ${q.correctIdx})">${opt}</button>`;
+        }).join('');
+
+        // Feedback
+        if(q.q.includes('missing')) {
+            ui.options.querySelector('#opt-missing').style.display = 'block';
+        }
+
+        // Reset Feedback
+        ui.feedback.className = 'feedback-area';
+        ui.feedback.innerHTML = '';
+        ui.nextBtn.style.display = 'none';
+    }
+
+    function checkAnswer(selectedIdx, selectedOpt, qData, correctIdx) {
+        if (isAnswered) return;
+        isAnswered = true;
+
+        const btns = document.querySelectorAll('.option-btn');
+        const correctBtn = btns[correctIdx];
+
+        if (selectedIdx === correctIdx) {
+            score++;
+            btns[selectedIdx].classList.add('correct');
+            ui.feedback.innerHTML = `<span style="color:var(--success)">Correct!</span>`;
+            ui.feedback.style.backgroundColor = '#dcfce7';
+            ui.feedback.style.color = '#166534';
+        } else {
+            btns[selectedIdx].classList.add('wrong');
+            correctBtn.classList.add('correct'); // Show which one was right
+            ui.feedback.innerHTML = `<span style="color:var(--error)">Incorrect. The answer is ${qData.options[correctIdx]}.`;</span>`;
+            ui.feedback.style.backgroundColor = '#fee2e2';
+            ui.feedback.style.color = '#991b1b';
+        }
+
+        ui.feedback.classList.add(isAnswered === true ? (selectedIdx === correctIdx ? 'feedback-success' : 'feedback-error') : '');
+        ui.nextBtn.style.display = 'block';
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < questions.length) {
+            loadQuestion();
+        } else {
+            endQuiz();
+        }
+    }
+
+    function endQuiz() {
+        showScreen('end');
+        document.getElementById('final-score-display').innerText = `${score}/${questions.length}`;
+        
+        const msg = document.getElementById('final-message');
+        if (score === 10) msg.innerText = "Perfect Score! You are a fraction master!";
+        else if (score >= 8) msg.innerText = "Great job! You know your fractions well.";
+        else if (score >= 5) msg.innerText = "Good effort! Keep practicing.";
+        else msg.innerText = "Don't give up! Practice makes perfect.";
+    }
+
+    function restartQuiz() {
+        startQuiz();
+    }
+
+</script>
+
+</body>
+</html>

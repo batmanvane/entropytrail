@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraction Quiz</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --success: #10b981;
+            --error: #ef4444;
+            --border: #e5e7eb;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            padding: 2rem;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .question-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-align: center;
+            margin: 1rem 0 2rem 0;
+        }
+
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .option-btn {
+            padding: 1rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            font-size: 1rem;
+            text-align: left;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--primary);
+            background-color: #eef2ff;
+        }
+
+        .option-btn:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        .option-btn.correct {
+            background-color: #d1fae5;
+            border-color: var(--success);
+            color: #065f46;
+        }
+
+        .option-btn.incorrect {
+            background-color: #fee2e2;
+            border-color: var(--error);
+            color: #991b1b;
+        }
+
+        .feedback {
+            text-align: center;
+            font-weight: 600;
+            min-height: 24px;
+        }
+
+        .feedback.success { color: var(--success); }
+        .feedback.error { color: var(--error); }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .score-card {
+            text-align: center;
+        }
+
+        .score-display {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 1rem 0;
+        }
+
+        .final-message {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen active">
+        <h1>Fraction Challenge</h1>
+        <p style="text-align: center;">Test your skills in adding and comparing fractions. You will face 10 questions.</p>
+        <div style="text-align: center; font-size: 0.9rem; color: #6b7280;">
+            &sum; &frasl; &le;
+        </div>
+        <button class="btn-primary" onclick="game.start()">Start Quiz</button>
+    </div>
+
+    <!-- Quiz Screen -->
+    <div id="quiz-screen" class="screen">
+        <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+        </div>
+        <div class="question-text" id="question-text">Generating...</div>
+        <div class="options-grid" id="options-container">
+            <!-- Options injected via JS -->
+        </div>
+        <div id="feedback" class="feedback"></div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="screen">
+        <h1>Quiz Completed!</h1>
+        <div class="score-display" id="final-score">0/10</div>
+        <p class="final-message" id="final-message">Great job!</p>
+        <button class="btn-primary" onclick="game.restart()">Play Again</button>
+    </div>
+</div>
+
+<script>
+    /**
+     * Fraction Utility Class
+     * Handles GCD, addition, comparison, and string conversion.
+     */
+    class Fraction {
+        constructor(num, den = 1) {
+            if (den === 0) throw new Error("Denominator cannot be zero.");
+            this.num = num;
+            this.den = den;
+            this.simplify();
+        }
+
+        gcd(a, b) {
+            return b === 0 ? a : this.gcd(b, a % b);
+        }
+
+        simplify() {
+            const common = this.gcd(Math.abs(this.num), Math.abs(this.den));
+            this.num /= common;
+            this.den /= common;
+            if (this.den < 0) { // Keep denominator positive
+                this.num = -this.num;
+                this.den = -this.den;
+            }
+        }
+
+        add(other) {
+            return new Fraction(
+                this.num * other.den + other.num * this.den,
+                this.den * other.den
+            );
+        }
+
+        compare(other) {
+            // Returns -1 if a < b, 0 if a === b, 1 if a > b
+            const commonDen = this.den * other.den;
+            const val1 = this.num * other.den;
+            const val2 = other.num * this.den;
+            
+            if (val1 < val2) return -1;
+            if (val1 > val2) return 1;
+            return 0;
+        }
+
+        toString() {
+            if (this.den === 1) return this.num.toString();
+            return `${this.num}/${this.den}`;
+        }
+    }
+
+    /**
+     * Game Logic
+     */
+    const game = {
+        totalQuestions: 10,
+        currentQuestionIndex: 0,
+        score: 0,
+        questionQueue: [],
+        
+        // DOM Elements
+        screens: {
+            start: document.getElementById('start-screen'),
+            quiz: document.getElementById('quiz-screen'),
+            result: document.getElementById('result-screen')
+        },
+        elements: {
+            questionText: document.getElementById('question-text'),
+            optionsContainer: document.getElementById('options-container'),
+            feedback: document.getElementById('feedback'),
+            progressFill: document.getElementById('progress-fill'),
+            finalScore: document.getElementById('final-score'),
+            finalMessage: document.getElementById('final-message')
+        },
+
+        start() {
+            this.score = 0;
+            this.currentQuestionIndex = 0;
+            this.generateQuestions();
+            this.switchScreen('quiz');
+            this.renderQuestion();
+        },
+
+        generateQuestions() {
+            this.questionQueue = [];
+            const topics = [
+                { type: 'add', label: 'Add' },
+                { type: 'compare', label: 'Greater Than' },
+                { type: 'compare', label: 'Less Than' },
+                { type: 'compare', label: 'Equal' }
+            ];
+
+            for (let i = 0; i < this.totalQuestions; i++) {
+                // Randomly pick a topic roughly evenly
+                const topic = topics[Math.floor(Math.random() * topics.length)];
+                const n1 = Math.floor(Math.random() * 12) + 1; // 1-12
+                const d1 = Math.floor(Math.random() * 12) + 2; // 2-13
+                const n2 = Math.floor(Math.random() * 12) + 1;
+                const d2 = Math.floor(Math.random() * 12) + 2;
+
+                const f1 = new Fraction(n1, d1);
+                const f2 = new Fraction(n2, d2);
+
+                if (topic.type === 'add') {
+                    const result = f1.add(f2);
+                    this.questionQueue.push({
+                        text: `${f1.toString()} + ${f2.toString()} = ?`,
+                        correct: `${result.num}/${result.den}`,
+                        options: this.generateOptions(result.num, result.den, 4)
+                    });
+                } else {
+                    const cmp = f1.compare(f2);
+                    let correctStr = "";
+                    
+                    // Simplify options for comparison
+                    const options = [f1, f2, new Fraction(f1.num * 2, f1.den * 2), new Fraction(5, 5)];
+
+                    if (cmp === -1) {
+                        // f1 < f2
+                        this.questionQueue.push({
+                            text: `${f1.toString()} ${topic.label} ${f2.toString()}?`,
+                            correct: 'Less',
+                            options: this.generateComparisonOptions(['Less', 'Greater', 'Equal'], 1, 4)
+                        });
+                    } else if (cmp === 1) {
+                        // f1 > f2
+                        this.questionQueue.push({
+                            text: `${f1.toString()} ${topic.label} ${f2.toString()}?`,
+                            correct: 'Greater',
+                            options: this.generateComparisonOptions(['Less', 'Greater', 'Equal'], 2, 4)
+                        });
+                    } else {
+                        // Equal
+                        this.questionQueue.push({
+                            text: `${f1.toString()} ${topic.label} ${f2.toString()}?`,
+                            correct: 'Equal',
+                            options: this.generateComparisonOptions(['Less', 'Greater', 'Equal'], 3, 4)
+                        });
+                    }
+                }
+            }
+        },
+
+        generateOptions(num, den, offsetCount) {
+            const opts = [`${num}/${den}`];
+            // Generate distractors
+            for (let i = 0; i < offsetCount; i++) {
+                let off = Math.floor(Math.random() * (offsetCount + 1)) + 1; // 1 to offsetCount
+                // Random direction: numerator or denominator
+                const isNum = Math.random() > 0.5;
+                const correction = isNum ? (off * new Fraction(num, den).num) : (off * new Fraction(num, den).den);
+                
+                // Ensure distractor isn't the correct answer
+                let val = isNum ? (num + correction) : (den + correction);
+                
+                // Sometimes subtract instead
+                if (Math.random() > 0.5) {
+                    if (Math.abs(num) > off && isNum) val = num - correction; 
+                    else if (Math.abs(den) > off && !isNum) val = den - correction;
+                }
+
+                if (!['0', '/'].some(c => String(val).includes(c))) {
+                    opts.push(`${val} / [${isNum ? 'num' : 'den'}]`); // Simplified display logic handled below
+                    // Actually, for comparison, we want numeric or simple fractions.
+                    // Let's stick to simple fractions to avoid "num/den" strings in the display for this type.
+                    // For addition, simple fractions are best.
+                    
+                    // Fallback for cleaner generation:
+                    const distractorFraction = new Fraction(num, den);
+                    if (!opts.includes(String(distractorFraction))) {
+                        opts.push(String(distractorFraction));
+                    }
+                    
+                    // Add fake common denominator math
+                    const fake = new Fraction(
+                        Math.max(1, Math.random() * (distractorFraction.num * 2) || 1),
+                        new Fraction(1, 1).doc !== undefined ? distractorFraction.den : distractorFraction.den
+                    );
+                }
+            }
+            // Re-implement simpler distractor generation for robustness
+            return this.getUniqueOptions(num, den);
+        },
+
+        getUniqueOptions(correctNum, correctDen) {
+            const correctStr = `${correctNum}/${correctDen}`;
+            const options = [correctStr];
+            
+            while (options.length < 4) {
+                let fakeNum, fakeDen;
+                const type = Math.random();
+                
+                if (type < 0.4) {
+                    // Wrong numerator
+                    fakeNum = this.correctNum + Math.floor(Math.random() * 5) + 1;
+                    fakeDen = correctDen;
+                } else if (type < 0.8) {
+                    // Reverse fraction
+                    fakeNum = correctDen;
+                    fakeDen = correctNum;
+                } else {
+                    // Wrong denominator
+                    fakeNum = correctNum;
+                    fakeDen = correctDen + Math.floor(Math.random() * 5) + 1;
+                }
+
+                const fakeStr = `${fakeNum}/${fakeDen}`;
+                if (!options.includes(fakeStr)) {
+                    options.push(fakeStr);
+                }
+            }
+            return options;
+        },
+
+        generateComparisonOptions(correctIndex, poolSize) {
+            const answers = ['Less', 'Greater', 'Equal'];
+            const opts = [];
+            for(let i=0; i<poolSize; i++) {
+                opts.push(answers[i % 3]);
+            }
+            return opts;
+        },
+
+        shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        },
+
+        renderQuestion() {
+            const q = this.questionQueue[this.currentQuestionIndex];
+            this.elements.questionText.textContent = q.text;
+            this.elements.optionsContainer.innerHTML = '';
+            this.elements.feedback.textContent = '';
+            this.elements.feedback.className = 'feedback';
+            
+            // Update Progress
+            const progress = (this.currentQuestionIndex / this.totalQuestions) * 100;
+            this.elements.progressFill.style.width = `${progress}%`;
+
+            // Sort options so correct answer moves for next question? 
+            // No, just shuffle all
+            this.shuffle([...q.options]).forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = opt;
+                btn.onclick = () => this.handleAnswer(opt, q.correct, btn);
+                this.elements.optionsContainer.appendChild(btn);
+            });
+        },
+
+        handleAnswer(selected, correct, btnElement) {
+            // Disable all buttons
+            const buttons = this.elements.optionsContainer.querySelectorAll('.option-btn');
+            buttons.forEach(b => b.disabled = true);
+
+            if (selected === correct) {
+                this.score++;
+                btnElement.classList.add('correct');
+                this.elements.feedback.textContent = "Correct!";
+                this.elements.feedback.classList.add('success');
+            } else {
+                btnElement.classList.add('incorrect');
+                // Highlight the correct one
+                buttons.forEach(b => {
+                    if (b.textContent === correct) b.classList.add('correct');
+                });
+                this.elements.feedback.textContent = "Incorrect.";
+                this.elements.feedback.classList.add('error');
+            }
+
+            setTimeout(() => {
+                this.currentQuestionIndex++;
+                if (this.currentQuestionIndex < this.totalQuestions) {
+                    this.renderQuestion();
+                } else {
+                    this.endGame();
+                }
+            }, 1200);
+        },
+
+        endGame() {
+            this.switchScreen('result');
+            this.elements.finalScore.textContent = `${this.score}/${this.totalQuestions}`;
+            
+            const percentage = (this.score / this.totalQuestions) * 100;
+            if (percentage === 100) {
+                this.elements.finalMessage.textContent = "Perfect Score! You're a math expert!";
+            } else if (percentage >= 80) {
+                this.elements.finalMessage.textContent = "Excellent work!";
+            } else if (percentage >= 60) {
+                this.elements.finalMessage.textContent = "Good job! Keep practicing.";
+            } else {
+                this.elements.finalMessage.textContent = "Don't give up! Try again to improve.";
+            }
+        },
+
+        restart() {
+            this.start();
+        },
+
+        switchScreen(screenName) {
+            Object.values(this.screens).forEach(s => s.classList.remove('active'));
+            this.screens[screenName].classList.add('active');
+        }
+    };
+</script>
+
+</body>
+</html>

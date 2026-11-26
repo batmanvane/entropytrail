@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glitch & Neon Portal System</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --console-bg: #1a1a1a;
+            --primary: #00ffcc;
+            --secondary: #ff00ff;
+            --text-main: #e0e0e0;
+            --text-dim: #666;
+            --font-mono: 'Courier New', Courier, monospace;
+            --scan-line: rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* CRT Effect Container */
+        .crt-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none; /* Let clicks pass through to children */
+        }
+
+        /* Scanlines */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, var(--scan-line) 50%, transparent 50%);
+            background-size: 100% 4px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Screen Flicker Animation */
+        @keyframes flicker {
+            0% { opacity: 0.97; }
+            5% { opacity: 0.95; }
+            10% { opacity: 0.9; }
+            15% { opacity: 0.95; }
+            20% { opacity: 0.99; }
+            25% { opacity: 0.95; }
+            30% { opacity: 0.9; }
+            35% { opacity: 0.95; }
+            40% { opacity: 0.99; }
+            45% { opacity: 0.95; }
+            50% { opacity: 0.9; }
+            55% { opacity: 0.95; }
+            60% { opacity: 0.99; }
+            65% { opacity: 0.95; }
+            70% { opacity: 0.9; }
+            75% { opacity: 0.95; }
+            80% { opacity: 0.99; }
+            85% { opacity: 0.95; }
+            90% { opacity: 0.9; }
+            95% { opacity: 0.95; }
+            100% { opacity: 0.97; }
+        }
+
+        .flicker-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.02);
+            opacity: 0;
+            z-index: 11;
+            animation: flicker 0.15s infinite;
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+
+        /* Vignette */
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 60%, black 100%);
+            z-index: 9;
+            pointer-events: none;
+        }
+
+        /* Main Interface Grid */
+        .grid-interface {
+            width: 90%;
+            height: 90%;
+            max-width: 1200px;
+            max-height: 800px;
+            border: 2px solid var(--text-dim);
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: 60px 1fr 150px;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+            padding: 10px;
+            pointer-events: none; /* Fixes z-index stacking issues */
+        }
+
+        .grid-interface *:not(input):not(select):not(textarea):not(.neural-node) {
+            pointer-events: auto;
+        }
+
+        /* Header */
+        .sys-header {
+            grid-column: 1 / -1;
+            border-bottom: 1px solid var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .sys-title h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--primary);
+            text-shadow: 0 0 5px var(--primary);
+        }
+
+        .sys-status {
+            font-size: 0.8rem;
+            color: var(--secondary);
+            animation: blink 2s infinite;
+        }
+
+        /* Sidebar Left (Log) */
+        .sidebar-left {
+            grid-row: 2 / -1;
+            border-right: 1px solid var(--text-dim);
+            background: var(--console-bg);
+            padding: 10px;
+            font-size: 0.75rem;
+            overflow-y: auto;
+            color: var(--primary);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #333;
+            padding-bottom: 2px;
+        }
+
+        .log-time { color: var(--text-dim); margin-right: 5px; }
+
+        /* Main Area (The Portal) */
+        .main-display {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .node-canvas {
+            background: #000;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        /* SVGs for Nodes */
+        svg {
+            width: 100%;
+            height: 100%;
+            stroke: var(--text-dim);
+            stroke-width: 2;
+            fill: transparent;
+        }
+
+        svg.active-svg {
+            stroke: var(--primary);
+            stroke-width: 3;
+            filter: drop-shadow(0 0 5px var(--primary));
+        }
+
+        /* Connection Lines */
+        line {
+            stroke: var(--text-dim);
+            stroke-width: 2;
+            transition: stroke 0.3s;
+        }
+        
+        .active-line {
+            stroke: var(--secondary);
+            stroke-dasharray: 10, 5;
+            animation: flow 1s linear infinite;
+        }
+
+        @keyframes flow {
+            to { stroke-dashoffset: -20; }
+        }
+
+        /* Node Labels */
+        .node-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-dim);
+            font-size: 2rem;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        /* Sidebar Right (Controls) */
+        .sidebar-right {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .control-group {
+            border: 1px solid var(--text-dim);
+            padding: 10px;
+            background: var(--console-bg);
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            margin-bottom: 5px;
+        }
+
+        .btn-trigger {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            width: 100%;
+            padding: 10px;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 5px;
+        }
+
+        .btn-trigger:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .btn-trigger.active {
+            animation: pulse 1s infinite;
+        }
+
+        /* Console Output Area */
+        .console-output {
+            grid-column: 1 / -1;
+            border-top: 1px solid var(--text-dim);
+            background: var(--console-bg);
+            padding: 15px;
+            font-size: 0.8rem;
+            overflow-y: auto;
+        }
+
+        .console-line {
+            margin: 5px 0;
+            opacity: 0.9;
+        }
+        .console-line.error { color: #ff4444; }
+        .console-line.success { color: var(--primary); }
+        .console-line.system { color: #44aaff; }
+
+        /* Animations */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 255, 204, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 255, 204, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 255, 204, 0); }
+        }
+
+        /* Glitch Text Effect */
+        .glitch-wrapper {
+            position: relative;
+        }
+        
+        .glitch-wrapper::before,
+        .glitch-wrapper::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch-wrapper::before {
+            left: 2px;
+            text-shadow: -1px 0 red;
+            clip: rect(24px, 550px, 90px, 0);
+            animation: glitch-anim 3s infinite linear alternate-reverse;
+        }
+
+        .glitch-wrapper::after {
+            left: -2px;
+            text-shadow: -1px 0 blue;
+            clip: rect(85px, 550px, 140px, 0);
+            animation: glitch-anim 2s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(14px, 9999px, 127px, 0); }
+            20% { clip: rect(67px, 9999px, 12px, 0); }
+            40% { clip: rect(101px, 9999px, 86px, 0); }
+            60% { clip: rect(26px, 9999px, 118px, 0); }
+            80% { clip: rect(5px, 9999px, 124px, 0); }
+            100% { clip: rect(93px, 9999px, 41px, 0); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--text-dim);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 800px) {
+            .grid-interface {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+                height: auto;
+                overflow-y: auto;
+            }
+            .sidebar-right { order: 2; }
+            .console-output { order: 3; }
+            .grid-header, .sidebar-left, .main-display { order: 1; }
+            .main-display {
+                grid-template-columns: 1fr;
+                grid-template-rows: repeat(4, 1fr);
+            }
+            .sys-title h1 { font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="crt-container">
+        <div class="scanlines"></div>
+        <div class="flicker-overlay"></div>
+        <div class="vignette"></div>
+
+        <div class="grid-interface">
+            <!-- Header -->
+            <div class="sys-header">
+                <div class="sys-title">
+                    <h1 class="glitch-wrapper" data-text="NEXUS_V4.0">NEXUS_V4.0</h1>
+                </div>
+                <div class="sys-status">SYSTEM ONLINE</div>
+            </div>
+
+            <!-- Left Sidebar: System Logs -->
+            <div class="sidebar-left" id="sys-logs">
+                <div class="log-entry"><span class="log-time">00:00:01</span> Boot sequence initiated...</div>
+                <div class="log-entry"><span class="log-time">00:00:02</span> Neural link established.</div>
+                <div class="log-entry"><span class="log-time">00:00:03</span> Loading asset pack: [CORE]</div>
+            </div>
+
+            <!-- Main Area -->
+            <div class="main-display">
+                <!-- Input Node -->
+                <div class="node-canvas" id="node-in" onclick="handleNodeClick('IN')">
+                    <svg viewBox="0 0 400 400" overflow="visible">
+                        <!-- Circle -->
+                        <circle id="shape-in" cx="200" cy="200" r="100" />
+                    </svg>
+                    <div class="node-label">INPUT</div>
+                </div>
+
+                <!-- Process Node -->
+                <div class="node-canvas" id="node-proc" onclick="handleNodeClick('PROC')">
+                    <svg viewBox="0 0 400 400" overflow="visible">
+                        <!-- Hexagon path -->
+                        <path id="shape-proc" d="M200,50 L300,90 L300,230 L200,270 L100,230 L100,90 Z" fill="none" />
+                    </svg>
+                    <div class="node-label">PROC</div>
+                </div>
+
+                <!-- Output Node -->
+                <div class="node-canvas" id="node-out" onclick="handleNodeClick('OUT')">
+                    <svg viewBox="0 0 400 400" overflow="visible">
+                        <!-- Triangle -->
+                        <polygon id="shape-out" points="200,200 100,100 300,100" />
+                    </svg>
+                    <div class="node-label">OUTPUT</div>
+                </div>
+
+                <!-- Storage/Decryption Node -->
+                <div class="node-canvas" id="node-decrypt" onclick="handleNodeClick('DECRYPT')">
+                    <svg viewBox="0 0 400 400" overflow="visible">
+                        <!-- Square with cross inside -->
+                        <rect id="shape-dec" x="120" y="120" width="160" height="160" />
+                        <line x1="140" y1="120" x2="180" y2="140" />
+                        <line x1="180" y1="120" x2="140" y2="140" />
+                        <line x1="140" y1="230" x2="180" y2="250" />
+                        <line x1="180" y1="230" x2="140" y2="250" />
+                    </svg>
+                    <div class="node-label">SECURE</div>
+                </div>
+
+                <!-- Connecting Lines -->
+                <!-- Input to Proc -->
+                <svg class="connections-layer" style="position:relative; width:100%; height:100%; z-index:1;">
+                    <line x1="300" y1="200" x2="100" y2="200" class="active-line" id="line-in-proc" />
+                </svg>
+                <!-- Proc to Output -->
+                <svg style="position:relative; width:100%; height:100%; z-index:1;">
+                    <line x1="300" y1="200" x2="300" y2="200" class="active-line" id="line-proc-out" />
+                </svg>
+                <!-- Output to Decrypt -->
+                <svg style="position:relative; width:100%; height:100%; z-index:1;">
+                    <line x1="300" y1="200" x2="150" y2="300" class="active-line" id="line-out-dec" />
+                </svg>
+                <!-- Decrypt to Proc (Loop) -->
+                <svg style="position:relative; width:100%; height:100%; z-index:1;">
+                    <path id="line-dec-proc" d="M150,300 C150,350 150,200 200,200" class="active-line" />
+                </svg>
+
+            </div>
+
+            <!-- Right Sidebar: Controls -->
+            <div class="sidebar-right">
+                <div class="control-group">
+                    <label>AVAILABLE MODULES</label>
+                    <ul id="module-list" style="font-size: 0.7rem; font-family: var(--font-mono); margin:0; padding-left: 20px;">
+                        <li>UNLOCK_DB</li>
+                        <li>INJECT_SQL</li>
+                        <li>OOM_INJECT</li>
+                    </ul>
+                </div>
+
+                <div class="control-group">
+                    <label>MANUAL TRIGGER</label>
+                    <div id="radar-status" style="color: #44ff44; margin-bottom: 10px;">SCANNING...</div>
+                    <button class="btn-trigger" onclick="apiHack()">EXECUTE_PAYLOAD</button>
+                    <button class="btn-trigger" onclick="visualGlitch()" style="border-color: var(--secondary); color: var(--secondary)">FORCE_GLITCH</button>
+                </div>
+
+                <div class="control-group">
+                    <label>SYSTEM RESOURCE USAGE</label>
+                    <div style="height: 5px; background: #333; margin-bottom: 5px;">
+                        <div id="cpu-bar" style="width: 25%; height: 100%; background: var(--primary); transition: width 0.5s;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem;">
+                        <span>CPU</span>
+                        <span id="cpu-text">25%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Console -->
+            <div class="console-output" id="console-output">
+                <div class="console-line system">> INITIALIZING NEXUS_PROTOCOL_V4... [OK]</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & State ---
+        const state = {
+            cpu: 25,
+            time: 0,
+            segments: 0,
+            modules: ['UNLOCK_DB', 'INJECT_SQL', 'OOM_INJECT'],
+            locked: false
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            logs: document.getElementById('sys-logs'),
+            console: document.getElementById('console-output'),
+            cpuBar: document.getElementById('cpu-bar'),
+            cpuText: document.getElementById('cpu-text'),
+            radar: document.getElementById('radar-status'),
+            nodeIn: document.getElementById('node-in'),
+            nodeProc: document.getElementById('node-proc'),
+            nodeOut: document.getElementById('node-out'),
+            nodeDec: document.getElementById('node-decrypt'),
+            modulesList: document.getElementById('module-list')
+        };
+
+        // --- Helper Functions ---
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function getRandomHex() {
+            const chars = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += chars[Math.floor(Math.random() * chars.length)];
+            }
+            return color;
+        }
+
+        function logToInterface(msg, type = 'system') {
+            const div = document.createElement('div');
+            div.className = `console-line ${type}`;
+            div.textContent = `> ${msg}`;
+            els.console.appendChild(div);
+            els.console.scrollTop = els.console.scrollHeight;
+
+            // Also log to sidebar occasionally
+            if (Math.random() > 0.7) {
+                const time = new Date().toTimeString().split(' ')[0];
+                const logDiv = document.createElement('div');
+                logDiv.className = 'log-entry';
+                logDiv.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+                els.logs.appendChild(logDiv);
+                els.logs.scrollTop = els.logs.scrollHeight;
+            }
+        }
+
+        // --- Core Simulation Logic ---
+
+        // 1. Resource Monitor
+        setInterval(() => {
+            state.cpu = getRandomInt(10, 90);
+            els.cpuBar.style.width = `${state.cpu}%`;
+            els.cpuText.textContent = `${state.cpu}%`;
+            
+            if (state.cpu > 80) {
+                els.cpuBar.style.background = '#ff0055';
+            } else {
+                els.cpuBar.style.background = '#00ffcc';
+            }
+        }, 2000);
+
+        // 2. Environmental Tick (Visual Noise)
+        setInterval(() => {
+            els.radar.textContent = "SCANNING...";
+            els.radar.style.color = '#44ff44';
+            document.body.style.filter = 'none';
+        }, 500);
+
+        setInterval(() => {
+            els.radar.textContent = "NO CONNECTION DETECTED";
+            els.radar.style.color = '#ff4444';
+            // Subtle RGB shift on body
+            const r = getRandomInt(0, 50);
+            const g = getRandomInt(0, 50);
+            const b = getRandomInt(0, 50);
+            document.body.style.filter = `hue-rotate(${-r}deg) saturate(${1 + (b/50)}%)`;
+        }, 2500);
+
+        // 3. Neural Nodes Visualization
+        const shapes = {
+            in: document.getElementById('shape-in'),
+            proc: document.getElementById('shape-proc'),
+            out: document.getElementById('shape-out'),
+            dec: document.getElementById('shape-dec')
+        };
+
+        // Animate shapes slightly
+        setInterval(() => {
+            const scale = 1 + (Math.random() * 0.1);
+            shapes.in.style.transform = `scale(${scale})`;
+            shapes.proc.style.transform = `scale(${scale}) skewY(${Math.random()*2}deg)`;
+            shapes.out.style.transform = `rotate(${Math.random()*360}deg)`;
+            
+            // Randomly pulse colors on shape
+            if (Math.random() > 0.8) {
+                shapes.in.style.borderColor = getRandomHex();
+                shapes.proc.style.borderColor = getRandomHex();
+                shapes.out.style.stroke = getRandomHex();
+            }
+        }, 100);
+
+        // --- Interaction Logic ---
+
+        function handleNodeClick(nodeId) {
+            logToInterface(`Node interaction: ${nodeId}_PROTOCOL诱发`, 'system');
+            
+            if (nodeId === 'IN') {
+                state.segments++;
+                if (state.segments % 3 === 0) {
+                    unlockModule('UNLOCK_DB');
+                } else if (state.segments % 5 === 0) {
+                    unlockModule('INJECT_SQL');
+                } else if (state.segments % 7 === 0) {
+                    unlockModule('OOM_INJECT');
+                }
+            } else if (nodeId === 'PROC') {
+                logToInterface(`Data Processing error. Retrying...`);
+            } else if (nodeId === 'OUT') {
+                state.segments++;
+                // High energy burst
+                for(let i=0; i<5; i++) logToInterface("SECTOR_DEBRIS_DETECTED", "error");
+            } else if (nodeId === 'DECRYPT') {
+                state.segments++;
+                if (state.segments % 2 === 0) {
+                    logToInterface("DECRYPTION_ATTEMPT... SUCCESS", "success");
+                } else {
+                    logToInterface("ACCESS DENIED. BUSY SIGNAL.", "error");
+                }
+            }
+        }
+
+        function unlockModule(name) {
+            const li = document.createElement('li');
+            li.textContent = name + " [UNLOCKED]";
+            li.style.color = varCSS('--primary');
+            els.modulesList.appendChild(li);
+            logToInterface(`MODULE ${name} DECRYPTED`, "success");
+            state.segments = 0; // Reset hack counter
+        }
+
+        function apiHack() {
+            state.segments++;
+            logToInterface("EXECUTING PAYLOAD...", "system");
+            
+            setTimeout(() => {
+                if(state.locked) {
+                    logToInterface("ERROR: REPOSITORY LOCKED", "error");
+                    return;
+                }
+
+                logToInterface("Injecting payload into main memory...", "system");
+                setTimeout(() => {
+                    logToInterface("Accessing /root/admin/", "success");
+                    logToInterface("Intercepting traffic stream.", "system");
+                }, 800);
+
+            }, 500);
+        }
+
+        function visualGlitch() {
+            // Global glitch effect
+            const乱了 = document.body.style.filter = `hue-rotate(${getRandomInt(30, 180)}deg) invert(1)`;
+            const text = document.querySelectorAll('*');
+            text.forEach(el => {
+                el.style.filter = `blur(${Math.random()}px)`;
+                if(el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.style.display = 'none';
+            });
+
+            logToInterface("FORCE_GLITCH_Protocol triggered", "system");
+            
+            setTimeout(() => {
+                document.body.style.filter = 'none';
+                text.forEach(el => {
+                    el.style.filter = 'none';
+                    if(el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') el.style.display = '';
+                });
+            }, 100);
+        }
+
+        // --- CSS Variable Helper for JS ---
+        function varCSS(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // --- Boot Sequence ---
+        setTimeout(() => logToInterface("Initializing UI...", "system"), 500);
+        setTimeout(() => logToInterface("Calibrating network sensors...", "system"), 1200);
+        setTimeout(() => {
+            logToInterface("Warning: High influx of data packets.", "error");
+            setTimeout hackUntrigger, 2000;
+        }, 2000);
+
+        function hackUntrigger() {
+            // Clears some logs to make space
+            while(els.logs.children.length > 5) els.logs.removeChild(els.logs.firstChild);
+        }
+    </script>
+</body>
+</html>

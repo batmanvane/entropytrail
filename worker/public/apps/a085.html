@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenGlass</title>
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            --radius: 12px;
+            --primary: #a855f7;
+            --text: #ffffff;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --z-normal: 1;
+            --z-focus: 10;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: var(--font);
+            color: var(--text);
+        }
+
+        /* Generative Background */
+        .bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 15% 50%, rgba(76, 29, 149, 0.2), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.2), transparent 25%);
+            z-index: -1;
+            transition: background 2s ease;
+        }
+
+        /* Taskbar / Dock */
+        #dock {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 20, 20, 0.6);
+            backdrop-filter: blur(16px);
+            padding: 10px 10px;
+            border-radius: 20px;
+            box-shadow: var(--glass-shadow);
+            display: flex;
+            gap: 12px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .dock-item {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: var(--glass);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+
+        .dock-item:hover { transform: translateY(-5px) scale(1.1); }
+        .dock-item.active { background: var(--primary); box-shadow: 0 0 15px var(--primary); border-color: transparent; }
+        .dock-item.minimized { opacity: 0.4; transform: translateY(20px); }
+
+        /* Window */
+        .window {
+            position: absolute;
+            width: 600px;
+            height: 400px;
+            background: rgba(30, 30, 30, 0.65);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-radius: var(--radius);
+            box-shadow: var(--glass-shadow);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            z-index: var(--z-normal);
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.3s ease, transform 0.3s ease, z-index 0s 0.3s;
+            overflow: hidden;
+            background-clip: padding-box;
+        }
+
+        .window.visible {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0s linear;
+            z-index: var(--z-focus);
+            z-index: auto !important; /* Handled by tiling logic logic, but base is high */
+        }
+
+        .window.resized {
+            transition: none !important; /* Remove transition while dragging resizer */
+        }
+
+        /* Header */
+        .window-header {
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            cursor: default;
+            -webkit-app-region: drag; /* Chrome hack for chromeless windows (simulated here) */
+        }
+        
+        /* Focusing on custom drag implementation */
+        .window-header {
+            -webkit-app-region: no-drag;
+            cursor: grab;
+        }
+        .window-header.rules {
+            -webkit-app-region: no-drag;
+        }
+
+        .window-title {
+            font-weight: 500;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .window-title.wm-title { color: rgba(255,255,255,0.7); }
+        .window-title.locked { color: var(--primary); }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .control {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .control:hover { filter: brightness(1.5); }
+        .close { background-color: #ff5f56; }
+        .maximize { background-color: #ffbd2e; }
+        .minimize { background-color: #27c93f; }
+        .close:hover { box-shadow: 0 0 10px rgba(255, 95, 86, 0.6); }
+
+        /* Body */
+        .window-body {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+            position: relative;
+        }
+
+        /* Contained Content Styles */
+        .container {
+            display: flex;
+            flex: 1;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 3rem;
+        }
+        
+        .container.locked {
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 20px;
+        }
+
+        .container.locked h1 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .container.locked p {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .container.locked code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: #ffd700;
+        }
+
+        /* Footer for Data */
+        .window-footer {
+            height: 24px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            justify-content: space-between;
+        }
+        
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #27c93f;
+        }
+
+        /* Custom Resizer visual */
+        .resizer {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 15px;
+            height: 15px;
+            cursor: nwse-resize;
+            z-index: 20;
+        }
+        .resizer::after {
+            content: '';
+            position: absolute;
+            right: 3px;
+            bottom: 3px;
+            width: 8px;
+            height: 8px;
+            border-bottom: 2px solid rgba(255,255,255,0.5);
+            border-right: 2px solid rgba(255,255,255,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Generative Background -->
+    <div id="bg-layer" class="bg-canvas"></div>
+
+    <!-- Desktop Area -->
+    <div id="desktop">
+        <!-- Windows injected here -->
+    </div>
+
+    <!-- Taskbar -->
+    <div id="dock">
+        <div class="dock-item" onclick="App.loadApp('about')" title="About">ℹ️</div>
+        <div class="dock-item" onclick="App.loadApp('files')" title="Files">📁</div>
+        <div class="dock-item" onclick="App.loadApp('system')" title="System">⚙️</div>
+        <div class="dock-item" onclick="App.loadApp('settings')" title="Settings">⚡</div>
+        <div class="dock-item" onclick="App.exit()" title="Exit">🚪</div>
+    </div>
+
+    <script>
+        /**
+         * ZenGlass App Logic
+         * A windowed-computing environment built on Vanilla JS
+         */
+        
+        // --- Data Store (File System Simulation) ---
+        const FileSystem = {
+            get: (path) => {
+                if(path === 'about') return '<h1>About ZenGlass</h1><p>A minimal window manager simulation.<br>Built with pure HTML, CSS, and JS.</p>';
+                if(path === 'files') return 
+`<div style="width:100%; height:100%; background:rgba(0,0,0,0.3); border-radius:8px; font-family:monospace; padding:10px; overflow:auto;">
+  node_modules  src  README.md
+  dist/
+    index.html
+    styles.css
+    app.bundle.js
+<br><br>
+// Javascript build artifacts
+// Wait, minified? No.
+// ...
+</div>`;
+                if(path === 'system') return 
+`<h1>System</h1><p>CPU Usage: <span style="color:#27c93f">4%</span><br>Memory: 64MB / 1024MB<br>Device: Chrome / Safari Simulation</p>`;
+                if(path === 'settings') return `<h1>Settings</h1><p>Wallpaper Generation: <span style="color:#a855f7">On</span><br>Window Animation: <span style="color:#a855f7">On</span></p>`;
+                return '<div>404</div>';
+            }
+        };
+
+        // --- Tiling Logic ---
+        const Tiling = {
+            // Configuration for calculating viewport
+            getConfig: () => {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                const dockH = 56; // height of dock + padding
+                
+                // Calculate 6 distinct viewport regions
+                const cols = [
+                    vw * 0.5, vw * 1.25, vw * 0.75, vw * 0.25, vw * 0.5, vw * 0.75
+                ];
+                // Re-sort for logic consistency
+                const xCoords = new Set([vw*0.25, vw*0.75, vw*0.5]);
+                const yCoords = new Set([vh*0.1, vh*0.4, vh*0.7, vh*0.9]);
+
+                let positions = [];
+                yCoords.forEach(yRatio => {
+                    xCoords.forEach(xRatio => {
+                        positions.push({
+                            x: xRatio * vw,
+                            y: yRatio * vh,
+                            width: vw,
+                            height: vh - yRatio * vh
+                        });
+                    });
+                });
+
+                return positions;
+            },
+            
+            // Core logic: Given a position, force it into a valid area
+            fit: (x, y, w, h) => {
+                const positions = this.getConfig();
+                
+                // Simple O(N) search. In a real app, we'd use a quadtree or sorting.
+                // Here, we just find the closest available slot that fits
+                const valid = positions.filter(p => {
+                    // Check if current pos intersection with slot is empty (either left/right or top/bottom)
+                    // Overlap in both x and y means collision or containment.
+                    // We want non-overlap.
+                    const left = !(x > p.x && x + w < p.x + p.width); 
+                    const right = !(x < p.x + p.width && x + w > p.x);
+                    const top = !(y > p.y && y + h < p.y + p.height);
+                    const bottom = !(y < p.y + p.height && y + h > p.y);
+                    
+                    return !left && !right && !top && !bottom;
+                });
+
+                if (valid.length > 0) {
+                    const best = valid[0]; // Pick first found
+                    return { x: best.x, y: best.y, w: best.width, h: best.height };
+                }
+                
+                // If no slot found, expand to full screen minus dock
+                return {
+                    x: 0,
+                    y: 0,
+                    w: window.innerWidth,
+                    h: window.innerHeight - 56
+                }
+            }
+        };
+
+        // --- Window Component ---
+        class Window {
+            constructor(id, title, icon, path, dockId) {
+                this.id = id;
+                this.dockId = dockId;
+                this.wmId = "wm-" + id;
+                this.state = {
+                    x: 0, y: 0, w: 550, h: 350,
+                    isDragging: false,
+                    isResizing: false,
+                    prevMouse: { x: 0, y: 0 },
+                    doc: Window.parseHTML(FileSystem.get(path))
+                };
+
+                this.dom = document.createElement('div');
+                this.dom.classList.add('visible', 'window');
+                this.dom.style.left = '50%';
+                this.dom.style.top = '50%';
+                this.dom.style.width = '550px';
+                this.dom.style.height = '350px';
+                
+                // Init Tiling
+                const layout = Tiling.fit(window.innerWidth/2, window.innerHeight/2, 550, 350);
+                this.updatePosition(layout.x, layout.y, layout.w, layout.h);
+
+                this.setupDOM(title, icon, path);
+            }
+
+            setupDOM(title, icon, path) {
+                // Structure
+                this.dom.innerHTML = `
+                    <div class="resizer"></div>
+                    <div class="window-header" data-event="drag">
+                        <div class="window-title">
+                            <span class="wm-icon" style="font-size:14px">${icon}</span>
+                            <span class="wm-title">${title}</span>
+                        </div>
+                        <div class="window-controls">
+                            <div class="control minimize" data-cmd="min"></div>
+                            <div class="control maximize" data-cmd="max"></div>
+                            <div class="control close" data-cmd="close"></div>
+                        </div>
+                    </div>
+                    <div class="window-body">
+                        <div id="doc-${this.id}" class="container ${this.state.locked ? 'locked' : ''}">${this.state.doc}</div>
+                    </div>
+                    <div class="window-footer">
+                        <div>PATH: ${path}</div>
+                        <div><span class="status-dot"></span> OK</div>
+                    </div>
+                `;
+
+                // Interaction Listeners
+                this.dom.querySelector('.window-body').style.background = getComputedStyle(document.documentElement).getPropertyValue('--glass');
+                this.dom.querySelector('.window-body').style.backgroundClip = 'padding-box';
+                
+                // Body Drag (focusing logic)
+                const body = this.dom.querySelector('.window-body');
+                body.addEventListener('mousedown', (e) => {
+                    if(e.target === this.dom.querySelector('.dock-item') || e.target.closest('.window-controls')) return;
+                    this.focus();
+                    // Reset dock state
+                    document.querySelectorAll('.dock-item').forEach(i => i.classList.remove('active'));
+                    if(document.getElementById(this.dockId)) 
+                        document.getElementById(this.dockId).classList.add('active');
+                });
+                
+                // Resizer Logic
+                this.dom.querySelector('.resizer').addEventListener('mousedown', (e) => {
+                    this.isResizing = true;
+                    document.body.style.cursor = 'nwse-resize';
+                    this.state.prevMouse = { x: e.clientX, y: e.clientY };
+                    this.state.oldW = this.dom.offsetWidth;
+                    this.state.oldH = this.dom.offsetHeight;
+                    e.stopPropagation();
+                });
+                document.addEventListener('mousemove', (e) => {
+                    if (this.isResizing) {
+                        const dx = e.clientX - this.state.prevMouse.x;
+                        this.state.w = Math.min(this.state.oldW + dx, window.innerWidth - 100);
+                        this.dom.style.width = this.state.w + 'px';
+                        this.state.h = Math.min(this.state.oldH + dx, window.innerHeight - 10);
+                        this.dom.style.height = this.state.h + 'px';
+                    }
+                });
+                document.addEventListener('mouseup', () => {
+                    if(this.isResizing) {
+                        this.isResizing = false;
+                        document.body.style.cursor = 'default';
+                        // re-calc layout
+                        const l = Tiling.fit(
+                            parseFloat(this.dom.style.left) || 0, 
+                            parseFloat(this.dom.style.top) || 0, 
+                            this.dom.offsetWidth, 
+                            this.dom.offsetHeight
+                        );
+                        this.updatePosition(l.x, l.y, Math.round(l.w), Math.round(l.h));
+                    }
+                });
+
+                // Controls
+                const controls = this.dom.querySelectorAll('.window-controls');
+                controls.forEach(c => {
+                    c.addEventListener('click', (e) => this.executeCmd(c.dataset.cmd));
+                });
+
+                // Dragging
+                const header = this.dom.querySelector('.window-header');
+                header.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    this.state.prevMouse = { x: e.clientX, y: e.clientY };
+                    this.state.initPos = { l: parseFloat(this.dom.style.left), t: parseFloat(this.dom.style.top) };
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    if (this.isDragging) {
+                        const dx = e.clientX - this.state.prevMouse.x;
+                        let x = this.state.initPos.l + dx;
+                        let y = this.state.initPos.t + dx;
+                        
+                        // Min Max Constraints
+                        if(x < 0) x = 0;
+                        if(y + this.dom.offsetHeight > window.innerHeight - 56) y = window.innerHeight - 56 - this.dom.offsetHeight;
+
+                        this.dom.style.left = x + 'px';
+                        this.dom.style.top = y + 'px';
+                    }
+                });
+                document.addEventListener('mouseup', () => {
+                    if(this.isDragging) this.state.isDragging = false;
+                });
+
+                return this.dom;
+            }
+
+            parseHTML(html) {
+                const div = document.createElement('div');
+                div.innerHTML = html;
+                return div.innerHTML;
+            }
+
+            updatePosition(x, y, w, h) {
+                this.dom.style.left = x + 'px';
+                this.dom.style.top = y + 'px';
+                this.dom.style.width = w + 'px';
+                this.dom.style.height = h + 'px';
+            }
+
+            focus() {
+                document.querySelectorAll('.window').forEach(w => w.style.zIndex = 1);
+                this.dom.style.zIndex = 10;
+                this.dom.classList.add('visible');
+                this.state.isDragging = false;
+                
+                document.querySelectorAll('.dock-item').forEach(i => i.classList.remove('active'));
+                if(!document.getElementById(this.dockId)) {
+                    const btn = document.getElementById('dock-buttons').appendChild(document.createElement('div'));
+                }
+                // Re-binding dock ID
+                setTimeout(() => document.getElementById(this.dockId).classList.add('active'), 10);
+            }
+
+            executeCmd(cmd) {
+                const doc = this.dom.querySelector('#doc-'+this.id);
+                
+                if(cmd === 'close') {
+                    this.dom.style.opacity = 0;
+                    this.dom.style.transform = 'scale(0.95)';
+                    this.dom.style.zIndex = 0;
+                    setTimeout(() => this.dom.remove(), 300);
+                }
+                else if(cmd === 'min') {
+                    document.querySelector('#dock-buttons')[this.dockId].classList.add('minimized');
+                    document.querySelector('#dock-buttons')[this.dockId].style.opacity = '0';
+                    this.dom.style.display = 'none';
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().collapse(document.body, 0);
+                    window.getSelection().addRange(document.body.childNodes[0]);
+                }
+                else if(cmd === 'max') {
+                    const w = parseInt(this.dom.style.width);
+                    const h = parseInt(this.dom.style.height);
+                    if(w < window.innerWidth - 60 && h < window.innerHeight - 56) {
+                        this.dom.style.width = window.innerWidth - 60 + 'px';
+                        this.dom.style.height = window.innerHeight - 56 + 'px';
+                        this.dom.style.left = '30px';
+                        this.dom.style.top = '56px';
+                    } else {
+                        // Restore
+                        const found = Window.findWindow(this.id);
+                        found ? found.dom.style.width = '550px' : this.dom.style.width = '550px';
+                        if(found) found.dom.style.height = '350px';
+                        else this.dom.style.height = '350px';
+                    }
+                }
+                else if(cmd === 'locked') {
+                    doc.classList.toggle('locked');
+                    doc.style.cursor = 'default';
+                }
+            }
+
+            static findWindow(id) {
+                return document.getElementById('wm-' + id);
+            }
+            
+            static generateId() {
+                return Math.random().toString(36).substr(2, 9);
+            }
+
+            static create(id, dockId, title, icon, path) {
+                const win = new Window(id, title, icon, path, dockId);
+                const btn = document.getElementById('dock-buttons').appendChild(document.createElement('div'));
+                
+                btn.id = dockId + '-btn';
+                btn.className = 'dock-item';
+                
+                // Simple emoji keys
+                let iconMap = { files: '📁', system: '⚙️', about: 'ℹ️', settings: '⚡' };
+                btn.innerHTML = iconMap[path] || '🗄️';
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    win.focus();
+                };
+
+                // Min active
+                btn.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    win.focus();
+                    win.executeCmd('min');
+                });
+
+                document.getElementById('desktop').appendChild(win.dom);
+            }
+        }
+
+        // --- Main Application Controller ---
+        const App = {
+            dockBtnContainer: null,
+            renderBg: function() {
+                const hue = ((Date.now() / 10000) % 360);
+                document.getElementById('bg-layer').style.background = `
+                    radial-gradient(circle at 15% 50%, hsla(${hue}, 60%, 40%, 0.25), transparent 25%),
+                    radial-gradient(circle at 85% 30%, hsla(${hue + 150}, 60%, 40%, 0.25), transparent 25%);
+                `;
+            },
+
+            loadApp: function(path) {
+                this.renderBg();
+                if(path === 'exit') return;
+                
+                // Check if open and not locked
+                const win = Window.findWindow(path);
+                if(win) {
+                    const doc = win.dom.querySelector('div.container');
+                    if(doc.classList.contains('locked')) win.executeCmd('locked');
+                }
+
+                const titleMap = { files: 'Files', system: 'System', about: 'About', settings: 'Settings' };
+                if(path === 'files') Window.create(Window.generateId(), path, titleMap[path], path, '📁');
+                else if(path === 'system') Window.create(Window.generateId(), path, titleMap[path], path, '⚙️');
+                else if(path === 'about') Window.create(Window.generateId(), path, titleMap[path], path, 'ℹ️');
+                else if(path === 'settings') Window.create(Window.generateId(), path, titleMap[path], path, '⚡');
+            },
+
+            exit: function() {
+                this.renderBg();
+                window.close();
+            }
+        };
+
+        // Initialize
+        App.renderBg();
+        document.getElementById('dock-buttons').appendChild(document.createElement('div'));
+        
+        // Poll for bg change
+        setInterval(App.renderBg, 10000);
+
+        // Populate Dock
+        const dockContent = `
+            <div class="dock-item" onclick="App.loadApp('about')" title="About">ℹ️</div>
+            <div class="dock-item" onclick="App.loadApp('files')" title="Files">📁</div>
+            <div class="dock-item" onclick="App.loadApp('system')" title="System">⚙️</div>
+            <div class="dock-item" onclick="App.loadApp('settings')" title="Settings">⚡</div>
+            <div class="dock-item" onclick="App.exit()" title="Exit">🚪</div>
+        `;
+        document.getElementById('dock').innerHTML = dockContent;
+
+    </script>
+</body>
+</html>

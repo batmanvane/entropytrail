@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Snake Game</title>
+    <style>
+        :root {
+            --bg-color: #222;
+            --game-bg: #111;
+            --snake-color: #0f0;
+            --food-color: #f00;
+            --text-color: #fff;
+            --accent-color: #4CAF50;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            user-select: none;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            width: 400px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .grid-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            background-color: var(--game-bg);
+            border: 4px solid #555;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .overlay.visible {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 3rem;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            color: var(--snake-color);
+            text-shadow: 0 0 10px var(--snake-color);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            font-size: 1.5rem;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .controls-hint {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="header">
+        <div>Score: <span id="score">0</span></div>
+        <div>High Score: <span id="high-score">0</span></div>
+    </div>
+
+    <div class="grid-container">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <!-- Game Over Overlay -->
+        <div id="gameOverOverlay" class="overlay">
+            <h1>Game Over</h1>
+            <p style="font-size: 1.2rem; margin-bottom: 20px;">Final Score: <span id="finalScore">0</span></p>
+            <button class="btn" onclick="resetGame()">Play Again</button>
+        </div>
+        
+        <!-- Start Overlay (optional, but good for UX) -->
+        <div id="startOverlay" class="overlay visible">
+            <h1>Snake</h1>
+            <button class="btn" onclick="startGame()">Start Game</button>
+            <p class="controls-hint">Use Arrow Keys to Move</p>
+        </div>
+    </div>
+    <div class="controls-hint">Use Arrow Keys to Steer</div>
+</div>
+
+<script>
+    // Configuration
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 20; // 20x20 grid
+    const gridCount = canvas.width / gridSize;
+    
+    // Game State
+    let score = 0;
+    let highScore = localStorage.getItem('snakeHighScore') || 0;
+    let gameLoopId;
+    let lastTime = 0;
+    let dropCounter = 0;
+    let dropInterval = 150; // Initial speed (ms)
+    let isGameRunning = false;
+    
+    // Snake State
+    let snake = [];
+    let velocity = { x: 0, y: 0 };
+    let food = { x: 5, y: 5 };
+    let inputVelocity = { x: 0, y: 0 }; // Buffer for next frame input
+
+    // DOM Elements
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('high-score');
+    const finalScoreEl = document.getElementById('finalScore');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const startOverlay = document.getElementById('startOverlay');
+
+    // Initialize High Score UI
+    highScoreEl.innerText = highScore;
+
+    // Input Handling
+    document.addEventListener('keydown', handleKeyInput);
+
+    function handleKeyInput(e) {
+        // Prevent default scrolling for arrow keys
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+            e.preventDefault();
+        }
+
+        // Logic to prevent 180 degree turns
+        // We write to inputVelocity, which applies after the snake moves once
+        switch (e.key) {
+            case 'ArrowUp':
+                if (velocity.y !== 1) inputVelocity = { x: 0, y: -1 };
+                break;
+            case 'ArrowDown':
+                if (velocity.y !== -1) inputVelocity = { x: 0, y: 1 };
+                break;
+            case 'ArrowLeft':
+                if (velocity.x !== 1) inputVelocity = { x: -1, y: 0 };
+                break;
+            case 'ArrowRight':
+                if (velocity.x !== -1) inputVelocity = { x: 1, y: 0 };
+                break;
+        }
+    }
+
+    function startGame() {
+        startOverlay.classList.remove('visible');
+        resetGameVariables();
+        isGameRunning = true;
+        lastTime = performance.now();
+        window.requestAnimationFrame(timeLine);
+    }
+
+    function resetGame() {
+        gameOverOverlay.classList.remove('visible');
+        resetGameVariables();
+        isGameRunning = true;
+        lastTime = performance.now();
+        window.requestAnimationFrame(timeLine);
+    }
+
+    function resetGameVariables() {
+        score = 0;
+        dropInterval = 150;
+        scoreEl.innerText = score;
+        
+        // Center snake
+        snake = [
+            { x: 10, y: 10 },
+            { x: 10, y: 11 },
+            { x: 10, y: 12 }
+        ];
+        
+        // Initial movement up
+        velocity = { x: 0, y: -1 };
+        inputVelocity = { x: 0, y: -1 };
+        
+        createFood();
+        draw();
+    }
+
+    function createFood() {
+        // Random position
+        food = {
+            x: Math.floor(Math.random() * gridCount),
+            y: Math.floor(Math.random() * gridCount)
+        };
+        
+        // Ensure food doesn't spawn on snake body
+        for (let part of snake) {
+            if (part.x === food.x && part.y === food.y) {
+                createFood();
+                break;
+            }
+        }
+    }
+
+    function timeLine(time) {
+        if (!isGameRunning) return;
+
+        // Calculate time since last frame
+        const deltaTime = time - lastTime;
+        lastTime = time;
+
+        dropCounter += deltaTime;
+
+        // Speed up mechanism: Every 500ms (approx 100ms * 5 frames) or by score logic
+        // The prompt asks: "speed increases after every 5 pieces of food"
+        // We will calculate speed based on score.
+        // Base speed 150ms. Reduce by 10ms for every 5 points.
+        let calculatedSpeed = 150 - Math.floor(score / 5) * 10;
+        // Cap max speed (e.g., 50ms)
+        if (calculatedSpeed < 50) calculatedSpeed = 50;
+        dropInterval = calculatedSpeed;
+
+        if (dropCounter > dropInterval) {
+            update();
+            dropCounter = 0;
+        }
+
+        draw();
+        window.requestAnimationFrame(timeLine);
+    }
+
+    function update() {
+        // Apply buffered input
+        velocity = { ...inputVelocity };
+
+        // Calculate new head position
+        const head = { x: snake[0].x + velocity.x, y: snake[0].y + velocity.y };
+
+        // Check Wall Collision
+        if (head.x < 0 || head.x >= gridCount || head.y < 0 || head.y >= gridCount) {
+            gameOver();
+            return;
+        }
+
+        // Check Self Collision
+        for (let i = 0; i < snake.length; i++) {
+            if (head.x === snake[i].x && head.y === snake[i].y) {
+                gameOver();
+                return;
+            }
+        }
+
+        // Move Snake
+        snake.unshift(head);
+
+        // Check Food Collision
+        if (head.x === food.x && head.y === food.y) {
+            score++;
+            scoreEl.innerText = score;
+            createFood();
+            // Don't pop tail, so snake grows
+        } else {
+            snake.pop(); // Remove tail to maintain size if no food eaten
+        }
+    }
+
+    function gameOver() {
+        isGameRunning = false;
+        
+        // Update High Score
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('snakeHighScore', highScore);
+            highScoreEl.innerText = highScore;
+        }
+
+        finalScoreEl.innerText = score;
+        gameOverOverlay.classList.add('visible');
+    }
+
+    function draw() {
+        // Clear Canvas
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Food
+        ctx.fillStyle = '#f00';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#f00";
+        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+        ctx.shadowBlur = 0;
+
+        // Draw Snake
+        ctx.fillStyle = '#0f0';
+        snake.forEach((part, index) => {
+            // Slightly different color for head
+            if (index === 0) {
+                ctx.fillStyle = '#ccffcc'; 
+            } else {
+                ctx.fillStyle = '#0f0';
+            }
+            ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+        });
+    }
+
+    // Initial Draw
+    draw();
+
+</script>
+
+</body>
+</html>

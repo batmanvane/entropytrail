@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit Converter</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --border: #d1d5db;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .converter-card {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 100%;
+            max-width: 350px;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--text);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        input[type="number"] {
+            flex: 1;
+            padding: 0.75rem;
+            font-size: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        select {
+            padding: 0.75rem;
+            font-size: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        .results-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background-color: var(--bg);
+            border-radius: 8px;
+            border: 1px solid transparent;
+        }
+
+        .result-row:hover {
+            border-color: var(--primary);
+        }
+
+        .label {
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .value {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--primary);
+            min-width: 80px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+
+<div class="converter-card">
+    <h1>Unit Converter</h1>
+    
+    <div class="input-group">
+        <input type="number" id="inputValue" placeholder="0" step="any">
+        <select id="inputUnit">
+            <option value="cm">Centimetres</option>
+            <option value="in">Inches</option>
+            <option value="ft">Feet</option>
+        </select>
+    </div>
+
+    <div class="results-container">
+        <div class="result-row">
+            <span class="label">Feet</span>
+            <span class="value" id="res-ft">0</span>
+        </div>
+        <div class="result-row">
+            <span class="label">Inches</span>
+            <span class="value" id="res-in">0</span>
+        </div>
+        <div class="result-row">
+            <span class="label">Centimetres</span>
+            <span class="value" id="res-cm">0</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // DOM Elements
+        const inputEl = document.getElementById('inputValue');
+        const unitSelectEl = document.getElementById('inputUnit');
+        const resFtEl = document.getElementById('res-ft');
+        const resInEl = document.getElementById('res-in');
+        const resCmEl = document.getElementById('res-cm');
+
+        // Conversion factors relative to Centimetres (Base)
+        const FACTORS = {
+            cm: 1,
+            in: 2.54,      // 1 inch = 2.54 cm => Value * 2.54 = cm
+            ft: 30.48      // 1 foot = 30.48 cm => Value * 30.48 = cm
+        };
+
+        function convertToBase(value, fromUnit) {
+            // value * factor gets us to centimeters
+            const inCm = value * FACTORS[fromUnit];
+            
+            // Convert back from cm to other units
+            return {
+                cm: inCm,
+                in: inCm / FACTORS.in,
+                ft: inCm / FACTORS.ft
+            };
+        }
+
+        // Helper to format numbers
+        function formatNumber(num) {
+            // Round to 4 decimal places generally, remove trailing zeros if it's a whole-ish number
+            return parseFloat(num.toFixed(3));
+        }
+
+        function updateDisplay() {
+            const val = parseFloat(inputEl.value);
+            const from = unitSelectEl.value;
+
+            // Handle empty or invalid input
+            if (isNaN(val) || !val) {
+                resFtEl.textContent = '';
+                resInEl.textContent = '';
+                resCmEl.textContent = '';
+                return;
+            }
+
+            const conversions = convertToBase(val, from);
+
+            resFtEl.textContent = formatNumber(conversions.ft);
+            resInEl.textContent = formatNumber(conversions.in);
+            resCmEl.textContent = formatNumber(conversions.cm);
+        }
+
+        // Event Listeners
+        inputEl.addEventListener('input', updateDisplay);
+        unitSelectEl.addEventListener('change', updateDisplay);
+
+    })();
+</script>
+
+</body>
+</html>

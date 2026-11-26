@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro Timer</title>
+<style>
+  :root {
+    --primary-color: #e74c3c;
+    --secondary-color: #2ecc71;
+    --bg-color: #f4f7f6;
+    --text-color: #333;
+    --card-bg: #ffffff;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    transition: background-color 0.5s ease;
+  }
+
+  .container {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  header {
+    margin-bottom: 2rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #555;
+  }
+
+  .mode-label {
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 1rem;
+    color: #888;
+  }
+
+  .timer-display {
+    font-size: 5rem;
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 2rem;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  button {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    border: 2px solid transparent;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    outline: none;
+  }
+
+  button:focus {
+    transform: scale(1.05);
+  }
+
+  #start-btn {
+    background-color: var(--primary-color);
+    color: white;
+  }
+
+  #start-btn:hover {
+    background-color: #c0392b;
+  }
+
+  #pause-btn {
+    background-color: #f1c40f;
+    color: white;
+  }
+
+  #pause-btn:hover {
+    background-color: #f39c12;
+  }
+
+  #reset-btn {
+    background-color: transparent;
+    border-color: #ccc;
+    color: #777;
+  }
+
+  #reset-btn:hover {
+    border-color: #999;
+    color: #555;
+  }
+
+  .stats {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 10px;
+    margin-top: 1rem;
+  }
+
+  .stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .stat-label {
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  .stat-value {
+    font-weight: bold;
+    color: var(--text-color);
+  }
+
+  /* Dynamic Classes */
+  body.work-mode {
+    border-top: 5px solid var(--primary-color);
+  }
+
+  body.break-mode {
+    border-top: 5px solid var(--secondary-color);
+  }
+
+  body.work-mode .timer-display {
+    color: var(--primary-color);
+  }
+
+  body.break-mode .timer-display {
+    color: var(--secondary-color);
+  }
+
+  body.work-mode h1 { color: var(--primary-color); }
+  body.break-mode h1 { color: var(--secondary-color); }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Pomodoro</h1>
+    <div class="mode-label" id="mode-display">Focus Time</div>
+  </header>
+
+  <div class="timer-display" id="timer">25:00</div>
+
+  <div class="controls">
+    <button id="start-btn">Start</button>
+    <button id="pause-btn">Pause</button>
+    <button id="reset-btn">Reset</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat-item">
+      <span class="stat-label">Completed Work Phases</span>
+      <span class="stat-value" id="completed-count">0</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Configuration
+  const WORK_TIME = 25 * 60; // 25 minutes in seconds
+  const BREAK_TIME = 5 * 60; // 5 minutes in seconds
+
+  // State
+  let timeLeft = WORK_TIME;
+  let isRunning = false;
+  let isWorkMode = true;
+  let completedWorkPhases = 0;
+  let timerInterval = null;
+
+  // DOM Elements
+  const timerDisplay = document.getElementById('timer');
+  const modeDisplay = document.getElementById('mode-display');
+  const startBtn = document.getElementById('start-btn');
+  const pauseBtn = document.getElementById('pause-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const completedCount = document.getElementById('completed-count');
+  const body = document.body;
+
+  // Initialize
+  updateDisplay();
+
+  // Functions
+  function updateDisplay() {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  function switchMode() {
+    // If timer is running, pause it
+    clearInterval(timerInterval);
+    isRunning = false;
+    startBtn.textContent = 'Start';
+    pauseBtn.style.display = 'none';
+    
+    // Toggle modes
+    if (isWorkMode) {
+      isWorkMode = false;
+      isRunning = false;
+      timeLeft = BREAK_TIME;
+      modeDisplay.textContent = 'Short Break';
+      modeDisplay.style.color = 'var(--secondary-color)';
+      body.classList.remove('work-mode');
+      body.classList.add('break-mode');
+      updateDisplay();
+    } else {
+      isWorkMode = true;
+      timeLeft = WORK_TIME;
+      completedWorkPhases++;
+      completedCount.textContent = completedWorkPhases;
+      modeDisplay.textContent = 'Focus Time';
+      modeDisplay.style.color = 'var(--primary-color)';
+      body.classList.remove('break-mode');
+      body.classList.add('work-mode');
+      updateDisplay();
+    }
+  }
+
+  function toggleTimer() {
+    if (isRunning) {
+      clearInterval(timerInterval);
+      isRunning = false;
+      startBtn.textContent = 'Start';
+      pauseBtn.style.display = 'inline-block';
+    } else {
+      isRunning = true;
+      startBtn.textContent = 'Pause';
+      pauseBtn.style.display = 'none';
+      timerInterval = setInterval(() => {
+        if (timeLeft > 0) {
+          timeLeft--;
+          updateDisplay();
+        } else {
+          timeLeft = 0;
+          updateDisplay();
+          switchMode();
+        }
+      }, 1000);
+    }
+  }
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    isRunning = false;
+    isWorkMode = true;
+    timeLeft = WORK_TIME;
+    modeDisplay.textContent = 'Focus Time';
+    modeDisplay.style.color = 'var(--primary-color)';
+    body.classList.remove('work-mode');
+    body.classList.remove('break-mode');
+    startBtn.textContent = 'Start';
+    pauseBtn.style.display = 'none';
+    completedWorkPhases = 0;
+    completedCount.textContent = '0';
+    updateDisplay();
+  }
+
+  // Event Listeners
+  startBtn.addEventListener('click', toggleTimer);
+  pauseBtn.addEventListener('click', toggleTimer);
+  resetBtn.addEventListener('click', resetTimer);
+
+</script>
+
+</body>
+</html>

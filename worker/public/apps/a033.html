@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Times Table Trainer</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #22c55e;
+            --error: #ef4444;
+            --background: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+            --border-radius: 12px;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 450px;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-main);
+        }
+
+        /* Start Screen */
+        .start-screen {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Game Screen */
+        .game-screen {
+            display: none;
+        }
+
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            padding: 10px;
+            background-color: var(--background);
+            border-radius: 8px;
+            font-weight: 600;
+            color: var(--text-sub);
+        }
+
+        .stat-item span {
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        .question-box {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin: 1.5rem 0;
+            color: var(--text-main);
+            letter-spacing: 2px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        input[type="number"] {
+            width: 100px;
+            height: 60px;
+            font-size: 2rem;
+            text-align: center;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 0 10px;
+            outline: none;
+            transition: border-color 0.2s;
+            -moz-appearance: textfield; /* Remove arrows Firefox */
+        }
+
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none; /* Remove arrows Chrome */
+            margin: 0;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary);
+        }
+
+        .feedback-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--card-bg);
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .feedback-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .feedback-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+        }
+
+        .feedback-score {
+            font-size: 1.2rem;
+            color: var(--text-sub);
+            margin-bottom: 2rem;
+        }
+
+        .feedback-img {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+            border-color: var(--error) !important;
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pop-in {
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="start-screen">
+            <h1>Times Table Trainer</h1>
+            <p style="color: var(--text-sub); margin-bottom: 1rem;">Solve as many problems as you can in 60 seconds!</p>
+            <button class="btn" id="start-btn">Start Game</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="game-screen">
+            <div class="stats-bar">
+                <div class="stat-item">Time: <span id="timer">60</span>s</div>
+                <div class="stat-item">Score: <span id="score-display">0</span></div>
+            </div>
+
+            <div class="question-box" id="question-text">
+                <!-- 2 x 2 will be inserted here -->
+            </div>
+
+            <div class="input-group">
+                <input type="number" id="answer-input" placeholder="?" autocomplete="off" inputmode="numeric">
+                <button class="btn" id="submit-btn">Enter</button>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="feedback-overlay" class="feedback-overlay">
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'><path d='M14.4,16.5L12,18l-2.4-1.5L8.6,17l-.2,2.8h7.2L16,17l-.2.5l-1.4,2L14.4,16.5z M8.1,16.3l.2.7l2.4-1.4L13.1,17l1.8-2.9l-2.4-1.4l-.2-.7l-2.4,1.4L11.9,13L8.1,16.3z M19,12l-2,2.8L19,17.6V12.2z M19.9,17l-8.7-6L8.1,17.8l2,2.9l8.7-6L19.9,17z' fill='%234f46e5'/></svg>" alt="trophy" class="feedback-img icon-win">
+                <div class="feedback-title">Time's Up!</div>
+                <div class="feedback-score">Final Score: <span id="final-score">0</span></div>
+                <button class="btn" id="restart-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentMultiplier = 0;
+        let nextMultiple = 0;
+        let score = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let isGameActive = false;
+
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const questionText = document.getElementById('question-text');
+        const answerInput = document.getElementById('answer-input');
+        const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display'); // Fixed ID reference
+        const timerDisplayEl = document.getElementById('timer'); // Duplicate for clarity
+        const feedbackOverlay = document.getElementById('feedback-overlay');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const submitBtn = document.getElementById('submit-btn');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // Event Listeners
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+        submitBtn.addEventListener('click', checkAnswer);
+        answerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkAnswer();
+        });
+
+        function startGame() {
+            // Reset State
+            score = 0;
+            timeLeft = 60;
+            isGameActive = true;
+            
+            // Update UI
+            scoreDisplay.textContent = score;
+            timerDisplay.textContent = timeLeft;
+            feedbackOverlay.classList.remove('visible');
+            answerInput.value = '';
+            answerInput.focus();
+
+            // Switch Screens
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            gameScreen.classList.add('pop-in');
+
+            generateQuestion();
+
+            // Start Timer
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+                
+                if (timeLeft <= 50) {
+                    timerDisplay.style.color = '#ef4444'; // Red warning
+                } else {
+                    timerDisplay.style.color = '';
+                }
+
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function generateQuestion() {
+            // Random multiplier 1-10
+            currentMultiplier = Math.floor(Math.random() * 10) + 1;
+            // Random multiple up to 100 to avoid confusing numbers
+            nextMultiple = Math.floor(Math.random() * 10) + 1; 
+            
+            questionText.textContent = `${currentMultiplier} × ${nextMultiple} = ?`;
+        }
+
+        function checkAnswer() {
+            if (!isGameActive) return;
+
+            const userAnswer = parseInt(answerInput.value);
+
+            if (isNaN(userAnswer)) return;
+
+            if (userAnswer === nextMultiple) {
+                // Correct
+                score++;
+                scoreDisplay.textContent = score;
+                correctFeedback();
+            } else {
+                // Incorrect
+                incorrectFeedback();
+            }
+
+            generateQuestion();
+            answerInput.value = '';
+            answerInput.focus();
+        }
+
+        function correctFeedback() {
+            // Just a visual cue, mostly handled by score update for now
+            // To make it snappy, we don't show a popup on every correct answer
+            // but could add a small pulse to the input if desired.
+        }
+
+        function incorrectFeedback() {
+            answerInput.classList.add('shake');
+            // Play a sound here if resources allowed, keeping it silent per constraints
+            setTimeout(() => {
+                answerInput.classList.remove('shake');
+            }, 400);
+        }
+
+        function endGame() {
+            isGameActive = false;
+            clearInterval(timerInterval);
+            answerInput.disabled = true;
+            submitBtn.disabled = true;
+            finalScoreDisplay.textContent = score;
+            feedbackOverlay.classList.add('visible');
+        }
+    </script>
+</body>
+</html>

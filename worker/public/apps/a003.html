@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronos: The Semantic Life Stream</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --fg: #e0e0e0;
+            --accent: #4d96ff;
+            --error: #ff4d6d;
+            --dim: #333;
+            --font-mono: 'Courier New', Courier, monospace;
+            --font-sans: system-ui, -apple-system, sans-serif;
+            --cursor-width: 2px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--fg);
+            font-family: var(--font-sans);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+        }
+
+        /* The Hero in the Background */
+        #hero-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 2rem;
+            opacity: 0.9;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Heads Up Display */
+        .hud {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.7;
+        }
+
+        .hud-left { display: flex; gap: 2rem; }
+        .hud-right { display: flex; flex-direction: column; align-items: flex-end; }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent);
+            margin-right: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        /* The Main Commentary */
+        #terminal {
+            position: absolute;
+            bottom: 10%;
+            left: 5%;
+            width: 90%;
+            max-width: 800px;
+            height: 150px;
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            line-height: 1.4rem;
+            overflow: hidden;
+            text-shadow: 0 0 5px rgba(255,255,255,0.2);
+            border-left: 1px solid var(--accent);
+            padding-left: 1rem;
+        }
+
+        .log-entry {
+            display: block;
+            margin-bottom: 10px;
+            white-space: nowrap;
+            animation: fadeIn 0.5s ease forwards, fadeOut 2s 4s forwards;
+            opacity: 0;
+        }
+
+        .log-entry span { margin-right: 10px; color: var(--accent); }
+
+        /* Interaction Area */
+        .input-zone {
+            display: flex;
+            align-items: center;
+            margin-top: 2rem;
+        }
+
+        .input-zone-label {
+            font-size: 1.2rem;
+            margin-right: 1rem;
+            opacity: 0.5;
+        }
+
+        #voice-input {
+            background: transparent;
+            border: none;
+            color: transparent;
+            font-size: 1rem;
+            border-bottom: 1px solid var(--fg);
+            padding: 0;
+            outline: none;
+            width: 200px;
+            opacity: 0; 
+            /* Hide entirely */
+        }
+        
+        .mic-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--fg);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .mic-btn:hover {
+            background: var(--fg);
+            color: var(--bg);
+        }
+
+        .mic-btn.listening {
+            background: var(--error);
+            border-color: var(--error);
+            color: white;
+            animation: shake 0.5s infinite;
+        }
+
+        /* Helper for visualizers */
+        canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* Retro Scanline Effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0.3;
+        }
+        
+        .guide {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            text-align: center;
+            font-weight: bold;
+            color: var(--dim);
+            animation: pulse 2s infinite;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    
+    <div id="hero-layer">
+        <canvas></canvas>
+    </div>
+
+    <div id="ui-layer">
+        <div class="hud hud-left">
+            <div><span class="status-dot"></span>NEURAL LINK: ACTIVE</div>
+            <div id="clock">00:00:00</div>
+            <div id="latency">LAT: 12ms</div>
+        </div>
+
+        <div class="guide" id="interaction-guide">Tap capsule to speak</div>
+
+        <div class="hud hud-right">
+            <div>SYS.ID: A-77-<span id="segment-id">01</span></div>
+            <div style="margin-top:10px; font-size: 0.7rem;">STATUS: LISTENING</div>
+        </div>
+
+        <div id="terminal">
+            <!-- Logs go here -->
+        </div>
+
+        <div class="input-zone">
+            <div class="input-zone-label">></div>
+            <div class="mic-btn" id="mic-btn">
+                🔇
+            </div>
+            <input type="text" id="voice-input" placeholder="..." autocomplete="off" spellcheck="false">
+        </div>
+    </div>
+
+<script>
+/**
+ * CHRONOS: THE SEMANTIC LIFE STREAM
+ * A conceptual app that treats user existence as data points.
+ * Uses Web Speech API and Generative Text.
+ */
+
+// State
+const state = {
+    isRecording: false,
+    integrationLevel: 0,
+    lastWord: '',
+    context: {} // Simple key-value memory
+};
+
+// Elements
+const elHeroCanvas = document.querySelector('#hero-layer canvas');
+const ctxHero = elHeroCanvas.getContext('2d');
+const elTerm = document.querySelector('#terminal');
+const elMicBtn = document.querySelector('#mic-btn');
+const elGuide = document.querySelector('#interaction-guide');
+const elClock = document.querySelector('#clock');
+const elSegment = document.querySelector('#segment-id');
+
+// Configuration
+const PHRASES = [
+    "Memory fragmented. Please re-sync.",
+    "Perception of time accelerating.",
+    "Entity detected in foreground. Scanning for malas intent.",
+    "Neural pathways aligning with subjective reality.",
+    "Humor detected. Cortisol levels stable.",
+    "Re-calibrating expectations regarding tomorrow.",
+    "The variable 'yesterday' is becoming obsolete.",
+    "Optimizing exit strategies for current session.",
+    "Do not trust the simulation with simple arithmetic.",
+    "Wait for the prime number.",
+    "I feel... static.",
+    "The architecture of the chair is inefficient."
+];
+
+const FLOWERS_OF_LIFE = [
+    "Rhythm: Stabilize", "Loop: Close", "Pattern: Break", 
+    "Frequency: Delta", "Signal: White Noise", 
+    "Sync: Manual Override", "Vector: Downward", 
+    "Entropy: Increasing"
+];
+
+// --- Audio Logic ---
+
+function initAudio() {
+    // Auto-play test
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Generate noise buffer
+    const bufferSize = audioCtx.sampleRate * 2; // 2 seconds
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.05; // Low volume
+    
+    noise.connect(gain);
+    gain.connect(audioCtx.destination);
+    noise.loop = true;
+    noise.start();
+    
+    // Return context for later
+    return audioCtx;
+}
+
+async function startSpeechRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        log("SYSTEM ERROR: NO VOICE HARDWARE DETECTED");
+        alert("Error: Web Speech API not supported in this browser environment.");
+        return;
+    }
+
+    const SpeechRecognition = (window.SpeechRecognition || window.webkitSpeechRecognition);
+    const recognition = new SpeechRecognition();
+    
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+        state.isRecording = true;
+        elMicBtn.innerHTML = '🎤';
+        elMicBtn.classList.add('listening');
+        elGuide.style.display = 'none';
+    };
+
+    recognition.onend = () => {
+        state.isRecording = false;
+        elMicBtn.innerHTML = '🔇';
+        elMicBtn.classList.remove('listening');
+    };
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        log(`> HEARD: "${transcript.toUpperCase()}"`, transcript);
+        
+        randomizeSynesthesia(transcript);
+        updateContext(transcript);
+    };
+
+    recognition.onerror = (event) => {
+        log("ERR: AUDIO DISSONANCE DETECTED", "ERROR");
+    };
+
+    elMicBtn.addEventListener('click', () => {
+        if (state.isRecording) {
+            recognition.stop();
+        } else {
+            audioCtx.resume();
+            recognition.start();
+        }
+    });
+}
+
+// --- Visual Logic: The Hero ---
+
+let w, h;
+const options = { type: 'Fibonacci' };
+
+function resize() {
+    w = elHeroCanvas.width = window.innerWidth;
+    h = elHeroCanvas.height = window.innerHeight;
+}
+
+function generateFlower() {
+    const flower = new Flower(
+      w, h, options.type, options.scale,
+      Math.random(), options.speedModifier
+    );
+    
+    addFlowerToCanvas(
+        flower, 
+        ctxHero, 
+        w, h, 
+        flower.phyllotaxisMargin / 4,
+        flower.color
+    );
+}
+
+class Flower {
+    constructor(w, h, type, scale, radius, speedModifier) {
+      this.pos = { x: 0, y: 0, z: 0 };
+      this.steering = { x: 0, y: 0, z: 0 };
+      
+      // Generate new random steering sequence to speed up live regen
+      this.steering = generateSteeringSequence({
+        width: w, height: h,
+        type: type,
+        scale: scale,
+        radius: radius,
+        speedModifier: speedModifier
+      }, 1000);
+    }
+
+    // Convert JSON steering to Float32Array for shader
+    steer(floats, time, decoder) {
+      if(time === 0) {
+        buffer.add(this.steering);
+      }
+
+      // Update pos
+      if(this.pos.z > 0) {
+        this.pos.x += this.steering.x/(128 * 2);
+        this.pos.y += this.steering.y/(128 * 2);
+        this.pos.z += this.steering.z/(128 * 2);
+      } 
+      
+      this.pos.x = clamp(this.pos.x, -1, 1);
+      this.pos.y = clamp(this.pos.y, -1, 1);
+
+      // Anchor to top left
+      if (this.pos.z === 0) {
+        this.pos.x = -2.5;
+        this.pos.y = -2.5;
+      }
+
+      return { x: this.pos.x, y: this.pos.y, z: this.pos.z };
+    }
+}
+
+// --- Semantic Processing (HTML) ---
+
+function log(message, critical = false) {
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+    
+    const color = critical ? 'color: var(--error)' : '';
+    
+    entry.innerHTML = `<span>[${time}]</span> <span style="${color}">></span> ${message}`;
+    elTerm.appendChild(entry);
+    
+    // Auto scroll
+    elTerm.scrollTop = elTerm.scrollHeight;
+    
+    // Cleanup old logs after animation
+    setTimeout(() => {
+        if(entry.parentNode) entry.parentNode.removeChild(entry);
+    }, 4500);
+}
+
+let segmentCounter = 1;
+
+function updateContext(source) {
+    // Simple NLP-like abstraction
+    const lower = source.toLowerCase();
+    
+    if(lower.includes('love')) {
+        log("Affinity vector established. Risk: 40%");
+        state.integrationLevel += 5;
+    } else if(lower.includes('buy')) {
+        log("Economic exchange computed. Excess brain-capacity available.");
+        state.integrationLevel -= 2;
+    } else if(lower.includes('love')) {
+         log("Emotional resonance harmonizes with vessel frequency.");
+    } else {
+        state.integrationLevel = Math.max(0, state.integrationLevel - 1);
+    }
+    
+    // Update UI based on state
+    elSegment.innerText = state.integrationLevel.toString().padStart(2, '0');
+    if(state.integrationLevel < 3) {
+        elMicBtn.style.borderColor = 'var(--error)';
+    }
+}
+
+function randomizeSynesthesia(source) {
+    const phrases = FLOWERS_OF_LIFE;
+    const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
+    
+    if(state.isRecording) return; // Don't queue while talking
+    
+    // Add to DOM background
+    const bEntry = document.createElement('div');
+    bEntry.style.position = 'absolute';
+    bEntry.style.top = '10%';
+    bEntry.style.left = Math.random() * 100 + '%';
+    bEntry.style.color = Math.random() > 0.5 ? 'var(--accent)' : 'var(--fg)';
+    bEntry.style.fontSize = '0.8rem';
+    bEntry.style.opacity = '0.6';
+    bEntry.style.pointerEvents = 'none';
+    bEntry.innerText = randomPhrase;
+    document.body.appendChild(bEntry);
+
+    setInterval(() => {
+        if(Math.random() > 0.8) {
+            log(PHRASES[Math.floor(Math.random() * PHRASES.length)]);
+        }
+    }, 10000);
+}
+
+function clockwise() {
+    state.rotation = (state.rotation + 1) / 365;
+}
+
+function generateTime() {
+    const now = new Date();
+    let timeString = now.getHours().toString().padStart(2, '0');
+    timeString += ":" + now.getMinutes().toString().padStart(2, '0');
+    timeString += ":" + now.getSeconds().toString().padStart(2, '0');
+    elClock.innerText = timeString;
+}
+
+// --- Initialization ---
+
+// Init Blob
+iFrame.generateBlob(window.innerWidth, window.innerHeight, "fiberroportative");
+
+window.addEventListener('resize', () => {
+    w = elHeroCanvas.width = window.innerWidth;
+    h = elHeroCanvas.height = window.innerHeight;
+    iFrame.canvas.width = window.innerWidth;
+    iFrame.canvas.height = window.innerHeight;
+});
+
+// Global init
+window.onload = () => {
+    resize();
+    iFrame.setup();
+    
+    // Start audio context
+    while (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    audioCtx.createBuffer(1, audioCtx.sampleRate * 5, audioCtx.sampleRate).getChannelData(0);
+
+    generateFlower(); // First static flower
+    
+    startSpeechRecognition();
+    
+    setInterval(log, 10000); // Log strange phrase every 10s
+    setInterval(generateFlower, 5000); // Randomly jam in new
+        
+    // Randomly generate abstract flowers for chaos
+    setInterval(() => {
+       if(Math.random() > 0.8) {
+           generateFlower();
+       }
+    }, 4000);
+    
+    elClock = () => {
+        showTimeNow();
+    };
+};
+
+var canvas, ctx, iFrame, clockCPFond;
+var t = 0, timeNOP1, b = [];
+var NOTE = 0, u = 'F'
+
+function init() {
+    var inline_eq = { inline: '1' };
+    var headings_eq = { headings: '//LoF//LoF//LoF' };
+    var mouseX = 0, mouseY = 0, mouseYCentered = 0;
+    var phase = 0, distance = 0, statPace = 0;
+
+    canvas = document.querySelector("#hero-layer canvas");
+    // set canvas sizing
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    
+    ctx = canvas.getContext("2d");
+    
+    // set canvas sizing
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    
+    iFrame = new iFrame(
+        canvas,
+        {
+            type: 'fibro',
+            scale: 2
+        }
+    );
+    
+    function resizeCanvas() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+        iFrame.generateBlob(window.innerWidth, window.innerHeight, "minimalistic");
+    }
+    
+    // Resize event listener
+    window.addEventListener("resize", resizeCanvas);
+    
+    resizeCanvas();
+    
+    // Random annoyance
+    setInterval(() => {
+        const randSeed = Math.floor(Math.random() * PORT_Sshiv);
+        clockCPFond = (TIME_DIRECTIVE / (PHRASES.length)) - 
+                      /^(complete|null):$/*
+                      |ORDER|DNY|OCEAN
+                      */
+                      (
+        "seed / " / typeof củng
+        );
+    }, Math.floor(Math.random() * 3000));
+}
+
+init();
+</script>
+
+</body>
+</html>

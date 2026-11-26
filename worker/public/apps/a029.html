@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber-Tap Space Dodge</title>
+    <style>
+        :root {
+            --bg-color: #0f0f1a;
+            --accent-color: #00f3ff;
+            --danger-color: #ff2a2a;
+            --text-color: #ffffff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none; /* Prevent highlighting while tapping */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas/listeners */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #score-display {
+            color: var(--text-color);
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 5px var(--accent-color);
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-color);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        #game-over-screen.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: var(--danger-color);
+            text-shadow: 0 0 10px var(--danger-color);
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin: 0 0 30px 0;
+            color: var(--accent-color);
+        }
+
+        #final-score {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .blink {
+            animation: blinker 1.5s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui-layer">
+        <div id="score-display">SCORE: 0</div>
+    </div>
+
+    <div id="game-over-screen">
+        <h1>CRASHED</h1>
+        <p>Press SPACE or Click to Restart</p>
+        <span id="final-score">Score: 0</span>
+        <div class="blink">PRESS SPACE TO RESTART</div>
+    </div>
+</div>
+
+<script>
+/**
+ * CYBER-TAP: A single-key arcade dodger.
+ * Controls: Spacebar (Up), Click (Up)
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score-display');
+const gameOverScreen = document.getElementById('game-over-screen');
+const finalScoreEl = document.getElementById('final-score');
+
+// Game State
+let gameState = 'PLAYING'; // PLAYING, GAMEOVER
+let score = 0;
+let frames = 0;
+let gameSpeed = 1;
+let width, height;
+
+// Entities
+let player;
+let obstacles = [];
+let particles = [];
+
+// Configuration
+const PLAYER_SIZE = 30;
+const INITIAL_SPEED = 0.8; // Speed of falling objects
+const SPEED_INCREMENT = 0.005;
+const SPAWN_RATE_INITIAL = 60; // Frames between spawns
+
+// --- Resize Handling ---
+function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    if (player) player.y = 0; // Reset player to top if resized while game over state
+}
+window.addEventListener('resize', resize);
+
+// --- Classes ---
+
+class Player {
+    constructor() {
+        this.size = PLAYER_SIZE;
+        this.x = width / 2;
+        this.y = height / 2;
+        this.speedY = 0;
+        this.maxSpeed = 15;
+        this.friction = 0.85; // For the jump effect
+        this.isJumping = false;
+        this.color = '#00f3ff';
+        this.angle = 0; // For rotation effect
+    }
+
+    update() {
+        if (this.isJumping) {
+            this.y -= this.speedY * this.friction;
+            this.speedY *= 0.8; // Air resistance
+            
+            // Rotation effect based on velocity
+            this.angle += 0.15; 
+
+            if (this.y <= 0) {
+                this.y = 0;
+                this.isJumping = false;
+                this.speedY = 0;
+                this.angle = 0;
+            }
+        } else {
+            // Return to start position (home center) logic would be complex for this specific
+            // "Space to go up" mechanic, usually players just hover. 
+            // Let's make it so Space toggles Up. Starting pos is middle.
+            if (this.y < height / 3) {
+                // Don't pull back up when already low
+            }
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (this.isJumping) {
+            ctx.rotate(this.angle);
+        } else {
+            ctx.scale(1, 1); // Reset rotation if grounded
+        }
+
+        // Glow effect
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = this.color;
+        
+        // Draw Ship (Triangle)
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -this.size / 2);
+        ctx.lineTo(this.size / 2, this.size / 2);
+        ctx.lineTo(0, this.size / 2 * 1.5); // Engine spike
+        ctx.lineTo(-this.size / 2, this.size / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Engine flame if moving
+        if (this.isJumping) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath();
+            ctx.moveTo(-5, this.size);
+            ctx.lineTo(5, this.size);
+            ctx.lineTo(5 + (Math.random()*10), this.size + 20);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    jump() {
+        if (!this.isJumping) {
+            this.isJumping = true;
+            this.speedY = this.maxSpeed;
+        }
+    }
+}
+
+class Obstacle {
+    constructor() {
+        this.size = Math.random() * 20 + 20; // Random size 20-40
+        this.x = Math.random() * (width - this.size * 2) + this.size;
+        this.y = -this.size - 10;
+        this.speed = INITIAL_SPEED + Math.random() * 2;
+        this.rotation = 0;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+        this.color = '#ff2a2a';
+    }
+
+    update() {
+        this.y += this.speed * (gameSpeed > 1 ? gameSpeed : 1); // Speed up as game progresses
+        this.rotation += this.rotationSpeed;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        
+        // Draw Hexagon-ish shape for asteroids
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            ctx.lineTo(
+                this.size/2 * Math.cos(i * Math.PI / 3),
+                this.size/2 * Math.sin(i * Math.PI / 3)
+            );
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.restore();
+    }
+
+    isOffScreen() {
+        return this.y > height + 50;
+    }
+
+    collide(p) {
+        // Simple AABB collision
+        return (
+            this.x - this.size/2 < p.x + p.size/2 &&
+            this.x + this.size/2 > p.x - p.size/2 &&
+            this.y - this.size/2 < p.y + p.size/2 &&
+            this.y + this.size/2 > p.y - p.size/2
+        );
+    }
+}
+
+class Particle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = Math.random() * 3 + 1;
+        this.speedX = (Math.random() - 0.5) * 10;
+        this.speedY = (Math.random() - 0.5) * 10;
+        this.life = 1.0; // Opacity
+        this.color = `rgba(0, 243, 255,`;
+    }
+
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= 0.02;
+    }
+
+    draw() {
+        ctx.fillStyle = this.color + this.life + ')';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// --- Core Functions ---
+
+function init() {
+    resize();
+    player = new Player();
+    obstacles = [];
+    particles = [];
+    score = 0;
+    frames = 0;
+    gameSpeed = INITIAL_SPEED;
+    gameState = 'PLAYING';
+    
+    scoreEl.innerText = "SCORE: 0";
+    gameOverScreen.classList.remove('visible');
+    
+    loop();
+}
+
+function handleInput(e) {
+    if (e.type === 'keydown' && e.code !== 'Space') return;
+    
+    // Prevent default scrolling behavior for Space
+    if (e.type === 'keydown') e.preventDefault();
+
+    if (gameState === 'PLAYING') {
+        player.jump();
+    } else if (gameState === 'GAMEOVER') {
+        init();
+    }
+}
+
+function spawnObstacle() {
+    // Spawn rate increases as game speed increases
+    // Avoid clamping too low to prevent instant kills (20 frames is fast)
+    const rate = Math.max(20, 60 - Math.floor(gameSpeed * 10));
+    
+    if (frames % Math.floor(rate) === 0) {
+        obstacles.push(new Obstacle());
+    }
+}
+
+function checkCollisions() {
+    for (let i = 0; i < obstacles.length; i++) {
+        let obs = obstacles[i];
+        if (obs.collide(player)) {
+            createExplosion(player.x, player.y, player.color);
+            gameState = 'GAMEOVER';
+        }
+    }
+}
+
+function createExplosion(x, y, color) {
+    for (let k = 0; k < 20; k++) {
+        particles.push(new Particle(x, y));
+    }
+}
+
+function update() {
+    frames++;
+
+    // Increase difficulty
+    if (frames % 500 === 0) { // Every 500 frames increase difficulty
+        gameSpeed += 0.5;
+        score += 100;
+        scoreEl.innerText = `SCORE: ${score}`;
+    }
+    if (frames % 5 === 0) {
+        score++;
+        scoreEl.innerText = `SCORE: ${score}`;
+    }
+
+    player.update();
+    spawnObstacle();
+
+    // Update Obstacles
+    for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].update();
+        if (obstacles[i].isOffScreen()) {
+            obstacles.splice(i, 1);
+        }
+    }
+
+    // Update Particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        if (particles[i].life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+
+    checkCollisions();
+}
+
+function draw() {
+    // Clear screen with trail effect
+    ctx.fillStyle = 'rgba(15, 15, 26, 0.3)'; // Slight fade for motion blur feel
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw Grid (Retro effect)
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.05)';
+    ctx.lineWidth = 1;
+    const gridSize = 50;
+    const offset = (frames * (gameSpeed > 1 ? gameSpeed : 1)) % gridSize;
+
+    ctx.beginPath();
+    // Vertical lines
+    for (let x = 0; x <= width; x += gridSize) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+    }
+    // Horizontal lines
+    for (let y = offset; y <= height; y += gridSize) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+    }
+    ctx.stroke();
+
+    player.draw();
+    
+    obstacles.forEach(obs => obs.draw());
+    particles.forEach(p => p.draw());
+}
+
+function loop() {
+    if (gameState === 'PLAYING') {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+}
+
+// --- Event Listeners ---
+window.addEventListener('keydown', handleInput);
+window.addEventListener('mousedown', handleInput);
+window.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Prevent zoom/scroll
+    handleInput(e);
+}, { passive: false });
+
+// Start
+init();
+
+</script>
+</body>
+</html>

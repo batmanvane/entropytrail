@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronos: The Entropy Engine</title>
+    <style>
+        :root {
+            --bg: #050505;
+            --grid: #1a1a1a;
+            --primary: #00f0ff;
+            --danger: #ff0055;
+            --text: #e0e0e0;
+            --ui-bg: rgba(20, 20, 20, 0.9);
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* CRT Scanline Effect */
+        body::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* Vignette */
+        #vignette {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 60%, black 100%);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        #app {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-rows: 60px 1fr 150px;
+            grid-template-columns: 300px 1fr 300px;
+        }
+
+        /* UI PANELS */
+        .panel {
+            border: 1px solid var(--grid);
+            background: var(--ui-bg);
+            padding: 15px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .panel.active {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+        }
+
+        header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--grid);
+            background: rgba(0,0,0,0.8);
+        }
+
+        h1 { margin: 0; font-size: 1.2rem; letter-spacing: 2px; text-transform: uppercase; color: var(--primary); }
+        .status { font-size: 0.8rem; color: #aaa; }
+        .active .status { color: var(--danger); animation: blink 1s infinite; }
+
+        /* CONTROLS */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.7rem; margin-bottom: 5px; color: #888; }
+        input[type=range] { width: 100%; accent-color: var(--primary); background: #333; }
+        
+        button {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        button:hover { background: rgba(0, 240, 255, 0.1); box-shadow: 0 0 10px var(--primary); }
+        button.danger { border-color: var(--danger); color: var(--danger); }
+        button.danger:hover { background: rgba(255, 0, 85, 0.1); box-shadow: 0 0 10px var(--danger); }
+
+        /* VISUALIZATION AREA */
+        #visualizer {
+            position: relative;
+            grid-column: 1 / -1;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        #visualizer.focusing { opacity: 0.1; }
+
+        /* ANSI ARTI STYLES (Simulated with dot grid) */
+        #dot-matrix {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-image: radial-gradient(var(--text) 1px, transparent 1px);
+            background-size: 4px 4px;
+            opacity: 0.1;
+        }
+        
+        #data-stream {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem;
+            text-shadow: 0 0 5px var(--text);
+            mix-blend-mode: difference;
+            pointer-events: none;
+        }
+
+        /* TERMINAL */
+        #terminal {
+            grid-column: 2;
+            grid-row: 3;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+        .log-entry { margin-bottom: 4px; border-left: 2px solid transparent; padding-left: 5px; }
+        .log-gen { color: var(--primary); border-left-color: var(--primary); }
+        .log-warn { color: orange; border-left-color: orange; }
+        .log-danger { color: var(--danger); border-left-color: var(--danger); }
+        .log-sys { color: #fff; border-left-color: #fff; }
+
+        /* ANIMATIONS */
+        @keyframes blink { 50% { opacity: 0.3; } }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } 100% { transform: translateX(0); } }
+        .shake { animation: shake 0.2s infinite; }
+
+        /* UTILS */
+        .hidden { display: none !important; }
+        .scan-line {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 240, 255, 0.03);
+            transform: perspective(500px) rotateX(60deg);
+            display: none;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .scanning .scan-line { display: block; animation: scan 3s linear infinite; }
+        @keyframes scan { 0% { top: -100%; } 100% { top: 100%; } }
+
+        /* MODAL */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal {
+            width: 500px;
+            border: 1px solid var(--primary);
+            background: #000;
+            padding: 20px;
+            box-shadow: 0 0 50px rgba(0, 240, 255, 0.2);
+            text-align: center;
+        }
+        .modal h2 { color: var(--primary); margin-top: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="vignette"></div>
+    <div class="scan-line"></div>
+
+    <div id="modal-overlay">
+        <div class="modal">
+            <h1>CHRONOS</h1>
+            <p>Temporal Entropy Analysis Engine.</p>
+            <p style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">
+                WARNING: High-voltage simulation. Do not observe past events directly.<br>
+                Use gaze dampeners (Mouse/Touch) to avoid temporal blindness.
+            </p>
+            <button id="start-btn">Initialize System</button>
+        </div>
+    </div>
+
+    <div id="app">
+        <header id="header">
+            <h1>Chronos // v1.0.4</h1>
+            <div class="status" id="status-indicator">IDLE</div>
+        </header>
+
+        <!-- Sidebar Left: Controls -->
+        <aside class="panel" id="panel-left">
+            <div class="control-group">
+                <label>TEMPORAL FOCUS</label>
+                <input type="range" id="focus-val" min="0" max="100" value="0">
+                <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-top:5px;">
+                    <span>PAST</span>
+                    <span>FUTURE</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>ENTROPY RATE</label>
+                <input type="range" id="entropy-val" min="0" max="100" value="0">
+                <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-top:5px;">
+                    <span>STABLE</span>
+                    <span>CHAOS</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>NOISE FILTER: <span id="filter-val">0%</span></label>
+                <input type="range" id="noise-val" min="0" max="100" value="0">
+            </div>
+
+            <button id="scramble-btn" class="danger">SCRAMBLE TIMELINE</button>
+            <button id="dump-btn">DUMP CORE</button>
+        </aside>
+
+        <!-- Main Viewport -->
+        <main id="visualizer" class="panel">
+            <div id="dot-matrix"></div>
+            <h1 id="data-stream">GENERATING NEURO-SIGNALS...</h1>
+        </main>
+
+        <!-- Sidebar Right: Output -->
+        <aside class="panel" id="panel-right">
+            <h3>ANALYTICS</h3>
+            <div style="font-size: 0.7rem; color: #666; margin-bottom: 10px;">
+                PROBABILITY SPREAD: <span id="prob-val">0.0000</span>%
+            </div>
+            <div id="char-counter" style="font-size: 0.6rem;">NULL</div>
+            <div style="width: 100%; height: 1px; background: #333; margin: 15px 0;"></div>
+            <h3>MEMORY DUMP</h3>
+            <div style="font-size: 0.6rem; height: 200px; overflow: hidden; font-family: serif;">
+                <div id="text-output">...</div>
+            </div>
+        </aside>
+
+        <!-- Bottom: Terminal -->
+        <div id="terminal" class="panel">
+            <!-- Logs injected here -->
+        </div>
+    </div>
+
+    <script>
+        /**
+         * CHRONOS ENGINE
+         * A generative art simulation focused on "Time perception" and "Digital Noise".
+         * 
+         * Core Concept:
+         * - The center represents "NOW".
+         * - Left focus pulls the world towards rigid structure (The Past).
+         * - Right focus pulls towards chaotic noise (The Future).
+         * - Entropy controls the speed of degradation.
+         * - The mouse acts as a "Dampener", slowing down processing rates.
+         */
+
+        // --- STATE MANAGEMENT ---
+        const state = {
+            mode: 'IDLE', // IDLE, GENERATING, SCRAMBLING, ANALYZING
+            history: [],
+            frames: 0,
+            dampening: 0 // 0 to 1 based on mouse proximity
+        };
+
+        // --- DOM ELEMENTS ---
+        const els = {
+            app: document.getElementById('app'),
+            visualizer: document.getElementById('visualizer'),
+            dotMatrix: document.getElementById('dot-matrix'),
+            dataStream: document.getElementById('data-stream'),
+            terminal: document.getElementById('terminal'),
+            status: document.getElementById('status-indicator'),
+            matrix: document.createElement('canvas'),
+            filters: {
+                focus: document.getElementById('focus-val'),
+                entropy: document.getElementById('entropy-val'),
+                noise: document.getElementById('noise-val'),
+                filterDisplay: document.getElementById('filter-val')
+            },
+            counter: document.getElementById('char-counter'),
+            textOut: document.getElementById('text-output'),
+            modal: document.getElementById('modal-overlay'),
+            startBtn: document.getElementById('start-btn')
+        };
+
+        // --- ENGINE VARIABLES ---
+        let canvas, ctx, width, height;
+        let particles = [];
+        let logicGrid = [];
+        let audioCtx = null;
+        let oscillator = null;
+        let gainNode = null;
+
+        // --- INITIALIZATION ---
+        els.startBtn.addEventListener('click', () => {
+            els.modal.classList.add('hidden');
+            init();
+        });
+
+        // --- AUDIO SYSTEM (Synthesis) ---
+        const setupAudio = () => {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            
+            oscillator.type = 'sawtooth';
+            oscillator.frequency.value = 100;
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            gainNode.gain.value = 0;
+            oscillator.start();
+        };
+
+        class Particle {
+            constructor(w, h) {
+                this.reset(true);
+                this.coords = [];
+                this.historyLen = 20;
+                for(let i=0; i<this.historyLen; i++) this.coords.push({x: this.x, y: this.y});
+            }
+
+            reset(random = false) {
+                this.x = random ? Math.random() * width : width / 2 + (Math.random() * 200 - 100);
+                this.y = random ? Math.random() * height : height / 2 + (Math.random() * 200 - 100);
+                this.vx = random ? (Math.random() - 0.5) * 2 : (Math.random() - 0.5) * 4;
+                this.vy = random ? (Math.random() - 0.5) * 2 : (Math.random() - 0.5) * 4;
+                this.size = 1 + Math.random() * 3;
+            }
+
+            update(focus, chaos) {
+                // Drift
+                this.x += this.vx + (chaos * state.dampening);
+                this.y += this.vy + (chaos * state.dampening);
+
+                // Focus Effect (Time Warp)
+                // Moving away from center
+                let dx = this.x - width/2;
+                let dy = this.y - height/2;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (focus > 0) {
+                    this.x -= dx * 0.1 * (focus/100);
+                    this.y -= dy * 0.1 * (focus/100);
+                }
+
+                // Bounce
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                // Update History
+                this.coords.push({x: this.x, y: this.y});
+                if (this.coords.length > this.historyLen) this.coords.shift();
+            }
+
+            drawContext(ctx) {
+                ctx.beginPath();
+                for (let i = 0; i < this.coords.length; i++) {
+                    let cur = this.coords[i];
+                    ctx.lineTo(cur.x, cur.y);
+                    if(i < this.coords.length - 1) {
+                        let next = this.coords[i+1];
+                        let gap = Math.hypot(cur.x - next.x, cur.y - next.y);
+                        ctx.moveTo(cur.x, cur.y);
+                        ctx.lineTo(next.x, next.y);
+                        if(gap > width/10 && focus > 50) { // Discontinuity (Time Jump)
+                             ctx.strokeStyle = "var(--danger)";
+                             ctx.lineWidth = 1;
+                        } else {
+                             ctx.strokeStyle = "var(--primary)";
+                             ctx.lineWidth = this.size/2;
+                        }
+                    }
+                }
+                
+                // If chaotic, lines get messy
+                if (state.filters.entropy.value > 80) {
+                    ctx.globalAlpha = 0.3;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                } else {
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // --- LOGIC GRID (The Matrix part) ---
+        class GridNode {
+            constructor(w, h, cols, rows) {
+                this.w = w / cols;
+                this.h = h / rows;
+                this.gridW = cols;
+                this.gridH = rows;
+                this.update(w, h);
+            }
+            update(w, h) {
+                this.columns = [];
+                for(let x=0; x<this.w; x+=5) {
+                    this.columns[x] = {
+                        val: Math.random() * 255,
+                        next: Math.floor(Math.random() * 256)
+                    };
+                }
+            }
+            draw(ctx, focus, noise) {
+                for(let x=0; x<this.gridW; x++) {
+                    for(let y=0; y<this.gridH; y++) {
+                        let vx = (x * this.w) + (this.w/2);
+                        let vy = (y * this.h) + (this.h/2);
+                        
+                        // Reverse movement based on focus
+                        let velY = (state.filters.focus.value / 100) * 100;
+                        if(y < this.gridH/2) vy -= 1; else vy += 1; 
+                        vy += velY;
+
+                        let node = this.columns[vx];
+                        if(node) {
+                            // Draw Dot
+                            let alpha = Math.min(Math.random() * node.val + 1, 1);
+                            
+                            // Noise injection
+                            if(noise > 0) {
+                                alpha += (Math.random() - 0.5) * (noise/10);
+                            }
+
+                            // Focus distortion
+                            if(focus > 10) {
+                                // Pixel warp simulation
+                                if(Math.random() > 0.9) {
+                                    ctx.fillStyle = `rgba(0, 240, 255, ${alpha - 0.8})`;
+                                    ctx.fillRect(vx + (Math.random()*20), vy + (Math.random()*20), 5, 5);
+                                }
+                            }
+
+                            ctx.fillStyle = `rgba(0, ${Math.floor(node.val)}, ${Math.floor(node.val)}, ${alpha})`;
+                            ctx.beginPath();
+                            ctx.arc(Math.floor(vx), Math.floor(vy), 1.5, 0, Math.PI*2);
+                            ctx.fill();
+                        }
+                    }
+                }
+            }
+        }
+
+        function init() {
+            setupAudio();
+            
+            canvas = document.createElement('canvas');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            els.visualizer.appendChild(canvas);
+            ctx = canvas.getContext('2d');
+            
+            // HiDPI fix
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            ctx.scale(dpr, dpr);
+
+            // Initialize Entities
+            particles = [];
+            for(let i=0; i<150; i++) particles.push(new Particle(window.innerWidth, window.innerHeight));
+            
+            els.matrix.width = window.innerWidth;
+            els.matrix.height = window.innerHeight;
+            const ctxM = els.matrix.getContext('2d');
+            
+            // Initialize Logic Grid
+            // We just store the dimensions and logic in a global scope or object
+            window.logicGrid = new GridNode(canvas.width, canvas.height, canvas.width/10, canvas.height/10);
+
+            // Bind Controls
+            state.filters.focus.addEventListener('input', (e) => els.filters.filterDisplay.innerText = e.target.value + '%');
+            els.startBtn.remove(); // Cleanup modal
+            
+            // Start Loop
+            loop();
+        }
+
+        // --- INPUT HANDLING (Raycasting / Mouse Interaction) ---
+        let raycastOrigin = false;
+        
+        window.addEventListener('mousemove', (e) => {
+            const mx = e.clientX / width;
+            const my = e.clientY / height;
+            els.dampening = 0.5 + (mx * my) * 0.5; // "Dampening" strength
+            
+            // Logic to draw Lines to mouse
+            if(elis.dampening > 0) {
+                // We draw lines from mouse to grid
+                // Simplified visual: Just change opacity based on movement
+            }
+            els.visualizer.classList.add('focusing');
+        });
+
+        window.addEventListener('mouseup', () => {
+            els.visualizer.classList.remove('focusing');
+        });
+
+        // Partial radar effect
+        window.addEventListener('mousemove', (e) => {
+            const cx = width/2;
+            const cy = height/2;
+            const dx = e.clientX - cx;
+            const dy = e.clientY - cy;
+            
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(e.clientX, e.clientY);
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 300 + (dx*dx + dy*dy)/1000, 0, Math.PI*2);
+            ctx.stroke();
+        });
+
+        // --- LOGIC & CONTROLS ---
+
+        els.filters.noise.addEventListener('input', (e) => els.filters.filterDisplay.innerText = e.target.value + '%');
+        document.getElementById('focus-val').addEventListener('input', (e) => {
+            window.focusVal = e.target.value;
+        });
+        
+        els.textOut.innerText = "";
+
+        document.getElementById('scramble-btn').addEventListener('click', () => {
+            burst('scramble');
+        });
+
+        document.getElementById('dump-btn').addEventListener('click', () => {
+            burst('dump');
+        });
+
+        function burst(type) {
+            stopMode();
+            if(type === 'scramble') {
+                state.history = [];
+                particles.forEach(p => p.reset(true));
+                els.status.innerText = "TIMELINE FRAGMENTED";
+                els.status.classList.add('active');
+                log("CRITICAL ALERT", "SCRAMBLE SEQUENCE INITIATED.", "danger");
+                els.visualizer.classList.add('shake');
+            } else {
+                log("SYSTEM DUMP", "SEQ LOCAL HOLOGRAM REPERTOIRE", "sys");
+                els.dataStream.innerText = "DUMPING DATA...";
+                let interval = setInterval(() => {
+                    els.status.innerText = "UPLOADING...";
+                    let i = Math.floor(Math.random() * 1000);
+                    els.textOut.innerText += i.slice(50, 40).split('').join("");
+                    
+                    // Audio feedback
+                    if(gainNode) {
+                        gainNode.gain.setTargetAtTime(Math.random() * 0.5 + 0.1, audioCtx.currentTime, 0.1);
+                    }
+
+                    if(i < 500) {
+                        clearInterval(interval);
+                        log("SUCCESS", "UPLOAD COMPLETE.", "sys");
+                        els.dataStream.innerText = "ANALYSIS COMPLETE";
+                        stopMode();
+                    }
+                }, 50);
+            }
+        }
+
+        function stopMode() {
+            els.status.innerText = "IDLE";
+            els.dampening = 1; // Reset dampening logic if needed
+        }
+
+        // --- LOG IC SYSTEM ---
+        function log(type, msg, cls="info") {
+            const div = document.createElement('div');
+            div.className = `log-entry ${cls}`;
+            div.innerHTML = `<span style="opacity:0.5">[${new Date().toLocaleTimeString()}]</span> <span class="${cls==="sys" ? "log-sys" : "text-content"}">${type}:</span> ${msg}`;
+            els.terminal.appendChild(div);
+            els.terminal.scrollTop = els.terminal.scrollHeight;
+
+            if(cls === 'sys' && Math.random() > 0.9) {
+                const char = String.fromCharCode(32 + Math.random() * 95);
+                els.dataStream.innerText += char;
+                els.dataStream.style.opacity = '0.5';
+            }
+        }
+
+        // --- MAIN RENDER LOOP ---
+        function loop() {
+            // Clear Screen with Trail Effect
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Grid
+            window.logicGrid.draw(ctx, state.filters.focus.value, state.filters.noise.value);
+
+            // Draw Particles
+            // The dampening variable makes them slow down and reduce speed
+            if (state.dampening) {
+                // Calculate focus direction
+                const focus = state.filters.focus.value;
+                const chaos = state.filters.entropy.value;
+
+                particles.forEach(p => {
+                    // Time warp velocity factor
+                    let timeWarp = 0;
+                    if (focus > 50) {
+                        timeWarp = (focus - 50) / 500; // Slow down
+                    }
+                    if (chaos > 50) {
+                        timeWarp = 1; // Speed up / Jitters
+                    }
+
+                    p.update(focus, chaos * state.dampening);
+                    p.drawContext(ctx);
+                });
+            }
+
+            // Screen Scanline effect visual overlay
+            reqId = requestAnimationFrame(() => {
+                state.frames++;
+                loop();
+            });
+        }
+
+    </script>
+</body>
+</html>

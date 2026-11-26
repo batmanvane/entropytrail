@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Grinder</title>
+    <style>
+        :root {
+            --bg-color: #0f0f1a;
+            --grid-color: #1a1a2e;
+            --accent-color: #00d4ff;
+            --text-color: #e0e0e0;
+            --planet-color: #ff9f43;
+            --planet-shadow: rgba(255, 159, 67, 0.6);
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --font-family: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Background Stars */
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background Image: none;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.8;
+            animation: twinkle 2s infinite ease-in-out;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* Game Container */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 60vh;
+            border-bottom: 2px solid var(--accent-color);
+            display: flex;
+            align-items: flex-start;
+            padding: 20px;
+            justify-content: center;
+        }
+
+        #player {
+            width: 60px;
+            height: 60px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--accent-color);
+            cursor: pointer;
+            transition: transform 0.1s ease;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+        }
+
+        #player:active {
+            transform: scale(0.9);
+        }
+
+        #player-emoji {
+            font-size: 32px;
+        }
+
+        /* Fruits Container */
+        #fruit-container {
+            position: absolute;
+            top: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 440px;
+            pointer-events: none; /* Let clicks pass through */
+        }
+
+        .fruit {
+            width: 50px;
+            height: 50px;
+            background: var(--planet-color);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            box-shadow: 0 0 10px var(--planet-shadow);
+            margin: 0 10px;
+            position: relative;
+            top: calc(100% - 80px); /* Align bottom */
+            pointer-events: auto;
+            transition: transform 0.2s;
+        }
+
+        .fruit.hit {
+            transform: scale(1.2);
+            opacity: 0;
+        }
+
+        .fruit.miss {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-5px); }
+            40% { transform: translateX(5px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+        }
+
+        /* UI Elements */
+        .hud {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid var(--accent-color);
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 26, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+            color: #aaa;
+        }
+
+        button {
+            background: var(--accent-color);
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-family: var(--font-family);
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .score-final {
+            font-size: 3rem;
+            color: var(--text-color);
+            margin-bottom: 1rem;
+        }
+
+        .combo-text {
+            position: absolute;
+            color: var(--danger-color);
+            font-weight: bold;
+            font-size: 1.5rem;
+            animation: floatUp 1s forwards;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+
+        /* Particles */
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particleExpand 0.5s forwards;
+        }
+
+        @keyframes particleExpand {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Background -->
+    <div class="stars" id="star-container"></div>
+
+    <!-- HUD -->
+    <div class="hud">
+        <div class="stat-box">Score: <span id="score">0</span></div>
+        <div class="stat-box">Combo: <span id="combo">0</span>x</div>
+    </div>
+
+    <!-- Main Game Area -->
+    <div id="game-container">
+        <div id="player">
+            <span id="player-emoji">👨‍👩‍👧‍👦</span>
+        </div>
+        <div id="fruit-container"></div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen">
+        <h1>Lunar Grinder</h1>
+        <p>Pick up a family member.<br>Avoid the green mines!<br><br>Hold 'A' or 'D' (or use soft keys) to move.</p>
+        <button onclick="startGame()">Start Shift</button>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen hidden">
+        <h1 style="color: var(--danger-color)">Game Over</h1>
+        <p>You lost a crew member (or a mine hit you).</p>
+        <div class="score-final" id="final-score">0</div>
+        <button onclick="startGame()">Reportedly Move</button>
+    </div>
+
+    <script>
+        // --- Game Configuration ---
+        const GAME_SPEED_START = 4;
+        const FPS = 30;
+        const GRAVITY_SPEED = 15; // How fast gravity pulls them down
+        
+        // Visuals
+        const EMOJIS = ['🧑', '👶', '👵', '👴', '👩‍👩‍👧‍👧'];
+        const MINE_EMOJI = ['💣', '🏹', '💊', '🔧'];
+        
+        // --- State Variables ---
+        let score = 0;
+        let combo = 0;
+        let isPlaying = false;
+        let items = []; // Array of falling items
+        let lastTime = 0;
+        let spawnTimer = 0;
+        let spawnInterval = 800; // ms
+        let speedMultiplier = 1;
+        let keys = { a: false, d: false };
+        
+        // Movement Logic
+        const CONTAINER_WIDTH = 360; // Approximate width based on CSS
+        let playerPos = { x: CONTAINER_WIDTH / 2 - 30, y: 0 }; 
+        let heroPos = { x: CONTAINER_WIDTH / 2, y: 0 }; // Target position
+
+        // --- DOM Elements ---
+        const scoreEl = document.getElementById('score');
+        const comboEl = document.getElementById('combo');
+        const fruitContainer = document.getElementById('fruit-container');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreEl = document.getElementById('final-score');
+        const playerEmoji = document.getElementById('player-emoji');
+        const gameContainer = document.getElementById('game-container');
+
+        // --- Initialization ---
+        function initStars() {
+            const starContainer = document.getElementById('star-container');
+            for(let i=0; i<50; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                const size = Math.random() * 3 + 1;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.left = `${Math.random() * 100}%`;
+                star.style.top = `${Math.random() * 100}%`;
+                star.style.animationDelay = `${Math.random() * 2}s`;
+                starContainer.appendChild(star);
+            }
+        }
+
+        function startGame() {
+            score = 0;
+            combo = 0;
+            speedMultiplier = 1;
+            items = [];
+            lastTime = performance.now();
+            spawnInterval = 800;
+            
+            updateUI();
+            
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            isPlaying = true;
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Core Loop ---
+        function gameLoop(timestamp) {
+            if (!isPlaying) return;
+
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            update(deltaTime);
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            // Difficulty scaling
+            if (score > 0 && score % 100 === 0 && score > 0) {
+                speedMultiplier += 0.1;
+                if (spawnInterval > 400) spawnInterval -= 50;
+            }
+
+            // Spawn Items
+            spawnTimer += dt;
+            if (spawnTimer > spawnInterval) {
+                spawnItem();
+                spawnTimer = 0;
+            }
+
+            // Update Player/Hero Position
+            if (keys.a && heroPos.x > 0) heroPos.x -= 50; // Move Left
+            if (keys.d && heroPos.x < CONTAINER_WIDTH - 60) heroPos.x += 50; // Move Right
+
+            // Smooth Player Movement (Lerp)
+            const bias = 0.2; // Smoothing factor
+            playerPos.x += (heroPos.x - playerPos.x) * 0.1;
+
+            // Update Items
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                
+                // Gravity
+                item.y += GRAVITY_SPEED * speedMultiplier * (dt / 16);
+                
+                // Collision Detection
+                checkCollision(item);
+
+                // Remove if off screen
+                if (item.y > 600) {
+                    items.splice(i, 1);
+                    handMiss();
+                }
+            }
+
+            // Update UI (Combo decay could go here)
+            updateUI();
+        }
+
+        function draw() {
+            // Clear fruits
+            fruitContainer.innerHTML = '';
+
+            // Draw Items (Sorted by Y so lower ones draw on top)
+            items.sort((a, b) => a.y - b.y);
+            
+            items.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'fruit';
+                el.textContent = item.emoji;
+                
+                // Apply Position
+                // The CSS top: 60px is for the fruit-section, but we draw relative
+                el.style.transform = `translate(${item.x - item.baseX}px, ${item.y - (fruitContainer.clientHeight - 40)}px)`;
+                
+                fruitContainer.appendChild(el);
+            });
+
+            // Draw Player
+            const playerEl = document.getElementById('player');
+            playerEl.style.transform = `translateX(${playerPos.x - 30}px)`;
+        }
+
+        // --- Game Logic ---
+        function spawnItem() {
+            const width = CONTAINER_WIDTH;
+            const randomX = Math.random() * (width - 60);
+            const baseX = randomX;
+            const isMine = Math.random() > 0.85; // 15% chance of mine
+            
+            items.push({
+                x: baseX,
+                y: -60,
+                baseX: baseX, // Store reference so we don't re-calculate
+                isMine: isMine,
+                emoji: isMine ? MINE_EMOJI[Math.floor(Math.random() * MINE_EMOJI.length)] : EMOJIS[Math.floor(Math.random() * EMOJIS.length)]
+            });
+        }
+
+        function checkCollision(item) {
+            // Hitbox adjustments
+            const playerBox = { x: playerPos.x - 20, y: playerPos.y - 20, w: 40, h: 40 };
+            const itemBox = { x: item.x - 20, y: item.y - 20, w: 40, h: 40 };
+
+            const intersect = !(playerBox.x > itemBox.x + itemBox.w ||
+                            playerBox.x + playerBox.w < itemBox.x ||
+                            playerBox.y > itemBox.y + itemBox.h ||
+                            playerBox.y + playerBox.h < itemBox.y);
+
+            if (intersect) {
+                if (item.isMine) {
+                    gameOver();
+                } else if (handHit(item, item.x)) {
+                    handleSuccess();
+                }
+            }
+        }
+
+        function handleSuccess() {
+            score += 10 + (combo * 0.5);
+            combo++;
+            createParticles(heroPos.x, heroPos.y - 20);
+            handHitItem();
+            updateUI();
+        }
+
+        function handHit(item, x) {
+            // Calculate distance between center of hit and center of hand
+            const dist = Math.abs((heroPos.x + 30) - (item.x + 25));
+            return dist < 60; // Generous hit box
+        }
+
+        function handMiss() {
+            combo = 0;
+            updateUI();
+        }
+        
+        function handHitItem() {
+            // Visual hit effect on the item element
+            const itemEl = document.querySelector('.fruit');
+            if (itemEl) {
+                itemEl.classList.remove('hit');
+                void itemEl.offsetWidth; // Trigger reflow
+                itemEl.classList.add('hit');
+            }
+        }
+
+        function updateUI() {
+            scoreEl.textContent = Math.floor(score);
+            comboEl.textContent = combo;
+            
+            // Animate combo
+            if (combo > 1) {
+                comboEl.style.color = '#ff9f43';
+                setTimeout(() => comboEl.style.color = '#e0e0e0', 200);
+            }
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            finalScoreEl.textContent = Math.floor(score);
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function createParticles(x, y) {
+            for (let i = 0; i < 8; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                gameContainer.style.position = 'relative';
+                gameContainer.appendChild(p);
+                
+                p.style.left = x + 'px';
+                p.style.top = y + 'px';
+                
+                const angle = Math.random() * Math.PI * 2;
+                const velocity = Math.random() * 100 + 50;
+                
+                const xEnd = Math.cos(angle) * velocity;
+                const yEnd = Math.sin(angle) * velocity;
+
+                p.animate([
+                    { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                    { transform: `translate(${xEnd}px, ${yEnd}px) scale(0)`, opacity: 0 }
+                ], {
+                    duration: 500,
+                    easing: 'ease-out'
+                });
+
+                setTimeout(() => p.remove(), 500);
+            }
+        }
+
+        // --- Input Handling ---
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = true;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = true;
+            if (e.key === ' ') {
+                const heroEl = document.querySelector('.fruit');
+                if(heroEl && heroEl.classList.contains('hit')){
+                    // Rapid repeat logic could go here, but we clean up the DOM immediately
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.a = false;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.d = false;
+        });
+
+        // Touch controls for mobile
+        gameContainer.addEventListener('touchstart', (e) => {
+            const touchX = e.touches[0].clientX;
+            const rect = gameContainer.getBoundingClientRect();
+            const relX = touchX - rect.left;
+            
+            if (relX < rect.width / 2) {
+                keys.a = true;
+                keys.d = false;
+            } else {
+                keys.a = false;
+                keys.d = true;
+            }
+        });
+
+        gameContainer.addEventListener('touchend', () => {
+            keys.a = false;
+            keys.d = false;
+        });
+
+        // Start Star Animation
+        initStars();
+
+    </script>
+</body>
+</html>

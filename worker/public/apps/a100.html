@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus & Daily Helper</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-main: #333344;
+            --text-sub: #718096;
+            --primary: #5c6bc0;
+            --primary-hover: #3949ab;
+            --success: #4caf50;
+            --danger: #ef5350;
+            --warning: #ffa726;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+        p.subtitle { color: var(--text-sub); font-size: 0.9rem; }
+
+        /* Cards */
+        .tool-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.2s ease;
+        }
+
+        .tool-card:hover { transform: translateY(-2px); }
+
+        /* Pomodoro Section */
+        .timer-display {
+            font-size: 3.5rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            margin: 15px 0;
+            color: var(--primary);
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 700;
+            background: #e8eaf6;
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+
+        .control-group { display: flex; gap: 10px; width: 100%; justify-content: center; }
+
+        button {
+            border: none;
+            cursor: pointer;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; flex: 1; }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+        .btn-icon { background: #f1f3f4; color: var(--text-sub); flex: 0 0 auto; }
+        .btn-icon:hover { background: #e0e0e0; color: var(--text-main); }
+
+        .mode-selector {
+            display: flex;
+            background: #f1f3f4;
+            padding: 4px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .mode-btn {
+            background: transparent;
+            color: var(--text-sub);
+            padding: 6px 12px;
+            flex: 1;
+        }
+
+        .mode-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Focus List */
+        .task-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            margin-bottom: 10px;
+        }
+
+        .task-list { width: 100%; list-style: none; overflow-y: auto; max-height: 150px; }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f5f5f5;
+            gap: 10px;
+        }
+
+        .task-item:last-child { border-bottom: none; }
+
+        .task-text { flex: 1; font-size: 0.95rem; }
+        .task-item.completed .task-text { text-decoration: line-through; color: #aaa; }
+
+        .done-check {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .done-check.checked {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .done-check.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 12px;
+        }
+
+        /* Dark Mode Toggle */
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="theme-toggle" id="themeToggle" title="Toggle Mode">
+        🌗
+    </div>
+
+    <div class="container">
+        <header>
+            <h1 id="appTitle">Focus & Helpers</h1>
+            <p class="subtitle" id="greeting">Good morning.</p>
+        </header>
+
+        <!-- Focus Timer Section -->
+        <div class="tool-card">
+            <span class="status-badge" id="timerStatus">Work Time</span>
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="setMode('work')">Work</button>
+                <button class="mode-btn" onclick="setMode('short')">Break</button>
+                <button class="mode-btn" onclick="setMode('long')">Long Break</button>
+            </div>
+            <div class="timer-display" id="timerDisplay">25:00</div>
+            <div class="control-group">
+                <button class="btn-primary" id="startBtn" onclick="toggleTimer()">Start</button>
+                <button class="btn-icon" onclick="resetTimer()" title="Reset">↻</button>
+            </div>
+        </div>
+
+        <!-- Quick Tasks Section -->
+        <div class="tool-card">
+            <h3 style="margin-bottom: 10px; font-size: 1rem;">My Focus List</h3>
+            <input type="text" class="task-input" id="newTaskInput" placeholder="What needs doing?" onkeypress="handleEnter(event)">
+            <ul class="task-list" id="taskList">
+                <!-- Tasks injected here -->
+            </ul>
+        </div>
+
+        <!-- Manicure Clock -->
+        <div class="tool-card">
+            <p style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 10px;">It's <span id="clockRealTime" style="font-weight: bold; color: var(--text-main);"></span></p>
+            <div style="font-size: 1.2rem; color: var(--text-sub); font-family: monospace;">
+                <div id="manicureClock">● 000</div>
+                <button onclick="niche()" style="font-size: 0.7rem; padding: 4px 8px; margin-top: 5px; background: #e8eaf6;">Niche</button>
+            </div>
+            <p class="subtitle" style="margin-top: 15px; text-align: center;">Review your day and stick some dots on it.</p>
+        </div>
+    </div>
+
+    <script>
+        /* --- 1. Pomodoro Timer Logic --- */
+        let timerInterval;
+        let isRunning = false;
+        let timeLeft = 25 * 60; // seconds
+        let currentMode = 'work';
+        
+        const modes = {
+            work: { time: 25 * 60, label: '25:00', color: 'var(--primary)' },
+            short: { time: 5 * 60, label: '05:00', color: 'var(--warning)' },
+            long: { time: 15 * 60, label: '15:00', color: '#5c6bc0' }
+        };
+
+        const timerDisplay = document.getElementById('timerDisplay');
+        const timerStatus = document.getElementById('timerStatus');
+        const startBtn = document.getElementById('startBtn');
+        const appTitle = document.getElementById('appTitle');
+        const greeting = document.getElementById('greeting');
+
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60);
+            const s = timeLeft % 60;
+            timerDisplay.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            timerDisplay.style.color = modes[currentMode].color;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function setMode(mode) {
+            if (isRunning) return; // Prevent switching while running
+            currentMode = mode;
+            timeLeft = modes[mode].time;
+            
+            // Update UI
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            timerStatus.textContent = mode === 'work' ? 'Work Time' : 'Rest Time';
+            timerDisplay.textContent = modes[mode].label;
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            isRunning = true;
+            startBtn.textContent = 'Pause';
+            startBtn.style.background = 'var(--warning)';
+            timerStatus.textContent = 'Running...';
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    startBtn.textContent = 'Start';
+                    startBtn.style.background = 'var(--primary)';
+                    timerStatus.textContent = 'Time is up!';
+                    timerDisplay.style.color = '#4caf50'; // Green for success
+                    // Simple ringtone logic could go here
+                    audioContext?.resume(); // Polyfill friendly
+                    alert("Timer finished!");
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            startBtn.textContent = 'Resume';
+            startBtn.style.background = '';
+            timerStatus.textContent = 'Paused';
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timeLeft = modes[currentMode].time;
+            timerDisplay.style.color = modes[currentMode].color;
+            updateDisplay();
+            startBtn.textContent = 'Start';
+        }
+
+        /* --- 2. Local Storage & Greeting --- */
+        const themeBtn = document.getElementById('themeToggle');
+
+        themeBtn.addEventListener('click', () => {
+            themeBtn.textContent = isDarkMode ? '☀️' : '🌗';
+            isDarkMode = !isDarkMode;
+            document.body.style.backgroundColor = isDarkMode ? '#1e1e1e' : '#f0f2f5';
+            document.documentElement.style.setProperty('--text-sub', isDarkMode ? '#aaa' : '#718096');
+            document.documentElement.style.setProperty('--bg', isDarkMode ? '#2d2d2d' : '#f0f2f5');
+        });
+
+        let isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.body.style.backgroundColor = isDarkMode ? '#1e1e1e' : '#f0f2f5';
+        document.documentElement.style.setProperty('--text-sub', isDarkMode ? '#aaa' : '#718096');
+        themeBtn.textContent = isDarkMode ? '☀️' : '🌗';
+
+        function getGreeting() {
+            const hour = new Date().getHours();
+            if (hour < 12) return "Good morning.";
+            if (hour < 18) return "Good afternoon.";
+            return "Good evening.";
+        }
+        greeting.textContent = getGreeting();
+
+        /* --- 3. Task Manager (ToDo) --- */
+        function handleEnter(e) {
+            if (e.key === 'Enter') addTask();
+        }
+
+        function addTask() {
+            const input = document.getElementById('newTaskInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            createTaskElement(text, false);
+            input.value = '';
+            saveTasks();
+        }
+
+        function toggleTask(id) {
+            const index = document.querySelector(`[data-id="${id}"]`).dataset.completed === 'true' ? -1 : 1;
+            toggleTaskElement(id, index);
+            saveTasks();
+        }
+
+        function createTaskElement(text, completed = false, id = null) {
+            const ul = document.getElementById('taskList');
+            const li = document.createElement('li');
+            li.className = 'task-item' + (completed ? ' completed' : '');
+            li.dataset.id = id || Date.now();
+            li.dataset.completed = completed ? 'true' : 'false';
+
+            const check = document.createElement('div');
+            check.className = 'done-check' + (completed ? ' checked' : '');
+            check.onclick = () => toggleTask(li.dataset.id);
+
+            const span = document.createElement('span');
+            span.className = 'task-text';
+            span.textContent = text;
+
+            li.appendChild(check);
+            li.appendChild(span);
+            ul.appendChild(li);
+        }
+
+        function saveTasks() {
+            const tasks = [];
+            document.querySelectorAll('.task-item').forEach(li => {
+                tasks.push({
+                    id: li.dataset.id,
+                    text: li.querySelector('.task-text').textContent,
+                    completed: li.dataset.completed === 'true'
+                });
+            });
+            localStorage.setItem('tinyTasks', JSON.stringify(tasks));
+        }
+
+        function loadTasks() {
+            const tasks = JSON.parse(localStorage.getItem('tinyTasks')) || [];
+            tasks.forEach(task => createTaskElement(task.text, task.completed, task.id));
+        }
+
+        loadTasks();
+
+        /* --- 4. Manicure Clock Logic --- */
+        const clockEl = document.getElementById('manicureClock');
+        const nicheBtn = document.querySelector('.tool-card button');
+
+        function updateClock() {
+            const date = new Date();
+            const seconds = date.getSeconds();
+            const current = '● ' + seconds.toString().padStart(3, '0');
+            clockEl.innerHTML = `${current} ${clockEl.innerText}`;
+        }
+
+        function niche() {
+            const divs = document.querySelectorAll('.tool-card');
+            
+            // Toggle all classes
+            divs.forEach(div => div.classList.toggle('niche'));
+            
+            // Apply class manually in case of no match
+            nicheBtn.classList.toggle('niche');
+
+            // Set random duration
+            const randSec = Math.ceil(Math.random() * 5) + 3;
+            let i = 0;
+            const int = setInterval(function(){ i++; clockEl.innerText = "".padEnd(randSec-i,'*') }, 1000);
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Companion</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 500px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: transform 0.2s ease;
+        }
+
+        .card:focus-within {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .icon {
+            width: 24px;
+            height: 24px;
+            fill: var(--primary);
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        /* Determination Specifics */
+        #determination-text {
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, var(--primary), #9333ea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Frequency Specifics */
+        .freq-list {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .freq-item {
+            background: var(--bg);
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            user-select: none;
+        }
+
+        .freq-item.active {
+            background: var(--primary);
+            color: white;
+            font-weight: 500;
+        }
+
+        /* Time Specifics */
+        .time-display {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 20px;
+            color: var(--text-main);
+        }
+
+        .time-set {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+        }
+
+        input[type="time"] {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: var(--bg);
+            outline: none;
+        }
+        
+        input[type="time"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--bg);
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--text-main);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            bottom: 30px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Daily Companion</h1>
+            <div class="subtitle">Focus & Reminder Helper</div>
+        </header>
+
+        <div class="grid">
+            <!-- Determination Card -->
+            <div class="card">
+                <div class="card-header">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                    <span class="card-title">Determination</span>
+                </div>
+                <div id="determination-text">Focus</div>
+                <button id="btn-determination" class="btn btn-secondary">Re-roll</button>
+            </div>
+
+            <!-- Reminders Card -->
+            <div class="card">
+                <div class="card-header">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M6 6v2m4-2v2m6-2v2m-8 0h5a2 2 0 012 2v10a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2zm-4 8h14"/>
+                    </svg>
+                    <span class="card-title">Reminders</span>
+                </div>
+                <div class="empty-state">
+                    Set a time for yourself.
+                </div>
+                <input type="time" id="reminder-time">
+                <button id="btn-reminder" class="btn btn-primary">Set Reminder</button>
+            </div>
+
+            <!-- Clock/Timer Card -->
+            <div class="card">
+                <div class="card-header">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" fill="none"/>
+                    </svg>
+                    <span class="card-title">Clock</span>
+                </div>
+                <div class="time-display" id="clock-time">00:00:00</div>
+                <div class="time-set">
+                    <button id="btn-minute" class="btn btn-secondary" style="background: transparent; color: var(--text-muted);">+1 Min</button>
+                    <button id="btn-reset" class="btn btn-secondary" style="background: transparent; color: var(--text-muted);">Reset</button>
+                </div>
+            </div>
+
+            <!-- Greeting Card -->
+            <div class="card">
+                <div class="card-header">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                    <span class="card-title">Greeting</span>
+                </div>
+                <div id="greeting-text" style="text-align: center; color: var(--text-muted); font-weight: 600; font-size: 1.1rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Reminder set!</div>
+
+    <script>
+        // --- Helper Functions ---
+        const showToast = (msg) => {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        };
+
+        const formatTime = (date) => {
+            return date.toLocaleTimeString('en-US', { hour12: false });
+        };
+
+        const formatGreeting = () => {
+            const hour = new Date().getHours();
+            if (hour < 12) return `Good morning! ☀️`;
+            if (hour < 18) return `Good afternoon! ☁️`;
+            return `Good evening! 🌙`;
+        };
+
+        // --- Determination Logic ---
+        const determinationPhrases = [
+            "Be persistent", "Trust the process", "Take a breath", 
+            "Start small", "Focus on today", "Don't give up",
+            "It's okay to rest", "Seek help", "Celebrate wins",
+            "Learn from mistakes", "Stay flexible", "Be kind to yourself"
+        ];
+
+        const btnDetermination = document.getElementById('btn-determination');
+        const displayDetermin = document.getElementById('determination-text');
+
+        function setDetermination() {
+            const random = Math.floor(Math.random() * determinationPhrases.length);
+            // Capitalize first letter
+            displayDetermin.textContent = determinationPhrases[random].charAt(0).toUpperCase() + determinationPhrases[random].slice(1);
+        }
+
+        btnDetermination.addEventListener('click', setDetermination);
+        // Initial set
+        setDetermination();
+
+        // --- Reminder Logic ---
+        const btnReminder = document.getElementById('btn-reminder');
+        const inputTime = document.getElementById('reminder-time');
+        
+        let timerInterval;
+
+        function startTimer() {
+            const timeVal = inputTime.value;
+            if (!timeVal) return;
+
+            // Hide reset/min buttons if set
+            document.getElementById('btn-reset').style.display = 'none';
+            document.getElementById('btn-minute').style.display = 'none';
+            showToast(`Reminder set for ${timeVal}`);
+            
+            // Clear previous
+            clearInterval(timerInterval);
+
+            // Find the date
+            const now = new Date();
+            const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 
+                parseInt(timeVal.substring(0,2)), parseInt(timeVal.substring(3,5)), 0);
+            
+            // If time has passed today, set for next day
+            if (targetDate <= now) {
+                targetDate.setDate(targetDate.getDate() + 1);
+            }
+
+            const diff = targetDate - now;
+
+            if (diff >= 0) {
+                timerInterval = setInterval(() => {
+                    const newDiff = targetDate - new Date();
+                    if (newDiff < 0) {
+                        clearInterval(timerInterval);
+                        alert(`It's time! ${inputTime.value}`);
+                    }
+                }, 6000);
+            }
+        }
+
+        btnReminder.addEventListener('click', startTimer);
+
+        // --- Clock Logic ---
+        const clockDisplay = document.getElementById('clock-time');
+        
+        // Live Seconds
+        setInterval(() => {
+            const d = new Date();
+            clockDisplay.textContent = formatTime(d);
+        }, 1000);
+
+        // Manual Timer Control
+        const btnMinute = document.getElementById('btn-minute');
+        const btnReset = document.getElementById('btn-reset');
+        
+        // Hidden state variables for manual timer
+        let manualTimerInterval;
+        let activeMinutes = 0;
+        let activeSeconds = 0;
+        let isCountingUp = true; // true = timer/add, false = countdown
+
+        function updateClockDisplay() {
+            const totalSeconds = activeMinutes * 60 + activeSeconds;
+            const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            clockDisplay.textContent = `${m}:${s}`;
+        }
+
+        btnMinute.addEventListener('click', () => {
+            if (isCountingUp) {
+                activeSeconds = (activeSeconds + 1) % 60;
+                if (activeSeconds === 0) activeMinutes++;
+                showToast("Time +1 Minute");
+            } else {
+                if (activeMinutes > 0) {
+                    activeMinutes--;
+                    activeSeconds = 59; // Reset to end of minute
+                    showToast("Time -1 Minute");
+                }
+            }
+            updateClockDisplay();
+        });
+
+        btnReset.addEventListener('click', () => {
+            isCountingUp = true;
+            activeMinutes = 0;
+            activeSeconds = 0;
+            clearInterval(manualTimerInterval);
+            updateClockDisplay();
+            document.getElementById('btn-reset').style.display = 'flex';
+            document.getElementById('btn-minute').style.display = 'flex';
+            showToast("Timer reset");
+        });
+
+        // Initialize Clock Display
+        updateClockDisplay();
+
+        // --- Greeting Logic ---
+        const greetingDisplay = document.getElementById('greeting-text');
+        greetingDisplay.textContent = formatGreeting();
+
+        // Update greeting on minute change
+        setInterval(() => {
+            greetingDisplay.textContent = formatGreeting();
+        }, 60000);
+
+    </script>
+</body>
+</html>

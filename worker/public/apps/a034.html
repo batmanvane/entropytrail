@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Dash</title>
+    <style>
+        :root {
+            --bg-color: #111;
+            --text-color: #fff;
+            --accent-color: #0ff;
+            --danger-color: #f05;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+
+        canvas {
+            background-color: #1a1a1a;
+            border: 2px solid #333;
+            display: block;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to canvas if needed */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+
+        #score-board {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        .btn {
+            pointer-events: auto;
+            background: transparent;
+            border: 2px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            background: var(--accent-color);
+            color: #000;
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        /* Mobile touch hint */
+        .mobile-hint {
+            display: none;
+            font-size: 0.8rem;
+            margin-top: 10px;
+            opacity: 0.6;
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            .mobile-hint { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="score-board">SCORE: 0</div>
+        
+        <div id="ui-layer">
+            <!-- Start Screen -->
+            <div id="start-screen">
+                <h1>NEON DASH</h1>
+                <p>Move mouse or Touch to steer.</p>
+                <p style="color: var(--danger-color)">Avoid the Red Orbs.</p>
+                <p id="high-score-display">High Score: 0</p>
+                <button class="btn" id="start-btn">PLAY</button>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="game-over-screen" class="hidden">
+                <h1 style="color: var(--danger-color)">GAME OVER</h1>
+                <p>Final Score: <span id="final-score">0</span></p>
+                <button class="btn" id="restart-btn">TRY AGAIN</button>
+            </div>
+            
+            <div class="mobile-hint">Drag to move</div>
+        </div>
+    </div>
+
+<script>
+/**
+ * NEON DASH
+ * A vanilla JS game using HTML5 Canvas.
+ */
+
+// --- Configuration ---
+const CONFIG = {
+    playerSpeed: 0.15,         // Lerp factor (0-1)
+    playerRadius: 15,
+    enemyBaseSpeed: 3,
+    spawnRate: 60,             // Frames between spawns
+    colors: {
+        player: '#00ffff',
+        enemy: '#ff0055',
+        particle: '#ffff00'
+    }
+};
+
+// --- State Management ---
+const state = {
+    status: 'MENU', // MENU, PLAYING, GAMEOVER
+    score: 0,
+    highScore: localStorage.getItem('neonDashHighScore') || 0,
+    frameCount: 0,
+    mouseX: 200,             // Center of canvas
+    mouseY: 300
+};
+
+// --- DOM Elements ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const uiLayer = document.getElementById('ui-layer');
+const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
+const scoreEl = document.getElementById('score-board');
+const highScoreEl = document.getElementById('high-score-display');
+const finalScoreEl = document.getElementById('final-score');
+const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn');
+
+const尺寸为 canvas.width;
+
+// --- Game Entities ---
+
+class Player {
+    constructor() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height - 50;
+        this.targetX = this.x;
+        this.targetY = this.y;
+        this.radius = CONFIG.playerRadius;
+        this.trail = [];
+        this.maxTrail = 10;
+    }
+
+    update() {
+        // Smooth interpolation for movement
+        this.x += (this.targetX - this.x) * CONFIG.playerSpeed;
+        this.y += (this.targetY - this.y) * CONFIG.playerSpeed;
+
+        // Boundary checks
+        if (this.x < this.radius) this.x = this.radius;
+        if (this.x > canvas.width - this.radius) this.x = canvas.width - this.radius;
+        if (this.y < this.radius) this.y = this.radius;
+        if (this.y > canvas.height - this.radius) this.y = canvas.height - this.radius;
+
+        // Trail effect
+        this.trail.push({ x: this.x, y: this.y, alpha: 1.0 });
+        if (this.trail.length > this.maxTrail) this.trail.shift();
+        
+        this.trail.forEach(t => {
+            t.alpha -= 0.1;
+        });
+    }
+
+    draw() {
+        // Draw Trail
+        this.trail.forEach(t => {
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, this.radius * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(0, 255, 255, ${t.alpha * 0.5})`;
+            ctx.fill();
+        });
+
+        // Draw Core
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = CONFIG.colors.player;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = CONFIG.colors.player;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // Inner white core
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+    }
+}
+
+class Enemy {
+    constructor(prevX, prevY) {
+        this.radius = Math.random() * 15 + 10; // Random size 10-25
+        this.x = Math.random() * canvas.width;
+        // Bottom-left and Bottom-right spawn bias
+        if (Math.random() > 0.5) {
+            this.x = this.x - (this.radius + jitter) + 5;
+        } else {
+            this.x = this.x + (this.radius + jitter) - 5;
+        }
+        
+        this.y = canvas.height + this.radius;
+        
+        // Calculate angle to target (current player pos)
+        const angle = Math.atan2(player.y - this.y, player.x - this.x);
+        
+        // Random speed variation
+        const speed = CONFIG.enemyBaseSpeed + Math.random() * 2;
+        
+        this.velocity = {
+            x: Math.cos(angle) * speed,
+            y: Math.sin(angle) * speed
+        };
+        
+        // Flag to decide if we need to re-target
+        this.retarget = false;
+        this.retargetTimer = this.retarget ? 30 : 0;
+    }
+
+    update() {
+        this.y += this.velocity.y;
+        this.x += this.velocity.x;
+
+        if (this.retarget) {
+            this.retargetTimer--;
+            if (this.retargetTimer <= 0) {
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                const speed = CONFIG.enemyBaseSpeed + Math.random() * 2 + (state.score * 0.05); // Get harder
+                this.velocity.x = Math.cos(angle) * speed;
+                this.velocity.y = Math.sin(angle) * speed;
+                this.retargetTimer = 30; // Adjust every 30 frames
+            }
+        }
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = CONFIG.colors.enemy;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = CONFIG.colors.enemy;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 3;
+        this.velocity = {
+            x: Math.cos(angle) * speed,
+            y: Math.sin(angle) * speed
+        };
+        this.alpha = 1;
+        this.size = Math.random() * 3 + 1;
+    }
+
+    update() {
+        this.x += this.velocity.x;
+        this.y += this.velocity.y;
+        this.alpha -= 0.03;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// --- Game Logic ---
+
+let player;
+let enemies = [];
+let particles = [];
+let animationId;
+
+function init() {
+    player = new Player();
+    state.score = 0;
+    state.frameCount = 0;
+    enemies = [];
+    particles = [];
+    updateScore();
+}
+
+function spawnEnemy() {
+    if (enemies.length > 0) {
+        const prevEnemy = enemies[enemies.length - 1];
+        enemies.push(new Enemy(prevEnemy.x, prevEnemy.y));
+    } else {
+        enemies.push(new Enemy(state.mouseX, canvas.height + 50));
+    }
+}
+
+function checkCollisions() {
+    // Simple AABB/Circle detection
+    for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        const dist = Math.hypot(player.x - e.x, player.y - e.y);
+        
+        if (dist - e.radius - player.radius < 1) {
+            gameOver();
+            return;
+        }
+    }
+}
+
+function createExplosion(x, y, color) {
+    for (let i = 0; i < 10; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+}
+
+function update() {
+    state.frameCount++;
+    scoreEl.innerText = `SCORE: ${state.score}`;
+
+    // Player movement handling
+    // Canvas click
+    // Touch handling
+    if (touchX !== null) {
+        state.mouseX = touchX;
+        state.mouseY = touchY;
+    }
+    // Mouse handling
+    // const rect = canvas.getBoundingClientRect();
+    // state.mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+    // state.mouseY = (clientY - rect.top) * (canvas.height / rect.height);
+
+    player.update();
+
+    // Spawner
+    // theta e
+    if (enemies.length === 0 || (state.frameCount % Math.floor(CONFIG.spawnRate * Math.max(0.5, (5 - state.score/30))) === 0)) {
+        spawnEnemy();
+    }
+
+    // Enemies
+    enemies.forEach((enemy, index) => {
+        enemy.update();
+        
+        // Remove off-screen enemies
+        if (enemy.y > canvas.height + 50) {
+            enemies.splice(index, 1);
+            state.score += 10;
+            updateScore();
+        }
+    });
+
+    // Particles
+    particles.forEach((p, index) => {
+        p.update();
+        if (p.alpha <= 0) particles.splice(index, 1);
+    });
+
+    checkCollisions();
+}
+
+function draw() {
+    // Clear Canvas with slight fade for trail effect (optional, but full clear is cleaner here)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    player.draw();
+    enemies.forEach(e => e.draw());
+    particles.forEach(p => p.draw());
+}
+
+function loop() {
+    if (state.status === 'PLAYING') {
+        update();
+        draw();
+        animationId = requestAnimationFrame(loop);
+    }
+}
+
+function startGame() {
+    init();
+    state.status = 'PLAYING';
+    startScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    loop();
+}
+
+function gameOver() {
+    state.status = 'GAMEOVER';
+    cancelAnimationFrame(animationId);
+    
+    // Replace previous high score if needed
+    if (state.score > state.highScore) {
+        state.highScore = state.score;
+        localStorage.setItem('neonDashHighScore', state.highScore);
+    }
+
+    finalScoreEl.innerText = state.score;
+    highScoreEl.innerText = `High Score: ${state.highScore}`;
+    
+    createExplosion(player.x, player.y, CONFIG.colors.player);
+    // Draw one last time to show explosion
+    draw(); 
+    
+    setTimeout(() => {
+        gameOverScreen.classList.remove('hidden');
+    }, 500);
+}
+
+function updateScore() {
+    scoreEl.innerText = `SCORE: ${state.score}`;
+}
+
+// --- Event Listeners ---
+
+// Mouse
+canvas.addEventListener('mousemove', (e) => {
+    state.mouseX = e.clientX;
+    state.mouseY = e.clientY;
+});
+
+// Touch
+let touchX = null;
+let touchY = null;
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent scrolling
+    const touch = e.touches[0];
+    // Scale touch coordinates correctly
+    const rect = canvas.getBoundingClientRect();
+    touchX = (touch.clientX - rect.left) * (canvas.width / rect.width);
+    touchY = (touch.clientY - rect.top) * (canvas.height / rect.height);
+}, { passive: false });
+
+// Buttons
+startBtn.addEventListener('click', startGame);
+restartBtn.addEventListener('click', startGame);
+
+// Resize handler
+window.addEventListener('resize', () => {
+    // In a full game, we'd re-calculate layout. 
+    // For this simple demo, we keep fixed canvas size in center.
+});
+
+// Initial Render for background
+ctx.fillStyle = '#1a1a1a';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+</script>
+</body>
+</html>

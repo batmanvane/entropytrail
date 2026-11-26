@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraction Explorer</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        p.subtitle {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .app-container {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+
+        /* Controls Sidebar */
+        .controls {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .fraction-inputs {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .numerator-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 50px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .numerator-box input, .denominator-box input {
+            width: 100%;
+            text-align: center;
+            font-size: 1.25rem;
+            padding: 0.5rem;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .numerator-box input:focus, .denominator-box input:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        .horizontal-line {
+            width: 40px;
+            height: 3px;
+            background-color: var(--text);
+        }
+
+        .operand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        /* Visualizer Area */
+        .visualizer {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 400px;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .fraction-circle {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 4px solid var(--text);
+            background: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.5s ease;
+            cursor: pointer;
+        }
+
+        .fraction-label {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .shape {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background: #e5e7eb;
+            position: absolute;
+            overflow: hidden;
+        }
+
+        /* Bar Visualizer */
+        .bars-container {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .bar {
+            width: 60px;
+            height: 150px;
+            background: #e5e7eb;
+            border: 2px solid var(--text);
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bar .bar-text {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%) rotate(90deg);
+            left: -40px;
+            font-size: 0.8rem;
+            color: var(--text-light);
+            white-space: nowrap;
+        }
+
+        .bar-part {
+            position: absolute;
+            width: 100%;
+            transition: height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.8;
+        }
+
+        /* Interactive Math */
+        .math-explainer {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+
+        .math-equation {
+            font-family: 'Courier New', monospace;
+            background: #1e293b;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .math-term {
+            font-size: 1.5rem;
+        }
+
+        .math-operator {
+            color: var(--accent);
+            font-size: 2rem;
+        }
+
+        /* Common Fractions List */
+        .top-menu {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .menu-btn {
+            background: #e5e7eb;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .menu-btn:hover {
+            background: #d1d5db;
+        }
+
+        .shape-interaction-hint {
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-light);
+            font-style: italic;
+        }
+
+        /* Highlight the result */
+        .result-highlight {
+            background-color: var(--accent) !important;
+            opacity: 1 !important;
+        }
+
+        /* Toggle switch for view mode */
+        .mode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Fraction Explorer</h1>
+        <p class="subtitle">Visualize, Understand, and Calculate Fractions</p>
+    </header>
+
+    <div class="app-container">
+        
+        <!-- Controls Sidebar -->
+        <aside class="controls">
+            <div class="top-menu">
+                <button class="menu-btn" onclick="setMode('add')">Addition (+)</button>
+                <button class="menu-btn" onclick="setMode('subtract')">Subtraction (-)</button>
+                <button class="menu-btn" onclick="setMode('multiply')">Multiply (x)</button>
+                <button class="menu-btn" onclick="setMode('divide')">Divide (÷)</button>
+            </div>
+
+            <div class="control-group">
+                <label>Fraction 1</label>
+                <div class="fraction-inputs">
+                    <div class="numerator-box">
+                        <span>A</span>
+                        <div class="input-wrapper">
+                            <input type="number" id="num1" value="1" min="1">
+                        </div>
+                    </div>
+                    <div class="horizontal-line"></div>
+                    <div class="denominator-box">
+                        <span>B</span>
+                        <div class="input-wrapper">
+                            <input type="number" id="den1" value="2" min="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mode-toggle">
+                <label class="switch">
+                    <input type="checkbox" id="modeToggle">
+                    <span class="slider"></span>
+                </label>
+                <span>Show Common Fractions?</span>
+            </div>
+
+            <div class="control-group">
+                <label>Show Steps</label>
+                <div class="fraction-inputs" style="background: transparent; border: 1px solid #e2e8f0; flex-wrap: wrap;">
+                    <div class="numerator-box">
+                        <span>C</span>
+                        <div class="input-wrapper">
+                            <input type="number" id="num2" value="1" min="1">
+                        </div>
+                    </div>
+                    <div class="horizontal-line"></div>
+                    <div class="denominator-box">
+                        <span>D</span>
+                        <div class="input-wrapper">
+                            <input type="number" id="den2" value="2" min="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="updateVisuals()" style="margin-top: auto; padding: 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer;">
+                Update Visualization
+            </button>
+        </aside>
+
+        <!-- Visualization Area -->
+        <main class="visualizer" id="visualizerContainer">
+            
+            <!-- Circles (Pies) -->
+            <div class="canvas-container">
+                <div class="fraction-circle" id="circle1" onclick="toggleCircle(1)">
+                    <div class="shape" id="shape1"></div>
+                    <div class="fraction-label">
+                        <font color="green">+</font> <br> <span>A/B</span>
+                    </div>
+                </div>
+
+                <div class="fraction-circle" id="circle2" onclick="toggleCircle(2)">
+                    <div class="shape" id="shape2"></div>
+                    <div class="fraction-label">
+                        <font color="green">=</font> <br> <span>C/D</span>
+                    </div>
+                </div>
+                
+                <div class="shape fraction-result" id="resultShape">
+                    <div class="fraction-label">
+                        <span style="display:block; font-size: 3rem;">?</span>
+                        <span style="font-size: 1rem; font-weight: normal;">Result</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mode-toggle">
+                <label class="switch">
+                    <input type="checkbox" id="barModeToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <span>Show Bar Models</span>
+            </div>
+
+            <!-- Bars -->
+            <div class="bars-container" id="barContainer" style="opacity: 0; transition: opacity 0.5s;">
+                <div class="bar-group">
+                    <div class="bar">
+                        <div class="bar-fill" id="barFill1"></div>
+                        <div class="bar-text">First</div>
+                    </div>
+                </div>
+                
+                <div class="bar-group">
+                    <div class="bar">
+                        <div class="bar-fill" id="barFill2" style="opacity: 0;"></div>
+                        <div class="bar-text">Second</div>
+                    </div>
+                </div>
+
+                <div class="bar-group">
+                    <div class="bar">
+                        <div class="bar-fill result-highlight" id="barFillResult"></div>
+                        <div class="bar-text">Total</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mathematical Explanation -->
+            <div class="math-explainer">
+                Calculating: <span id="displayOp"></span>
+            </div>
+
+            <div class="math-equation" id="mathDisplay">
+                <!-- JS populates this -->
+            </div>
+
+            <p class="shape-interaction-hint" id="hint">
+                Click the circles or toggle "Show Bar Models" to explore the shapes.
+            </p>
+
+        </main>
+    </div>
+
+    <script>
+        // State
+        let currentMode = 'add';
+        const fractions = {
+            a: 1, b: 2,
+            c: 1, d: 2
+        };
+        
+        const expressions = [
+            "1/2 + 1/2", "1/2 - 1/2", "1/2 × 1/2", "1/2 ÷ 1/2",
+            "3/4 + 1/2", "5/8 + 3/8", "2/3 × 3/4", "4/9 ÷ 2/3",
+            "1/3 + 1/3", "7/10 + 3/10", "3/5 × 5/6"
+        ];
+
+        // DOM Elements
+        const elNum1 = document.getElementById('num1');
+        const elDen1 = document.getElementById('den1');
+        const elNum2 = document.getElementById('num2');
+        const elDen2 = document.getElementById('den2');
+        const elShowSteps = document.getElementById('modeToggle');
+        
+        const elCircle1 = document.getElementById('circle1');
+        const elCircle2 = document.getElementById('circle2');
+        const elShape1 = document.getElementById('shape1');
+        const elShape2 = document.getElementById('shape2');
+        const elResultShape = document.getElementById('resultShape');
+        
+        const elBarContainer = document.getElementById('barContainer');
+        const elBarFill1 = document.getElementById('barFill1');
+        const elBarFill2 = document.getElementById('barFill2');
+        const elBarFillResult = document.getElementById('barFillResult');
+        const elBarModeToggle = document.getElementById('barModeToggle');
+        
+        const elModeBtns = document.querySelectorAll('.menu-btn');
+
+        // Initialize
+        window.onload = () => {
+            updateVisuals();
+        };
+
+        // Event Listeners
+        [elNum1, elDen1, elNum2, elDen2].forEach(el => {
+            el.addEventListener('input', updateVisuals);
+            el.addEventListener('change', () => validateInputs(el));
+        });
+
+        elModeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setMode(btn.innerText);
+                updateVisuals();
+            });
+        });
+
+        elShowSteps.addEventListener('change', updateCommonFractions);
+        elBarModeToggle.addEventListener('change', updateVisuals);
+
+        // Functions
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update indicators
+            elCircle1.querySelector('font').innerText = mode === 'multiply' ? '×' : '+';
+            elCircle1.querySelector('font').style.color = mode === 'multiply' ? 'var(--accent)' : 'green';
+            
+            elResultShape.style.opacity = currentMode === 'divide' ? '0.5' : '1';
+            
+            updateMathUI();
+        }
+
+        function updateVisuals() {
+            const num1 = parseInt(elNum1.value) || 0;
+            const den1 = parseInt(elDen1.value) || 1;
+            const num2 = parseInt(elNum2.value) || 0;
+            const den2 = parseInt(elDen2.value) || 1;
+
+            fractions.a = num1; fractions.b = den1;
+            fractions.c = num2; fractions.d = den2;
+
+            updateCircleVisuals(num1, den1, num2, den2);
+            updateBarVisuals(num1, den1, num2, den2);
+            updateSolution(num1, den1, num2, den2);
+            updateMathUI();
+            validateInputs(elNum1);
+        }
+
+        function validateInputs(el) {
+            if (el.value <= 0) {
+                el.value = 0;
+            }
+        }
+
+        function updateCircleVisuals(n1, d1, n2, d2) {
+            const r1 = 100 / d1;
+            const r2 = 100 / d2;
+            const color1 = `hsl(${140 * ((n1 / d1) / 2)}, 80%, 60%)`; // Greenish blue
+            const color2 = `hsl(${240 * ((n2 / d2) / 2)}, 80%, 60%)`; // Purpleish
+
+            // Calculate SVG path for the pie slice
+            const getSlicePath = (radius, start, end) => {
+                const r = radius;
+                const bx1 = r * Math.cos(Math.PI * start / 180);
+                const by1 = r * Math.sin(Math.PI * start / 180);
+                const bx2 = r * Math.cos(Math.PI * end / 180);
+                const by2 = r * Math.sin(Math.PI * end / 180);
+                return `M 100,100 L ${100 + bx1},${100 + by1} A ${r},${r} 0 1,0 ${100 + bx2},${100 + by2} Z`;
+            };
+
+            // Circle 1 (Full circle usually)
+            const percent1 = (n1 / d1) * 100;
+            elShape1.style.height = `${percent1}%`;
+            elShape1.style.backgroundColor = color1;
+            
+            // If fraction is > 0.5, reposition to animate correctly
+            if (n1/d1 > 0.5) {
+                elShape1.style.transform = 'rotate(180deg)';
+                elShape1.style.top = '0';
+            } else {
+                elShape1.style.transform = 'rotate(0deg)';
+                elShape1.style.top = 'auto';
+            }
+
+            // Circle 2
+            const percent2 = (n2 / d2) * 100;
+            elShape2.style.height = `${percent2}%`;
+            elShape2.style.backgroundColor = color2.replace(')', ', 0.8)'); // Transparent
+            elShape2.style.border = 'none';
+
+            // Result Circle (Abstract)
+            // We can't really draw the result of division here easily without more context,
+            // so we keep it as a placeholder question.
+            elResultShape.style.background = 'transparent';
+            elResultShape.innerHTML = `
+                <div class="fraction-label">
+                    <span style="display:block; font-size: 3rem;">?</span>
+                    <span style="font-size: 1rem; font-weight: normal;">Answer</span>
+                </div>`;
+        }
+
+        function updateBarVisuals(n1, d1, n2, d2) {
+            const limit = 300; // Max height in px for scaling
+            const height1 = (n1 / d1) * limit;
+            const height2 = (n2 / d2) * limit;
+
+            // Bar 1
+            elBarFill1.style.height = `${height1}px`;
+
+            // Bar 2
+            elBarFill2.style.opacity = currentMode === 'divide' ? '0.2' : '0.8';
+            elBarFill2.style.height = `${height2}px`;
+
+            // Result Bar
+            let resN, resD;
+            if (currentMode === 'add') { resN = n1 + n2; resD = Math.min(d1, d2); }
+            else if (currentMode === 'subtract') { resN = n1 - n2; resD = Math.min(d1, d2); }
+            else if (currentMode === 'multiply') { resN = n1 * n2; resD = d1 * d2; }
+            else if (currentMode === 'divide') { resN = n1 * d2; resD = d1 * n2; }
+            else { resN = 0; resD = 1; }
+
+            const resPercent = (resN / resD) * limit;
+            elBarFillResult.style.height = `${resPercent}px`;
+            
+            // If subtraction results in negative, handle it visually
+            let barStyles = {};
+            if (resN < 0) {
+                barStyles.height = `${Math.abs(resPercent)}px`;
+                barStyles.backgroundColor = '#ef4444';
+            } else {
+                barStyles.backgroundColor = 'var(--secondary)';
+            }
+            elBarFillResult.style.backgroundColor = barStyles.backgroundColor;
+            elBarFillResult.style.transition = elBarContainer.style.opacity === '0' ? 'none' : 'height 0.5s ease';
+
+            // Toggle bars
+            elBarContainer.style.opacity = document.getElementById('barModeToggle').checked ? '1' : '0';
+        }
+
+        function updateSolution(n1, d1, n2, d2) {
+            let resN, resD;
+            if (currentMode === 'add') { resN = n1 + n2; resD = Math.min(d1, d2); }
+            else if (currentMode === 'subtract') { resN = n1 - n2; resD = Math.min(d1, d2); }
+            else if (currentMode === 'multiply') { resN = n1 * n2; resD = d1 * d2; }
+            else if (currentMode === 'divide') { resN = n1 * d2; resD = d1 * n2; }
+            else { resN = 0; resD = 1; }
+
+            // Simplify fraction
+            let gcd = (a, b) => b ? gcd(b, a % b) : a;
+            let common = gcd(resN, resD);
+            resN /= common;
+            resD /= common;
+            if (resD === 1) resD = 0; // Keep layout consistent
+
+            // Render Shape
+            const percent = (resN / resD) * 240; // Height based on result %
+            // Reset colors
+            elResultShape.style.backgroundColor = 'transparent';
+            elResultShape.innerHTML = "";
+
+            // Create an animated shape inside the result circle
+            const percentResult = Math.min(100, Math.max(0, (resN/resD)) * 100);
+            const newShape = document.createElement('div');
+            newShape.className = 'shape';
+            newShape.style.transition = "all 0.5s ease";
+            newShape.style.height = `${percentResult}%`;
+            
+            // Color logic based on mode
+            let resultColor = '#fff';
+            if (currentMode === 'add') resultColor = 'var(--secondary)';
+            if (currentMode === 'subtract') resultColor = '#f97316'; // Orange
+            if (currentMode === 'multiply') resultColor = '#8b5cf6'; // Purple
+            if (currentMode === 'divide') resultColor = '#10b981'; // Green
+
+            newShape.style.backgroundColor = resultColor;
+            elResultShape.appendChild(newShape);
+
+            // Update Text Fraction
+            elResultShape.querySelector('.shape label').innerText = `=`;
+            elResultShape.querySelector('.shape label').innerHTML = `
+                <font color='var(--accent)'>=</font> <span style="font-size:2rem">${resN}/${resD || 1}</span>
+            `;
+
+            // Reposition if > 0.5
+            if ((resN/resD) > 0.5) {
+                newShape.style.transform = 'rotate(180deg)';
+            } else {
+                newShape.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        function updateMathUI() {
+            const n1 = elNum1.value, d1 = elDen1.value;
+            const n2 = elNum2.value, d2 = elDen2.value;
+            
+            const display = `${n1}/${d1} ${currentMode === 'multiply' ? ' × ' : 
+                                currentMode === 'divide' ? ' ÷ ' : ' '}${n2}/${d2}`;
+            document.getElementById('displayOp').innerText = display;
+
+            // Common fraction ring logic
+            // Bottom fraction (Common Denominator)
+            let commonN = 0, commonD = 0;
+            let ringClass = '';
+
+            if (currentMode === 'add' || currentMode === 'subtract') {
+                commonD = Math.min(d1, d2);
+                commonN = (n1 / d1) * commonD + (n2 / d2) * commonD;
+                ringClass = (commonN < 0) ? "rgba(239, 68, 68, 0.5)" : "rgba(16, 185, 129, 0.5)";
+            } else if (currentMode === 'multiply') {
+                commonD = d1 * d2;
+                commonN = n1 * n2;
+                ringClass = "rgba(139, 92, 246, 0.5)";
+            } else if (currentMode === 'divide') {
+                commonD = d1 * n2;
+                commonN = n1 * d2;
+                ringClass = "rgba(16, 185, 129, 0.5)";
+            }
+
+            const ringContainer = document.querySelector('.math-equation');
+            let html = `<span class="math-term">${n1}/${d1}</span> `;
+            if (currentMode === 'multiply') html += `<span class="math-operator">×</span> `;
+            else if (currentMode === 'divide') html += `<span class="math-operator">÷</span> `;
+            else html += `<span class="math-operator">${currentMode === 'add' ? '+' : '-'}</span> `;
+            
+            html += `<span class="math-term">${n2}/${d2}</span>`;
+            html += ` = <span class="math-term" style="color:var(--accent)" font-size="2.5rem">${commonN}/${commonD}</span>`;
+
+            document.getElementById('mathDisplay').innerHTML = html;
+        }
+
+        function toggleCircle(id) {
+            // Simple toggle to undo or rearrange
+            if (id === 1) {
+                // Swap circles
+                [elNum1, elNum2].swap(mapNumber);
+                [elDen1, elDen2].swap(mapNumber);
+                updateVisuals();
+            } else if (id === 2) {
+                // Reset second fraction
+                elNum2.value = 1; elDen2.value = 1;
+                updateVisuals();
+            }
+            function mapNumber(obj, key) { return obj[key]; }
+        }
+
+        function updateCommonFractions() {
+            const showCommon = elShowSteps.checked;
+            const resultShape = document.getElementById('resultShape');
+            const label = resultShape.querySelector('.fraction-label');
+            
+            if (showCommon) {
+                // Show ring around common fraction calculation (already handled in Math UI mostly, 
+                // but we can change the background of the "Result" circle to show the Common Denom fraction)
+                const n1 = fractions.a, d1 = fractions.b;
+                const n2 = fractions.c, d2 = fractions.d;
+                
+                // Calculate common denom fraction components
+                let commonD = (currentMode === 'multiply' || currentMode === 'divide') 
+                              ? (d1 * d2) 
+                              : (currentMode === 'add' || currentMode === 'subtract') 
+                                ? Math.min(d1, d2) 
+                                : 1;
+                
+                // Only render common denom logic for add/sub for simplicity
+                if (currentMode === 'add' || currentMode === 'subtract') {
+                     commonD = Math.min(d1, d2);
+                     let n1Common = (n1 / d1) * commonD;
+                     let n2Common = (n2 / d2) * commonD;
+                     
+                     // Visual background update
+                     document.getElementById('circle2').style.borderColor = '#1e293b';
+                     document.getElementById('circle1').style.borderColor = '#1e293b';
+                     label.innerText = `Comm: /${commonD}`;
+                }
+            } else {
+                document.getElementById('circle2').style.borderColor = 'var(--text)';
+                document.getElementById('circle1').style.borderColor = 'var(--text)';
+            }
+        }
+
+        // Helper to handle number inputs correctly across other functions
+        function mapNumber(obj, key) {
+            return obj[key] * 1; 
+        }
+
+    </script>
+</body>
+</html>

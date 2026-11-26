@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Explorer</title>
+    <style>
+        :root {
+            --bg-deep: #0b0d17;
+            --bg-panel: #15192b;
+            --text-main: #e0e6ed;
+            --accent: #4dabf7;
+            --accent-glow: rgba(77, 171, 247, 0.3);
+            --moon-glow: rgba(145, 128, 225, 0.3);
+            --border: 1px solid rgba(255, 255, 255, 0.1);
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Layout */
+        header {
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(21, 25, 43, 0.95) 0%, transparent 100%);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 80px);
+            position: relative;
+        }
+
+        /* Starfield Background */
+        .starfield {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0)),
+                radial-gradient(2px 2px at 160px 120px, #ddd, rgba(0,0,0,0));
+            background-size: 200px 200px;
+            opacity: 0.4;
+            z-index: -1;
+        }
+
+        /* Solar System Viewer (Left) */
+        .viewer {
+            flex: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            flex-direction: column;
+        }
+
+        .solar-system {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            transition: transform 0.5s ease;
+            margin-top: 40px;
+        }
+
+        /* Celestial Bodies */
+        .body {
+            position: absolute;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .body:hover {
+            z-index: 100;
+            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .sun {
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle at 30% 30%, #ffd700, #ff8c00);
+            box-shadow: 0 0 40px #ff8c00, 0 0 80px #ff4500;
+            z-index: 10;
+        }
+
+        /* Orbit Lines */
+        .orbit {
+            position: absolute;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none; /* Let clicks pass through to bodies */
+        }
+
+        /* Planet Styling */
+        .mercury { width: 10px; height: 10px; background: #a5a5a5; }
+        .venus { width: 16px; height: 16px; background: #e1cba8; }
+        .earth { width: 17px; height: 17px; background: #6b93d6; }
+        .mars { width: 12px; height: 12px; background: #c1440e; }
+        .jupiter { width: 34px; height: 34px; background: radial-gradient(circle at 30% 30%, #d6c09a, #9e826f); }
+        .saturn { width: 30px; height: 30px; background: #dacdac; display: flex; justify-content: center; align-items: center; }
+        .saturn .ring {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: 4px dashed rgba(218, 205, 205, 0.6);
+            border-radius: 50%;
+        }
+        .uranus { width: 20px; height: 20px; background: #d1f7f4; }
+        .neptune { width: 19px; height: 19px; background: #5b5ddf; }
+        .moon { width: 4px; height: 4px; background: #fff; }
+
+        /* Relative Positions for Solar System */
+        /* Orbit Radius: 100px base, scaled visual */
+        .orbit-mercury { width: 80px; height: 80px; }
+        .orbit-venus { width: 120px; height: 120px; }
+        .orbit-earth { width: 160px; height: 160px; }
+        .orbit-mars { width: 220px; height: 220px; }
+        .orbit-jupiter { width: 320px; height: 320px; }
+        .orbit-saturn { width: 420px; height: 420px; }
+        .orbit-uranus { width: 520px; height: 520px; }
+        .orbit-neptune { width: 600px; height: 600px; }
+
+        .body-mercury { top: 0px; left: 50px; transform: translate(-50%, -50%); }
+        .body-venus { top: 0px; left: 60px; transform: translate(-50%, -50%); }
+        .body-earth { top: 0px; left: 80px; transform: translate(-50%, -50%); }
+        .body-mars { top: 0px; left: 110px; transform: translate(-50%, -50%); }
+        .body-jupiter { top: 0px; left: 160px; transform: translate(-50%, -50%); }
+        .body-saturn { top: 0px; left: 210px; transform: translate(-50%, -50%); }
+        .body-saturn .ring { width: 100px; height: 100px; }
+        .body-uranus { top: 0px; left: 260px; transform: translate(-50%, -50%); }
+        .body-neptune { top: 0px; left: 300px; transform: translate(-50%, -50%); }
+
+        /* Info Panel (Right) */
+        .info-panel {
+            flex: 1;
+            min-width: 300px;
+            max-width: 400px;
+            background: var(--bg-panel);
+            border-left: var(--border);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.3);
+        }
+
+        .planet-name {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--accent);
+        }
+
+        .planet-type {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #8892b0;
+            margin-bottom: 2rem;
+            display: inline-block;
+            padding: 4px 8px;
+            border: 1px solid #8892b0;
+            border-radius: 4px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            background: rgba(0,0,0,0.2);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: var(--border);
+        }
+
+        .stat-item h3 {
+            font-size: 0.8rem;
+            color: #5c6687;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-item p {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .description {
+            flex: 1;
+            line-height: 1.6;
+            color: #cbd5e0;
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        .fun-fact {
+            background: rgba(77, 171, 247, 0.1);
+            border-left: 3px solid var(--accent);
+            padding: 1rem;
+            border-radius: 0 4px 4px 0;
+            font-style: italic;
+            margin-bottom: 2rem;
+        }
+
+        /* Controls */
+        button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #3b86e0;
+        }
+
+        button.secondary {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        button.secondary:hover {
+            background: rgba(77, 171, 247, 0.1);
+        }
+
+        .home-btn {
+            width: auto;
+            justify-self: flex-start;
+        }
+
+        /* Animations */
+        @keyframes rotation {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 900px) {
+            .container { flex-direction: column; overflow-y: auto; }
+            .viewer { min-height: 400px; flex: none; }
+            .info-panel { height: auto; width: 100%; order: 2; }
+            .solar-system { width: 300px; height: 300px; }
+            orbit-mercury { width: 40px; height: 40px; }
+            orbit-venus { width: 60px; height: 60px; }
+            orbit-earth { width: 80px; height: 80px; }
+            orbit-mars { width: 110px; height: 110px; }
+            orbit-jupiter { width: 160px; height: 160px; }
+            orbit-saturn { width: 210px; height: 210px; }
+            orbit-uranus { width: 260px; height: 260px; }
+            orbit-neptune { width: 300px; height: 300px; }
+            .sun { transform: scale(0.8); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="starfield"></div>
+
+    <header>
+        <h1>
+            <span style="color:var(--accent)">☀</span> Solar Explorer
+        </h1>
+        <button class="home-btn" id="homeBtn" onclick="resetView()">Reset View</button>
+    </header>
+
+    <div class="container">
+        <div class="viewer">
+            <div class="solar-system" id="solarSystem">
+                <!-- Sun -->
+                <div class="sun body" onclick="selectPlanet('sun')"></div>
+                
+                <!-- Planets -->
+                <div class="orbit orbit-mercury"></div>
+                <div class="body body-mercury" onclick="selectPlanet('mercury')"></div>
+                
+                <div class="orbit orbit-venus"></div>
+                <div class="body body-venus" onclick="selectPlanet('venus')"></div>
+                
+                <div class="orbit orbit-earth"></div>
+                <div class="body body-earth earth">
+                    <div class="moon" style="top: 2px; left: 5px;"></div>
+                    <div class="moon" style="top: 3px; left: -2px; animation: rotation 3s linear infinite;"></div>
+                </div>
+                
+                <div class="orbit orbit-mars"></div>
+                <div class="body body-mars" onclick="selectPlanet('mars')"></div>
+                
+                <div class="orbit orbit-jupiter"></div>
+                <div class="body body-jupiter" onclick="selectPlanet('jupiter')"></div>
+                
+                <div class="orbit orbit-saturn"></div>
+                <div class="body body-saturn" onclick="selectPlanet('saturn')">
+                    <div class="ring"></div>
+                </div>
+                
+                <div class="orbit orbit-uranus"></div>
+                <div class="body body-uranus" onclick="selectPlanet('uranus')"></div>
+                
+                <div class="orbit orbit-neptune"></div>
+                <div class="body body-neptune" onclick="selectPlanet('neptune')"></div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div id="content">
+                <p>Welcome to the Solar System Explorer. Select a planet (dashed circles) or the Sun (glowing center) to learn more about our celestial neighborhood.</p>
+            </div>
+            <button id="nextBtn" class="secondary" onclick="changePlanet()">Explore Next</button>
+        </div>
+    </div>
+
+    <script>
+        const planetData = {
+            sun: {
+                name: "Sun",
+                type: "Yellow Dwarf Star",
+                stats: {
+                    temp: "5,500°C (Surface)",
+                    diameter: "1.4 Million km",
+                    age: "4.6 Billion years"
+                },
+                description: "The star at the center of our Solar System. It represents 99.86% of the system's mass. The Sun is nearly perfectly spherical, with a diameter about 109 times that of Earth.",
+                fact: "The mass of all the planets and moons combined is only 0.13% of the Sun's mass."
+            },
+            mercury: {
+                name: "Mercury",
+                type: "Terrestrial Planet",
+                stats: {
+                    temp: "-174°C to 427°C",
+                    diameter: "4,879 km",
+                    distance: "58 Million km"
+                },
+                description: "The smallest planet in our Solar System and closest to the Sun. Mercury is only slightly larger than Earth's Moon. It has a thin atmosphere that does little to vary surface temperatures.",
+                fact: "A year on Mercury is so short (88 Earth days) that the planet races around the Sun faster than Earth's Moon circles the Earth."
+            },
+            venus: {
+                name: "Venus",
+                type: "Terrestrial Planet",
+                stats: {
+                    temp: "462°C (Hot enough to melt lead)",
+                    diameter: "12,104 km",
+                    distance: "108 Million km"
+                },
+                description: "Venus spins slowly in the opposite direction to most planets. The atmosphere of Venus traps heat from the Sun in a runaway greenhouse effect, making it the hottest planet in our solar system.",
+                fact: "At 280,000 km/hour, the winds that blow in the upper clouds of Venus are the fastest in the solar system."
+            },
+            earth: {
+                name: "Earth",
+                type: "Terrestrial Planet",
+                stats: {
+                    temp: "14°C (Avg)",
+                    diameter: "12,742 km",
+                    distance: "150 Million km"
+                },
+                description: "The only planet known to harbor life. It is the only place in the known universe where liquid water exists on the surface. Earth is home to an estimated 7.9 billion people.",
+                fact: "Earth is cushioned by a layer of atmosphere that protects the surface from harmful ultraviolet radiation and shields the planet from most meteoroids."
+            },
+            mars: {
+                name: "Mars",
+                type: "Terrestrial Planet",
+                stats: {
+                    temp: "-153°C to 20°C",
+                    diameter: "6,779 km",
+                    distance: "228 Million km"
+                },
+                description: "Mars is a dusty, cold, desert world with a very thin atmosphere. It is home to Olympus Mons, the tallest volcano in the solar system, and Valles Marineris, the largest canyon.",
+                fact: "Mars has the largest volcano in the solar system, known as Olympus Mons, which is almost three times the height of Mount Everest."
+            },
+            jupiter: {
+                name: "Jupiter",
+                type: "Gas Giant",
+                stats: {
+                    temp: "-108°C",
+                    diameter: "139,820 km",
+                    distance: "778 Million km"
+                },
+                description: "Jupiter is more than twice as massive as all the other planets combined. The Great Red Spot is a giant storm bigger than Earth that has raged for hundreds of years.",
+                fact: "Jupiter's Great Red Spot is a giant storm bigger than Earth that has raged for hundreds of years."
+            },
+            saturn: {
+                name: "Saturn",
+                type: "Gas Giant",
+                stats: {
+                    temp: "-139°C",
+                    diameter: "116,460 km",
+                    distance: "1.4 Billion km"
+                },
+                description: "The planet famous for its spectacular ring system. These rings are composed mostly of ice particles, with a smaller amount of rocky debris and dust, forming about 9 distinct rings.",
+                fact: "Saturn is the only planet less dense than water. If a bathtub big enough existed, Saturn would float!"
+            },
+            uranus: {
+                name: "Uranus",
+                type: "Ice Giant",
+                stats: {
+                    temp: "-224°C",
+                    diameter: "50,724 km",
+                    distance: "2.9 Billion km"
+                },
+                description: "Uranus is unique in the Solar System for rotating at a very odd angle. Its axis of rotation is tilted sideways, causing different parts of Uranus to face different amounts of sunlight. It also has a pale blue-green color.",
+                fact: "Uranus has 27 known moons. Some were named after characters in the works of William Shakespeare and Alexander Pope."
+            },
+            neptune: {
+                name: "Neptune",
+                type: "Ice Giant",
+                stats: {
+                    temp: "-214°C",
+                    diameter: "49,244 km",
+                    distance: "4.5 Billion km"
+                },
+                description: "Neptune is the eighth and most distant major planet in our Solar System, and the most distant planet visible from Earth without the aid of a telescope. It has the hottest known wind speeds in the Solar System.",
+                fact: "Neptune is the most distant planet from the Sun. It takes 165 Earth years for Neptune to complete one orbit."
+            }
+        };
+
+        let currentPlanet = 'sun';
+
+        function selectPlanet(key) {
+            currentPlanet = key;
+            updateUI(key);
+        }
+
+        function changePlanet() {
+            const keys = Object.keys(planetData);
+            let currentIndex = keys.indexOf(currentPlanet);
+            let nextIndex = (currentIndex + 1) % keys.length;
+            selectPlanet(keys[nextIndex]);
+        }
+
+        function updateUI(key) {
+            const data = planetData[key];
+            const container = document.getElementById('solarSystem');
+            
+            // Highlight the selected orbit slightly more
+            const orbits = document.querySelectorAll('.orbit');
+            orbits.forEach(o => o.style.borderColor = orbits.length > 0 ? 'rgba(255,255,255,0.15)' : '#fff');
+            document.querySelectorAll(`.orbit-${key}`).forEach(o => o.style.borderColor = '#4dabf7');
+            
+            // Highlight Sun center
+            const sun = document.querySelector('.sun');
+            sun.style.boxShadow = key === 'sun' ? '0 0 40px #ff8c00, 0 0 80px #ff4500' : 'none';
+
+            // Update Text Content
+            document.getElementById('content').innerHTML = `
+                <div class="planet-name">${data.name} ${key === 'sun' ? '☀' : '🪐'}</div>
+                <span class="planet-type">${data.type}</span>
+                
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <h3>Avg Temperature</h3>
+                        <p>${data.stats.temp}</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>Diameter</h3>
+                        <p>${data.stats.diameter}</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>Distance from Sun</h3>
+                        <p>${key === 'sun' ? '--' : data.stats.distance}</p>
+                    </div>
+                    ${key !== 'sun' ? `
+                    <div class="stat-item">
+                        <h3>Year Length</h3>
+                        <p>${getYearLength(data.name)}</p>
+                    </div>` : ''}
+                </div>
+
+                <div class="description">
+                    ${data.description}
+                </div>
+
+                <div class="fun-fact">
+                    <strong>Daily Fact:</strong> ${data.fact}
+                </div>
+            `;
+        }
+
+        // Helper for year length (Approximate for demo)
+        function getYearLength(name) {
+            const data = planetData[name];
+            if(data.name === 'Mercury') return '88 Earth days';
+            if(data.name === 'Venus') return '225 Earth days';
+            if(data.name === 'Mars') return '687 Earth days';
+            if(data.name === 'Jupiter') return '12 Earth years';
+            if(data.name === 'Saturn') return '29 Earth years';
+            if(data.name === 'Uranus') return '84 Earth years';
+            if(data.name === 'Neptune') return '165 Earth years';
+            return '1 Year';
+        }
+
+        function resetView() {
+            selectPlanet('sun');
+        }
+    </script>
+</body>
+</html>

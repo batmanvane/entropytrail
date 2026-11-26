@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Length Converter</title>
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-secondary: #6b7280;
+            --border-color: #d1d5db;
+            --radius: 8px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .converter-card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: var(--radius);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h2 {
+            margin-top: 0;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: var(--text-main);
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        input[type="number"] {
+            flex-grow: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        select {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            background-color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .results {
+            background-color: #f9fafb;
+            padding: 1rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .result-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-value {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .error {
+            color: #ef4444;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="converter-card">
+    <h2>Length Converter</h2>
+
+    <div class="input-group">
+        <label for="inputValue">Enter Value</label>
+        <div class="input-wrapper">
+            <input type="number" id="inputValue" placeholder="0" step="any">
+            <select id="inputUnit">
+                <option value="cm">Centimetres (cm)</option>
+                <option value="in">Inches (in)</option>
+                <option value="ft">Feet (ft)</option>
+            </select>
+        </div>
+        <div id="errorMessage" class="error">Please enter a valid number</div>
+    </div>
+
+    <div class="results">
+        <div class="result-row">
+            <span>Centimetres:</span>
+            <span class="result-value" id="resultCm">0 cm</span>
+        </div>
+        <div class="result-row">
+            <span>Inches:</span>
+            <span class="result-value" id="resultIn">0 in</span>
+        </div>
+        <div class="result-row">
+            <span>Feet:</span>
+            <span class="result-value" id="resultFt">0 ft</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const inputValue = document.getElementById('inputValue');
+        const unitSelect = document.getElementById('inputUnit');
+        const errorDisplay = document.getElementById('errorMessage');
+
+        const resultCm = document.getElementById('resultCm');
+        const resultIn = document.getElementById('resultIn');
+        const resultFt = document.getElementById('resultFt');
+
+        // Constants: conversion factors relative to Centimetres (1 cm)
+        const CM = 1;
+        const IN = 2.54;
+        const FT = 30.48;
+
+        function convert() {
+            // Remove non-numeric input characters except decimal point
+            let valStr = inputValue.value;
+            
+            // Regex to keep numbers and dots (but not consecutive dots)
+            valStr = valStr.replace(/[^0-9.]/g, "");
+            
+            // Handle consecutive dots by replacing all but the last one
+            valStr = valStr.replace(/\.{2,}/g, ".");
+            
+            // If only dots remain, clear input
+            if (valStr === "." || valStr === "....") {
+                inputValue.value = "";
+            } else {
+                let value = parseFloat(valStr);
+
+                if (isNaN(value)) {
+                    // Clear non-numeric chars if partial
+                    try {
+                        inputValue.value = inputValue.value.replace(/[^0-9.]$/g, '');
+                    } catch(e) {}
+                    
+                    errorDisplay.style.display = 'block';
+                    errorDisplay.innerText = "Invalid input";
+                    // Don't update results to show empty state
+                    resultCm.innerText = "0 cm";
+                    resultIn.innerText = "0 in";
+                    resultFt.innerText = "0 ft";
+                } else {
+                    errorDisplay.style.display = 'none';
+
+                    // Base unit is centimetres
+                    let inCm = value;
+
+                    // Apply unit selection to the input value
+                    // We update the base unit value based on the dropdown
+                    const selectedBase = unitSelect.value;
+
+                    if (selectedBase === 'in') {
+                        inCm = value * 2.54;
+                    } else if (selectedBase === 'ft') {
+                        inCm = value * 30.48;
+                    }
+                    // If cm, inCm is just the value
+
+                    // Update the internal state
+                    inputValue.value = inCm; // The numeric value now reflects cm
+
+                    // Calculate and display
+                    const cmVal = inCm;
+                    const inVal = cmVal / IN; // Value in cm / 2.54
+                    const ftVal = cmVal / FT; // Value in cm / 30.48
+
+                    resultCm.innerText = `${cmVal} cm`;
+                    resultIn.innerText = `${inVal} in`;
+                    resultFt.innerText = `${ftVal} ft`;
+                }
+            }
+        }
+
+        // Event Listeners
+        inputValue.addEventListener('input', convert);
+        
+        // Listen for changes in dropdown to update the base unit
+        unitSelect.addEventListener('change', convert);
+
+    })();
+</script>
+
+</body>
+</html>

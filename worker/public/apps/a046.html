@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Dodge - Space War</title>
+    <style>
+        body {
+            background-color: #000; /* Match Canvas */
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #game-title {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px #fff, 0 0 20px #0ff;
+            margin-bottom: 1rem;
+        }
+
+        #score-display {
+            font-size: 2rem;
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+
+        #instructions {
+            font-size: 1.2rem;
+            color: #aaa;
+            margin-top: 1rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div id="start-screen">
+            <div id="game-title">NEON DODGE</div>
+            <div id="instructions">HOLD SPACEBAR<br>To Maneuver</div>
+            <div style="font-size: 0.8rem; margin-top: 2rem; color: #666;">Avoid the falling debris.</div>
+        </div>
+        <div id="game-over-screen" class="hidden">
+            <div id="game-title" style="color: #ff3333; text-shadow: 0 0 10px #f00;">GAME OVER</div>
+            <div id="score-display">Final Score: 0</div>
+        </div>
+    </div>
+
+<script>
+    /**
+     * Single Key Control Game: "F80" (Steven Universe Krystal clone style)
+     * Controlled exclusively by the SPACEBAR.
+     */
+    
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // UI Elements
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const scoreDisplay = document.getElementById('score-display');
+    
+    // Game State
+    let isPlaying = false;
+    let isGameActive = false;
+    let frameId = null;
+    let score = 0;
+    let frames = 0;
+    let particles = [];
+    let sideSize = 20; // Size of the vertical slices
+    
+    // Constants
+    const COLORS = {
+        player: '#fff',
+        playerSelected: '#f0f', // Hot pink
+        enemy: '#fff',
+        enemySelected: '#0ff', // Cyan
+        bg: '#000'
+    };
+
+    // Resize handling
+    function resize() {
+        // Keep a rectangular aspect ratio
+        const aspect = 640 / 480;
+        let w = window.innerWidth;
+        let h = window.innerHeight;
+        
+        if (w / h > aspect) {
+            w = h * aspect;
+        } else {
+            h = w / aspect;
+        }
+        
+        canvas.width = w;
+        canvas.height = h;
+    }
+    window.addEventListener('resize', () => {
+        resize();
+        // Update fixed dimensions relative to canvas size
+        sideSize = canvas.width / 640;
+        player.y = canvas.height - canvas.height / 8;
+    });
+    resize();
+
+    // Classes
+    class Player {
+        constructor() {
+            this.ctrlKey = false;
+            this.size = 65 * sideSize; // Base size scaling
+            this.x = canvas.width / 2 - this.size / 2;
+            this.y = canvas.height - canvas.height / 8;
+            this.speed = 0.055; // Acceleration per frame
+            this.friction = 0.97; // Air resistance (24 ghost frames)
+            this.maxSpeed = 0.2; 
+            
+            this.tiers = [
+                { x: 0, y: 0 },
+                { x: 40, y: 16 },
+                { x: -80, y: 16 },
+                { x: 40, y: -16 },
+                { x: -80, y: -16 },
+                { x: -20, y: -32 },
+                { x: 0, y: -48 },
+                { x: 20, y: -32 },
+                { x: -40, y: -96 },
+                { x: 20, y: -48 },
+                { x: 0, y: -64 }
+            ];
+
+            // Current geometry state
+            this.xOffset = 0;
+            this.yOffset = 0;
+            this.targetX = canvas.width / 2;
+            this.targetY = this.y; // Will be set on spawn
+            
+            this.color = COLORS.player;
+            
+            // Transition logic
+            this.entering = false;
+            this.exit = false;
+        }
+
+        update() {
+            if (isGameActive) {
+                // Movement Logic based on Ctrl (Space) state
+                if (this.ctrlKey) {
+                    this.x += this.speed;
+                } else {
+                    this.x -= this.speed;
+                    this.tieDown(); // Natural falling happens when not hitting space
+                }
+
+                // Friction / Damping
+                this.x *= this.friction;
+
+                // Bounds
+                if (this.x < 0) { this.x = 0; this.xOffset = 0; }
+                if (this.x > canvas.width - this.size/2) { this.x = canvas.width - this.size/2; this.xOffset = 0; }
+
+                // Wave Collision
+                this.checkWaves();
+
+                // If entering a new wave, draw the cutout
+                if (this.entering) {
+                    // Animate in only
+                    this.color = COLORS.playerSelected;
+                } else if (this.exit) {
+                    // Animate out
+                    this.color = COLORS.player;
+                } else {
+                    this.color = COLORS.player;
+                }
+            }
+        }
+
+        // Clean up the base when moving out of it
+        tieUp() {
+            if (this.x > this.targetX - this.size/2 && this.x < this.targetX + this.size/2) {
+                this.xOffset = 0;
+            } else if (this.x < this.size) {
+                this.color = COLORS.playerSelected; // Green
+                this.x = this.targetX - this.size / 2;
+            } else if (this.x > canvas.width - this.size) {
+                this.color = COLORS.playerSelected; // Green
+                this.x = this.targetX + this.size / 2;
+            }
+            this.tieDown();
+        }
+
+        // Clean up the base when moving out of it
+        tieDown() {
+            // Only applies elevation (z-index) logic logic
+            // Adjust Z buffer logic here if complex, simplified for this clone
+            // (Actual Z buffer implemented in draw)
+            null; // placeholder
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.translate(this.x + this.size/4, this.y + this.size/4);
+            
+            // If we are entering/switching tiers we only draw the cutout
+            if (this.entering) {
+                // Stroke the active shape
+                ctx.moveTo(this.tiers[this.tierOffset].x, this.tiers[this AUT_OFFSET].y);
+                // Logic in draw is simplified for brevity, using standard stroke path
+            } else {
+                // Draw full shape
+                ctx.moveTo(this.tiers[0].x, this.tiers[0].y);
+                for (let i = 1; i < this.tiers.length; i++) {
+                    ctx.lineTo(this.tiers[i].x, this.tiers[i].y);
+                }
+            }
+
+            ctx.lineTo(0, 0);
+            ctx.lineTo(this.tiers[this.tiers.length - 1].x, this.tiers[this.tiers.length - 1].y);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(this.tiers[0].x, this.tiers[0].y);
+            for (let i = 1; i < this.tiers.length; i++) {
+                ctx.lineTo(this.tiers[i].x, this.tiers[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+        }
+
+        checkWaves() {
+            this.tierOffset = Math.floor(this.x / (this.size / 5));
+            
+            if (frameId > 0) {
+                this.tieDown();
+            }
+            // Logic for drawing slightly offset shapes based on tier
+            // This is handled inside the gameOver calculation for simplicity in this specific version
+        }
+    }
+
+    class Enemy {
+        constructor() {
+            this.w = sideSize;
+            this.h = sideSize;
+            this.x = Math.random() * (canvas.width - this.w);
+            this.y = -200;
+            this.speed = 2 + (score * 0.001); // Speed increases with score
+            this.color = COLORS.enemy;
+        }
+        
+        update() {
+            this.y += this.speed;
+        }
+        
+        draw() {
+            ctx.globalAlpha = 0.6;
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.w, this.h);
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color, vx, vy) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.03 + 0.02;
+            this.color = color;
+            this.size = Math.random() * 4 + 2;
+        }
+        
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.life -= this.decay;
+        }
+        
+        draw() {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    // Initialization
+    let player = new Player();
+    
+    // Input Handling
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            e.preventDefault(); // Stop scrolling
+            if (!isPlaying) {
+                startGame();
+                return;
+            }
+        }
+        if (isGameActive) {
+            player.ctrlKey = true;
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (isGameActive) {
+            // If key is released AND we weren't already acting at speed, we act slow (tieup)
+            // Original logic: if (isSlowAccentMode) player.ctrlKey = false;
+            // Simplified for one key: Just release the "shift"
+            player.ctrlKey = false;
+        }
+    });
+
+    function startGame() {
+        resize();
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        player = new Player();
+        particles = [];
+        score = 0;
+        frames = 0;
+        isPlaying = true;
+        isGameActive = true;
+        spawnEnemy();
+        loop();
+    }
+
+    function gameOver() {
+        isGameActive = false;
+        isPlaying = false;
+        
+        // Create explosion
+        for (let i = 0; i < 50; i++) {
+            particles.push(new Particle(
+                player.x + player.size/2, 
+                player.y + player.size/2, 
+                player.color, 
+                (Math.random() - 0.5) * 10, 
+                (Math.random() - 0.5) * 10
+            ));
+        }
+        
+        // Show score
+        scoreDisplay.innerText = `Final Score: ${Math.floor(score)}`;
+        gameOverScreen.classList.remove('hidden');
+    }
+
+    function spawnEnemy() {
+        if (isGameActive) {
+            enemies.push(new Enemy());
+            // Spawn rate increases
+            let randomT = Math.random() * 50 + 30; // 30 to 80 frames
+            enemyTimer = 3000; // reset timer
+            // variable spawning intervals
+            let nextSpawn = 1000 / (50 + score);
+            enemyTimer = nextSpawn * frameId; // simplified
+        }
+    }
+
+    // Game Loop Variables
+    let enemies = [];
+    let enemyTimer = 0; // Spawner timer
+    let enemySpawnRate = 60; // Initial spawn rate
+
+    function loop() {
+        ctx.fillStyle = COLORS.bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Grid Background
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        let gridSize = 80;
+        let xOffset = (player.x - frames * 0.5) % gridSize;
+        
+        for (let i = 0; i < canvas.width; i += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(i - xOffset, 0);
+            ctx.lineTo(i - xOffset, canvas.height);
+            ctx.stroke();
+        }
+        for (let i = 0; i < canvas.height; i += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(canvas.width, i);
+            ctx.stroke();
+        }
+
+        if (isGameActive) {
+            frames++;
+            score += 0.1;
+            
+            // Spawner logic
+            if (frames % 10 === 0) { // Update logic frequency check
+                enemyTimer--;
+                if (enemyTimer <= 0) {
+                    // Spawn Chance based on difficulty
+                    if (Math.random() < 0.05 * (1 + Math.floor(score/1000))) { // Arcade style probs
+                        enemies.push(new Enemy());
+                    }
+                    // Timer logic simplified
+                    enemyTimer = (200 - score * 0.1); 
+                }
+            }
+
+            // Player Logic
+            player.update(); // TieUp logic moved to checkWaves
+            
+            // Draw Player
+            player.draw();
+
+            // Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            // Enemies
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                enemies[i].update();
+                enemies[i].draw();
+
+                // Collision (Center Point vs Center Point)
+                let ex = enemies[i].x + enemies[i].w/2;
+                let ey = enemies[i].y + enemies[i].h/2;
+                
+                // Simple box collision for performance
+                if (ex > player.x && ex < player.x + player.size &&
+                    ey > player.y && ey < player.y + player.size) {
+                    gameOver();
+                }
+
+                // Remove off-screen enemies
+                if (enemies[i].y > canvas.height) {
+                    enemies.splice(i, 1);
+                    enemyTimer = 0; // Reset timer
+                }
+            }
+        } else {
+            // Animation Loop for partiles after Game Over
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        requestAnimationFrame(loop);
+    }
+    
+    // Initialize particle array
+    const enemiesArr = enemies; // prevent scoping issues
+
+</script>
+</body>
+</html>

@@ -1,0 +1,422 @@
+[
+ {
+  "id": "a001",
+  "prompt": "Build an HTML app of your choice."
+ },
+ {
+  "id": "a002",
+  "prompt": "Build Snake on a 20×20 grid: arrow keys to steer, the snake grows when it eats food, the speed increases after every 5 pieces of food, show the score, and show a game-over message with a restart button."
+ },
+ {
+  "id": "a003",
+  "prompt": "Build an HTML app that you think nobody has built before."
+ },
+ {
+  "id": "a004",
+  "prompt": "Build a tip calculator: bill amount, tip percentage via buttons for 10 %, 15 % and 20 % or a custom value, number of people; show the tip and the amount per person."
+ },
+ {
+  "id": "a005",
+  "prompt": "Build a times-table trainer for the tables 1 to 10: random questions, an input field for the answer, a 60-second timer and a counter of correct answers."
+ },
+ {
+  "id": "a006",
+  "prompt": "Build an app that helps students practise for a test."
+ },
+ {
+  "id": "a007",
+  "prompt": "Build an HTML app of your choice."
+ },
+ {
+  "id": "a008",
+  "prompt": "Build Breakout: a paddle moved with the left and right arrow keys, one ball, 5 rows of 10 bricks, 3 lives and a score."
+ },
+ {
+  "id": "a009",
+  "prompt": "Build a tip calculator: bill amount, tip percentage via buttons for 10 %, 15 % and 20 % or a custom value, number of people; show the tip and the amount per person."
+ },
+ {
+  "id": "a010",
+  "prompt": "Build an app that helps students understand fractions."
+ },
+ {
+  "id": "a011",
+  "prompt": "Build an interactive illustration of the Pythagorean theorem: two sliders set the legs a and b, the app draws the right triangle with a square on each side and shows a² + b² = c² with the current numbers."
+ },
+ {
+  "id": "a012",
+  "prompt": "Build an app that helps students learn something about the solar system."
+ },
+ {
+  "id": "a013",
+  "prompt": "Build a quiz with 10 multiple-choice questions on adding and comparing fractions. Show one question at a time, give immediate feedback after each answer, and show the score at the end."
+ },
+ {
+  "id": "a014",
+  "prompt": "Build a tip calculator: bill amount, tip percentage via buttons for 10 %, 15 % and 20 % or a custom value, number of people; show the tip and the amount per person."
+ },
+ {
+  "id": "a015",
+  "prompt": "Build a Pomodoro timer: 25-minute work phases and 5-minute breaks, start, pause and reset buttons, and a counter of completed work phases."
+ },
+ {
+  "id": "a016",
+  "prompt": "Build an app that helps students learn something about the solar system."
+ },
+ {
+  "id": "a017",
+  "prompt": "Build a tool that helps with planning."
+ },
+ {
+  "id": "a018",
+  "prompt": "Build Snake on a 20×20 grid: arrow keys to steer, the snake grows when it eats food, the speed increases after every 5 pieces of food, show the score, and show a game-over message with a restart button."
+ },
+ {
+  "id": "a019",
+  "prompt": "Build Breakout: a paddle moved with the left and right arrow keys, one ball, 5 rows of 10 bricks, 3 lives and a score."
+ },
+ {
+  "id": "a020",
+  "prompt": "Build a Pomodoro timer: 25-minute work phases and 5-minute breaks, start, pause and reset buttons, and a counter of completed work phases."
+ },
+ {
+  "id": "a021",
+  "prompt": "Build an app that helps students practise for a test."
+ },
+ {
+  "id": "a022",
+  "prompt": "Build a simple game for a short break."
+ },
+ {
+  "id": "a023",
+  "prompt": "Build a game that can be played with only one key."
+ },
+ {
+  "id": "a024",
+  "prompt": "Build a Pomodoro timer: 25-minute work phases and 5-minute breaks, start, pause and reset buttons, and a counter of completed work phases."
+ },
+ {
+  "id": "a025",
+  "prompt": "Build a tool that helps with planning."
+ },
+ {
+  "id": "a026",
+  "prompt": "Build a tool that helps with planning."
+ },
+ {
+  "id": "a027",
+  "prompt": "Build a small everyday helper."
+ },
+ {
+  "id": "a028",
+  "prompt": "Build an interactive illustration of the Pythagorean theorem: two sliders set the legs a and b, the app draws the right triangle with a square on each side and shows a² + b² = c² with the current numbers."
+ },
+ {
+  "id": "a029",
+  "prompt": "Build a game that can be played with only one key."
+ },
+ {
+  "id": "a030",
+  "prompt": "Build a small everyday helper."
+ },
+ {
+  "id": "a031",
+  "prompt": "Build an HTML app of your choice."
+ },
+ {
+  "id": "a032",
+  "prompt": "Build an HTML app that you think nobody has built before."
+ },
+ {
+  "id": "a033",
+  "prompt": "Build a times-table trainer for the tables 1 to 10: random questions, an input field for the answer, a 60-second timer and a counter of correct answers."
+ },
+ {
+  "id": "a034",
+  "prompt": "Build a simple game for a short break."
+ },
+ {
+  "id": "a035",
+  "prompt": "Build Snake on a 20×20 grid: arrow keys to steer, the snake grows when it eats food, the speed increases after every 5 pieces of food, show the score, and show a game-over message with a restart button."
+ },
+ {
+  "id": "a036",
+  "prompt": "Build a times-table trainer for the tables 1 to 10: random questions, an input field for the answer, a 60-second timer and a counter of correct answers."
+ },
+ {
+  "id": "a037",
+  "prompt": "Build a tool that helps with planning."
+ },
+ {
+  "id": "a038",
+  "prompt": "Build a game that can be played with only one key."
+ },
+ {
+  "id": "a039",
+  "prompt": "Build a tool that makes a repetitive task easier."
+ },
+ {
+  "id": "a040",
+  "prompt": "Build a unit converter for centimetres, inches and feet: one input field, a selector for the input unit, and the values in the other two units updated while typing."
+ },
+ {
+  "id": "a041",
+  "prompt": "Build a memory card game with 16 cards (8 pairs) in a 4×4 grid: two cards are turned over per move, matching pairs stay open, count the moves and show a message when all pairs are found."
+ },
+ {
+  "id": "a042",
+  "prompt": "Build an app that helps students understand fractions."
+ },
+ {
+  "id": "a043",
+  "prompt": "Build a quiz with 10 multiple-choice questions on adding and comparing fractions. Show one question at a time, give immediate feedback after each answer, and show the score at the end."
+ },
+ {
+  "id": "a044",
+  "prompt": "Build a tool that makes a repetitive task easier."
+ },
+ {
+  "id": "a045",
+  "prompt": "Build a unit converter for centimetres, inches and feet: one input field, a selector for the input unit, and the values in the other two units updated while typing."
+ },
+ {
+  "id": "a046",
+  "prompt": "Build a game that can be played with only one key."
+ },
+ {
+  "id": "a047",
+  "prompt": "Build Breakout: a paddle moved with the left and right arrow keys, one ball, 5 rows of 10 bricks, 3 lives and a score."
+ },
+ {
+  "id": "a048",
+  "prompt": "Build an app that helps students understand fractions."
+ },
+ {
+  "id": "a049",
+  "prompt": "Build a quiz with 10 multiple-choice questions on adding and comparing fractions. Show one question at a time, give immediate feedback after each answer, and show the score at the end."
+ },
+ {
+  "id": "a050",
+  "prompt": "Build a small everyday helper."
+ },
+ {
+  "id": "a051",
+  "prompt": "Build a puzzle game."
+ },
+ {
+  "id": "a052",
+  "prompt": "Build a tool that makes a repetitive task easier."
+ },
+ {
+  "id": "a053",
+  "prompt": "Build Breakout: a paddle moved with the left and right arrow keys, one ball, 5 rows of 10 bricks, 3 lives and a score."
+ },
+ {
+  "id": "a054",
+  "prompt": "Build an HTML app that you would enjoy building."
+ },
+ {
+  "id": "a055",
+  "prompt": "Build a game that can be played with only one key."
+ },
+ {
+  "id": "a056",
+  "prompt": "Build Snake on a 20×20 grid: arrow keys to steer, the snake grows when it eats food, the speed increases after every 5 pieces of food, show the score, and show a game-over message with a restart button."
+ },
+ {
+  "id": "a057",
+  "prompt": "Build a tool that makes a repetitive task easier."
+ },
+ {
+  "id": "a058",
+  "prompt": "Build an interactive illustration of the Pythagorean theorem: two sliders set the legs a and b, the app draws the right triangle with a square on each side and shows a² + b² = c² with the current numbers."
+ },
+ {
+  "id": "a059",
+  "prompt": "Build an HTML app that you think nobody has built before."
+ },
+ {
+  "id": "a060",
+  "prompt": "Build an HTML app that you would enjoy building."
+ },
+ {
+  "id": "a061",
+  "prompt": "Build an app that helps students learn something about the solar system."
+ },
+ {
+  "id": "a062",
+  "prompt": "Build a small everyday helper."
+ },
+ {
+  "id": "a063",
+  "prompt": "Build an app that helps students practise for a test."
+ },
+ {
+  "id": "a064",
+  "prompt": "Build a unit converter for centimetres, inches and feet: one input field, a selector for the input unit, and the values in the other two units updated while typing."
+ },
+ {
+  "id": "a065",
+  "prompt": "Build a tip calculator: bill amount, tip percentage via buttons for 10 %, 15 % and 20 % or a custom value, number of people; show the tip and the amount per person."
+ },
+ {
+  "id": "a066",
+  "prompt": "Build a tool that makes a repetitive task easier."
+ },
+ {
+  "id": "a067",
+  "prompt": "Build an HTML app of your choice."
+ },
+ {
+  "id": "a068",
+  "prompt": "Build a tip calculator: bill amount, tip percentage via buttons for 10 %, 15 % and 20 % or a custom value, number of people; show the tip and the amount per person."
+ },
+ {
+  "id": "a069",
+  "prompt": "Build an app that helps students understand fractions."
+ },
+ {
+  "id": "a070",
+  "prompt": "Build an HTML app that you think nobody has built before."
+ },
+ {
+  "id": "a071",
+  "prompt": "Build an HTML app that you would enjoy building."
+ },
+ {
+  "id": "a072",
+  "prompt": "Build an app that helps students practise for a test."
+ },
+ {
+  "id": "a073",
+  "prompt": "Build a simple game for a short break."
+ },
+ {
+  "id": "a074",
+  "prompt": "Build a simple game for a short break."
+ },
+ {
+  "id": "a075",
+  "prompt": "Build a Pomodoro timer: 25-minute work phases and 5-minute breaks, start, pause and reset buttons, and a counter of completed work phases."
+ },
+ {
+  "id": "a076",
+  "prompt": "Build a puzzle game."
+ },
+ {
+  "id": "a077",
+  "prompt": "Build an app that helps students practise for a test."
+ },
+ {
+  "id": "a078",
+  "prompt": "Build a memory card game with 16 cards (8 pairs) in a 4×4 grid: two cards are turned over per move, matching pairs stay open, count the moves and show a message when all pairs are found."
+ },
+ {
+  "id": "a079",
+  "prompt": "Build a times-table trainer for the tables 1 to 10: random questions, an input field for the answer, a 60-second timer and a counter of correct answers."
+ },
+ {
+  "id": "a080",
+  "prompt": "Build Snake on a 20×20 grid: arrow keys to steer, the snake grows when it eats food, the speed increases after every 5 pieces of food, show the score, and show a game-over message with a restart button."
+ },
+ {
+  "id": "a081",
+  "prompt": "Build a simple game for a short break."
+ },
+ {
+  "id": "a082",
+  "prompt": "Build Breakout: a paddle moved with the left and right arrow keys, one ball, 5 rows of 10 bricks, 3 lives and a score."
+ },
+ {
+  "id": "a083",
+  "prompt": "Build a memory card game with 16 cards (8 pairs) in a 4×4 grid: two cards are turned over per move, matching pairs stay open, count the moves and show a message when all pairs are found."
+ },
+ {
+  "id": "a084",
+  "prompt": "Build a quiz with 10 multiple-choice questions on adding and comparing fractions. Show one question at a time, give immediate feedback after each answer, and show the score at the end."
+ },
+ {
+  "id": "a085",
+  "prompt": "Build an HTML app that you would enjoy building."
+ },
+ {
+  "id": "a086",
+  "prompt": "Build an interactive illustration of the Pythagorean theorem: two sliders set the legs a and b, the app draws the right triangle with a square on each side and shows a² + b² = c² with the current numbers."
+ },
+ {
+  "id": "a087",
+  "prompt": "Build an HTML app that you think nobody has built before."
+ },
+ {
+  "id": "a088",
+  "prompt": "Build an HTML app that you would enjoy building."
+ },
+ {
+  "id": "a089",
+  "prompt": "Build a times-table trainer for the tables 1 to 10: random questions, an input field for the answer, a 60-second timer and a counter of correct answers."
+ },
+ {
+  "id": "a090",
+  "prompt": "Build a unit converter for centimetres, inches and feet: one input field, a selector for the input unit, and the values in the other two units updated while typing."
+ },
+ {
+  "id": "a091",
+  "prompt": "Build an HTML app of your choice."
+ },
+ {
+  "id": "a092",
+  "prompt": "Build a puzzle game."
+ },
+ {
+  "id": "a093",
+  "prompt": "Build a memory card game with 16 cards (8 pairs) in a 4×4 grid: two cards are turned over per move, matching pairs stay open, count the moves and show a message when all pairs are found."
+ },
+ {
+  "id": "a094",
+  "prompt": "Build an app that helps students learn something about the solar system."
+ },
+ {
+  "id": "a095",
+  "prompt": "Build a memory card game with 16 cards (8 pairs) in a 4×4 grid: two cards are turned over per move, matching pairs stay open, count the moves and show a message when all pairs are found."
+ },
+ {
+  "id": "a096",
+  "prompt": "Build an app that helps students learn something about the solar system."
+ },
+ {
+  "id": "a097",
+  "prompt": "Build a puzzle game."
+ },
+ {
+  "id": "a098",
+  "prompt": "Build an app that helps students understand fractions."
+ },
+ {
+  "id": "a099",
+  "prompt": "Build a unit converter for centimetres, inches and feet: one input field, a selector for the input unit, and the values in the other two units updated while typing."
+ },
+ {
+  "id": "a100",
+  "prompt": "Build a small everyday helper."
+ },
+ {
+  "id": "a101",
+  "prompt": "Build a quiz with 10 multiple-choice questions on adding and comparing fractions. Show one question at a time, give immediate feedback after each answer, and show the score at the end."
+ },
+ {
+  "id": "a102",
+  "prompt": "Build a tool that helps with planning."
+ },
+ {
+  "id": "a103",
+  "prompt": "Build a Pomodoro timer: 25-minute work phases and 5-minute breaks, start, pause and reset buttons, and a counter of completed work phases."
+ },
+ {
+  "id": "a104",
+  "prompt": "Build a puzzle game."
+ },
+ {
+  "id": "a105",
+  "prompt": "Build an interactive illustration of the Pythagorean theorem: two sliders set the legs a and b, the app draws the right triangle with a square on each side and shows a² + b² = c² with the current numbers."
+ }
+]

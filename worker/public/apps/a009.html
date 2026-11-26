@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tip Calculator</title>
+<style>
+  :root {
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --bg-color: #f3f4f6;
+    --card-bg: #ffffff;
+    --text-color: #1f2937;
+    --border-color: #e5e7eb;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+  }
+
+  .calculator-card {
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  h1 {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+  }
+
+  .input-group {
+    margin-bottom: 1.25rem;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  input[type="number"] {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 1rem;
+    box-sizing: border-box; /* Fix padding issue */
+  }
+
+  input[type="number"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .custom-tip-group {
+    display: none; /* Hidden by default */
+    margin-top: 10px;
+  }
+
+  .custom-tip-group.active {
+    display: block;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 10px;
+  }
+
+  button {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    background-color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+
+  button:hover {
+    background-color: #f9fafb;
+    border-color: #d1d5db;
+  }
+
+  button.active {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+  }
+
+  .results {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .result-item {
+    flex: 1;
+  }
+
+  .result-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+  }
+
+  .result-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color);
+  }
+
+  .currency {
+    display: none;
+  }
+  @media (max-width: 400px) {
+    .currency { display: inline; }
+  }
+</style>
+</head>
+<body>
+
+<div class="calculator-card">
+  <h1>Tip Calculator</h1>
+  
+  <div class="input-group">
+    <label for="billAmount">Bill Amount ($)</label>
+    <input type="number" id="billAmount" placeholder="e.g. 50.00" min="0" step="0.01">
+  </div>
+
+  <div class="input-group">
+    <label for="tipPercent">Tip Percentage</label>
+    <div class="btn-group">
+      <button type="button" data-value="10">10%</button>
+      <button type="button" data-value="15">15%</button>
+      <button type="button" data-value="20">20%</button>
+    </div>
+    <div id="customTipDiv" class="custom-tip-group">
+      <input type="number" id="customTip" placeholder="Enter % (e.g. 12)" min="0" step="0.1">
+    </div>
+  </div>
+
+  <div class="input-group">
+    <label for="peopleCount">Number of People</label>
+    <input type="number" id="peopleCount" placeholder="e.g. 2" min="1" step="1">
+  </div>
+
+  <div class="results">
+    <div class="result-item">
+      <div class="result-label">Total Tip</div>
+      <div class="result-value" id="totalTip">$0.00</div>
+    </div>
+    <div class="result-item" style="text-align: right;">
+      <div class="result-label">Per Person</div>
+      <div class="result-value" id="perPerson">$0.00</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // DOM Elements
+  const billInput = document.getElementById('billAmount');
+  const peopleInput = document.getElementById('peopleCount');
+  const percentageButtons = document.querySelectorAll('.btn-group button');
+  const customTipDiv = document.getElementById('customTipDiv');
+  const customTipInput = document.getElementById('customTip');
+  
+  const totalTipDisplay = document.getElementById('totalTip');
+  const perPersonDisplay = document.getElementById('perPerson');
+
+  // State
+  let currentTipPercentage = 15; // Default
+
+  // Helper: Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
+  // Calculate Logic
+  const calculate = () => {
+    const bill = parseFloat(billInput.value) || 0;
+    const people = parseFloat(peopleInput.value) || 0;
+    const tipAmount = bill * (currentTipPercentage / 100);
+    
+    // Avoid division by zero
+    const perPerson = people > 0 ? (bill + tipAmount) / people : 0;
+
+    totalTipDisplay.textContent = formatCurrency(tipAmount);
+    perPersonDisplay.textContent = formatCurrency(perPerson);
+  };
+
+  // Event Listeners for Buttons
+  percentageButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      const value = parseFloat(e.target.dataset.value);
+      
+      // Update state
+      currentTipPercentage = value;
+      
+      // Update UI
+      percentageButtons.forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      
+      // Hide custom input
+      customTipDiv.classList.remove('active');
+      customTipInput.value = '';
+
+      calculate();
+    });
+  });
+
+  // Event Listener for Custom Input
+  customTipInput.addEventListener('input', (e) => {
+    const value = parseFloat(e.target.value);
+
+    if (value !== undefined && !isNaN(value)) {
+      currentTipPercentage = value;
+      
+      percentageButtons.forEach(btn => btn.classList.remove('active'));
+      customTipDiv.classList.add('active');
+      
+      calculate();
+    } else {
+      // If user deletes text, reset to default
+      currentTipPercentage = 15;
+      percentageButtons.forEach(btn => btn.classList.remove('active'));
+      customTipDiv.classList.remove('active');
+      customTipInput.value = '';
+      calculate();
+    }
+  });
+
+  // Event Listener for Bill Amount
+  billInput.addEventListener('input', calculate);
+
+  // Event Listener for People Count
+  peopleInput.addEventListener('input', calculate);
+
+</script>
+
+</body>
+</html>

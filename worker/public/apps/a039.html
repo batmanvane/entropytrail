@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repetensive: The Grocery List Builder</title>
+    <style>
+        :root {
+            --primary: #ff6b6b;
+            --primary-dark: #ee5253;
+            --bg: #f7f9fc;
+            --surface: #ffffff;
+            --text: #2d3436;
+            --text-light: #636e72;
+            --border: #dfe6e9;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 80vh;
+        }
+
+        /* Header */
+        header {
+            background: var(--surface);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+        .subtitle { color: var(--text-light); font-size: 0.9rem; }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: var(--surface);
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        
+        label { font-size: 0.85rem; font-weight: 600; color: var(--text-light); }
+        
+        input, textarea, select {
+            padding: 0.75rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: var(--transition);
+            width: 100%;
+            outline: none;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--primary);
+        }
+
+        textarea { min-height: 100px; resize: vertical; font-family: monospace; }
+
+        .btn-group {
+            grid-column: span 2;
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 1rem;
+        }
+
+        .btn-primary { background: var(--primary); color: white; flex: 2; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        
+        .btn-secondary { background: var(--bg); color: var(--text); flex: 1; }
+        .btn-secondary:hover { background: #eee; }
+
+        .btn-clear { border: 1px solid var(--border); background: transparent; color: var(--text-light); font-size: 0.9rem; }
+        .btn-clear:hover { background: #fefefe; color: var(--primary-dark); }
+
+        /* List Area */
+        .list-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 1rem 1.5rem 1rem;
+        }
+
+        .list-item {
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+        
+        .list-item:hover { border-color: var(--primary); }
+
+        .item-header {
+            padding: 1rem;
+            background: var(--surface);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .item-title { font-weight: 700; font-size: 1.1rem; color: var(--text); }
+        .item-count { background: var(--bg); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; color: var(--text-light); }
+        
+        .toggle-icon {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            transition: transform 0.3s ease;
+        }
+
+        .toggle-icon.open { transform: rotate(180deg); color: var(--primary); }
+
+        .item-details {
+            background: #fafbfc;
+            padding: 0 1rem 1rem 1rem;
+            display: none; /* Hidden by default */
+            animation: slideDown 0.3s ease forwards;
+        }
+
+        .item-details.open { display: block; }
+
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed var(--border);
+        }
+        
+        .detail-row:last-child { border-bottom: none; }
+
+        .detail-action {
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0.25rem;
+            border-radius: 4px;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+
+        .detail-action:hover { background: #ffe3e3; color: var(--primary-dark); }
+
+        /* Stats Footer */
+        footer {
+            padding: 1rem;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            font-size: 0.9rem;
+            color: var(--text-light);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 600px) {
+            .controls { grid-template-columns: 1fr; }
+            .btn-group { grid-column: span 1; flex-direction: column; height: auto; }
+            .btn-group button { width: 100%; }
+            .details-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1>Repetensive</h1>
+            <p class="subtitle">Stop typing the same ingredient list every time.</p>
+        </header>
+
+        <div class="controls">
+            <div class="input-group">
+                <label for="baseItem">Base Item (What are you running out of?)</label>
+                <input type="text" id="baseItem" placeholder="e.g., Whole Milk, Chicken Breast, Eggs" list="base-suggestions">
+                <datalist id="base-suggestions">
+                    <!-- Populated by JS with common items -->
+                </datalist>
+            </div>
+
+            <div class="input-group">
+                <label for="helperItem">Helper Item (The repetitive part)</label>
+                <input type="text" id="helperItem" placeholder="e.g., 1oz, 1 slice, 1 cup">
+            </div>
+
+            <div class="input-group">
+                <label for="marketName">Market / Location</label>
+                <input type="text" id="marketName" placeholder="e.g., Wegmans, Trader Joe's">
+            </div>
+
+            <!-- Hidden field for clicking to add quickly -->
+            <div class="input-group">
+                <label>&nbsp;</label>
+                <input type="hidden" id="autoAddInput" autocomplete="off">
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-secondary" id="addButton">Add to List</button>
+                <button class="btn-clear btn-secondary" id="clearButton">Clear Preview</button>
+            </div>
+            <div class="input-group btn-group">
+                <label>&nbsp;</label>
+                <input type="hidden" id="contextInput">
+            </div>
+        </div>
+
+        <div class="list-view" id="listContainer">
+            <!-- Items will be injected here -->
+            <div style="text-align: center; color: var(--text-light); margin-top: 3rem; opacity: 0.5;">
+                Lists appear here
+            </div>
+        </div>
+
+        <footer>
+            <span id="itemCount">0 items added</span>
+            <button id="downloadCsvBtn" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;">Download CSV</button>
+        </footer>
+    </div>
+
+    <script>
+        // State
+        let itemList = [];
+        let nextId = 1;
+
+        // DOM Elements
+        const els = {
+            baseInput: document.getElementById('baseItem'),
+            helpInput: document.getElementById('helperItem'),
+            marketInput: document.getElementById('marketName'),
+            autoInput: document.getElementById('autoAddInput'),
+            listContainer: document.getElementById('listContainer'),
+            counter: document.getElementById('itemCount'),
+            clearBtn: document.getElementById('clearButton'),
+            downloadBtn: document.getElementById('downloadCsvBtn')
+        };
+
+        // Common grocery items for the datalist
+        const commonItems = [
+            "Whole Milk", "Oolong Tea", "Chicken Noodle Soup", "whole cloves", "Su Hunk", 
+            "Egg Noodles", "Cantonese Egg Custard", "Quail Eggs", "Cashew Kernels", 
+            "Black Sesame Seeds", "Hotspices", "Honey", "Crockery", "Soft Drinks", 
+            "Beef", "Chicken", "Apricots", "Pineapple", "Baking Powder", "Don't leave the door open"
+        ];
+        els.datalist = document.getElementById('base-suggestions');
+        commonItems.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item;
+            els.datalist.appendChild(opt);
+        });
+
+        // Logic
+        function addItem() {
+            const base = els.baseInput.value.trim();
+            const helper = els.helpInput.value.trim();
+            
+            if (!base) {
+                els.baseInput.reportValidity();
+                return;
+            }
+
+            const item = {
+                id: nextId++,
+                idLabel: `Item #${nextId}`,
+                base: base,
+                helper: helper || "(liberal amount)",
+                location: els.marketInput.value.trim(),
+                timestamp: new Date().toISOString()
+            };
+
+            itemList.push(item);
+            renderItem(item);
+            
+            // Clear helper, keep base
+            els.helpInput.value = '';
+            updateStats();
+        }
+
+        function deleteItem(id) {
+            itemList = itemList.filter(item => item.id !== id);
+            document.getElementById(`item-${id}`).remove();
+            updateStats();
+        }
+
+        function toggleExpand(id) {
+            const el = document.getElementById(`details-${id}`);
+            el.classList.toggle('open');
+            const icon = document.getElementById(`icon-${id}`);
+            icon.classList.toggle('open');
+        }
+
+        function updateStats() {
+            els.counter.textContent = `${itemList.length} ${itemList.length === 1 ? 'item' : 'items'} added`;
+        }
+
+        function renderList() {
+            // Only re-render if list is empty, or optionally re-sort
+            if (els.listContainer.querySelectorAll('.list-item').length === 0) {
+                if (itemList.length === 0) {
+                    els.listContainer.innerHTML = `
+                        <div style="text-align: center; color: var(--text-light); margin-top: 3rem; opacity: 0.5; padding-top: 20%;">
+                            Add items to start
+                        </div>
+                    `;
+                }
+            } else {
+                // Prevent UI thrashing by just appending
+                // In this simple app, we just re-append to ensure sort order (id +1)
+                document.querySelectorAll('.list-item').forEach(el => el.remove());
+                itemList.forEach(item => renderItem(item));
+            }
+        }
+
+        function renderItem(item) {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.id = `item-${item.id}`;
+            div.innerHTML = `
+                <div class="item-header" onclick="toggleExpand(${item.id})">
+                    <span class="item-title">${item.base} ${item.helper}</span>
+                    <span class="item-count">📦 ${item.idLabel}</span>
+                    <span class="toggle-icon" id="icon-${item.id}">▼</span>
+                </div>
+                <div class="item-details" id="details-${item.id}">
+                    <div class="details-grid">
+                        <div class="detail-row">
+                            <span>📍 Store:</span>
+                            <span>${item.location || 'Home Kitchen'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Action:</span>
+                            <button class="detail-action add-btn" onclick="triggerQuickAdd('${item.base}', '${item.helper}')">+ Repeat</button>
+                        </div>
+                        <div class="detail-row">
+                            <span>Type:</span>
+                            <span>Ingredient</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>&nbsp;</span>
+                            <button class="detail-action delete-btn" style="color: #ff6b6b;" onclick="deleteItem(${item.id})">🗑️ Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            els.listContainer.appendChild(div);
+        }
+
+        // Interaction Helpers
+        function clearList() {
+            if (itemList.length === 0) return;
+            if (confirm('Remove all items from the dashboard?')) {
+                itemList = [];
+                renderList();
+                updateStats();
+            }
+        }
+
+        // Add new items to the DOM based on click
+        document.getElementById('addButton').addEventListener('click', addItem);
+        els.clearBtn.addEventListener('click', clearList);
+
+        // Allow pressing Enter on inputs
+        els.baseInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') addItem(); });
+        els.helpInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') addItem(); });
+
+        // Quick Add Mechanism (The "Repetitive Task" Solver)
+        window.triggerQuickAdd = (base, helper) => {
+            els.baseInput.value = base;
+            els.helpInput.value = helper;
+            els.marketInput.focus();
+            addItem();
+        };
+
+        // Auto-suggest specific behavior
+        els.autoInput.addEventListener('input', function() {
+            const val = this.value;
+            if(val.length > 1) {
+                const filtered = commonItems.filter(i => i.toLowerCase().startsWith(val.toLowerCase()));
+                if(filtered.length > 0) {
+                    this.value = filtered[0];
+                }
+            } else {
+                this.value = '';
+            }
+        });
+
+        // CSV Download Feature
+        els.downloadBtn.addEventListener('click', () => {
+            if(itemList.length === 0) return;
+            
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Base Item,Helper,Market,Added At\n";
+
+            itemList.forEach(item => {
+                const row = `${item.base},"${item.helper}","${item.location}",${item.timestamp}`;
+                csvContent += row + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "repetitive_recipe_ingredients.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // Initial Render
+        renderList();
+
+    </script>
+</body>
+</html>

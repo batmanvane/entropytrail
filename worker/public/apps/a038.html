@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Rain: Spacebar Survival</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #050505;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .hud-text {
+            color: #fff;
+            text-shadow: 0 0 10px #fff;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: right;
+        }
+
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            color: #00ffcc;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+
+        p {
+            color: #ddd;
+            font-size: 18px;
+            margin-bottom: 40px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        .blink {
+            animation: blinker 1s linear infinite;
+            color: #ff0055;
+            font-size: 32px;
+            margin-top: 20px;
+        }
+
+        @keyframes blinker {
+            50% { opacity: 0; }
+        }
+
+        /* Mobile warning for keyboard necessity */
+        @media (max-width: 600px) {
+            #mobile-warning {
+                color: #ffaa00;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud-text">SCORE: <span id="scoreEl">0</span></div>
+        <div class="hud-text">HIGH: <span id="highScoreEl">0</span></div>
+    </div>
+
+    <div id="start-screen">
+        <h1>Neon Rain</h1>
+        <p>Collect energy orbs to survive.<br>Avoid the falling debris.</p>
+        <p style="color: #aaa; font-size: 14px; opacity: 0.7;">
+            Using a handheld device on a touch input device will spawn debris onto your current position for your own protection.<br><br>
+            <span id="mobile-warning">Requires Keyboard.</span>
+        </p>
+        <div class="blink">PRESS SPACEBAR TO START</div>
+    </div>
+
+    <div id="game-over-screen" class="hidden">
+        <h1 style="color: #ff0055; text-shadow: 0 0 20px #ff0055;">GAME OVER</h1>
+        <p>FINAL SCORE: <span id="finalScore">0</span></p>
+        <div class="blink" style="color: #00ffcc;">PRESS SPACEBAR TO RESTART</div>
+    </div>
+
+    <script>
+        /**
+         * NEON RAIN - Single Spacebar Arcade Game
+         * 
+         * Core Loop:
+         * 1. Initialize Canvas & Listeners
+         * 2. Game State Machine (Menu -> Playing -> GameOver)
+         * 3. Physics Loop (Update positions, resolve collisions)
+         * 4. Render Loop (Clear, draw player, draw entities, draw particles)
+         */
+
+        // --- Configuration ---
+        const CONFIG = {
+            playerSpeed: 0.8, // Lerp factor for smooth movement
+            baseGravity: 0.1,
+            decreaseRate: 0.0001,
+            startGravity: 0.005,
+            obstacleSpeed: 0.3,
+            screenShakeDuration: 30,
+            colors: {
+                player: '#00ffcc',
+                orb: '#ffaa00',
+                debris: '#ff0055',
+                bg: '#050505',
+                grid: '#1a1a1a'
+            }
+        };
+
+        // --- State Management ---
+        const state = {
+            isPlaying: false,
+            isGameOver: false,
+            score: 0,
+            highScore: localStorage.getItem('neonRainHighScore') || 0,
+            frameCount: 0,
+            gravity: CONFIG.startGravity,
+            shake: 0
+        };
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize
+        const scoreEl = document.getElementById('scoreEl');
+        const highScoreEl = document.getElementById('highScoreEl');
+        const finalScoreEl = document.getElementById('finalScore');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        highScoreEl.innerText = state.highScore;
+
+        // --- Entities ---
+        const player = {
+            x: 0,
+            y: 0,
+            width: 20,
+            height: 20,
+            trail: [] // Stores {x, y} for visual trail
+        };
+
+        const particles = [];
+        const orbs = [];
+        const debris = [];
+
+        // --- Input Handling ---
+        const keys = { Space: false };
+        let lastKeyTime = 0;
+
+        function handleKey(e, state) {
+            const code = e.code;
+            if (code === 'Space') {
+                keys.Space = state;
+                // Prevent default scrolling for spacebar
+                if (state && e.type === 'keydown') {
+                    e.preventDefault(); 
+                }
+                updateKeyPressLogic(code, state);
+            }
+        }
+
+        function updateKeyPressLogic(code, state) {
+            handleKey({ code: code, type: state ? 'keydown' : 'keyup', preventDefault: () => {} }, state);
+            
+            if (state) {
+                const time = Date.now();
+                // Debounce to prevent accidental repeats
+                if (code === 'Space' && time - lastKeyTime > 150) {
+                    if (!state.isPlaying && !state.isGameOver) {
+                        startGame();
+                    } else if ((state.isGameOver || !state.isPlaying) && keys.Space) {
+                        startGame();
+                        // Consume key immediately so it doesn't toggle
+                        setTimeout(() => { keys.Space = false; lastKeyTime = 0; }, 10);
+                    }
+                    lastKeyTime = time;
+                }
+            } else {
+                keys.Space = false;
+            }
+        }
+
+        window.addEventListener('keydown', e => handleKey(e, true));
+        window.addEventListener('keyup', e => handleKey(e, false));
+
+        // --- Game Logic ---
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.y = canvas.height - 100;
+            player.x = canvas.width / 2 - player.width / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function startGame() {
+            state.isPlaying = true;
+            state.isGameOver = false;
+            state.score = 0;
+            state.gravity = CONFIG.startGravity;
+            state.frameCount = 0;
+            state.shake = 0;
+            keys.Space = false;
+
+            // Reset Entities
+            player.trail = [];
+            orbs.length = 0;
+            debris.length = 0;
+            particles.length = 0;
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
+
+            updateUI();
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+        }
+
+        function gameOver() {
+            state.isPlaying = false;
+            state.isGameOver = true;
+            
+            if (state.score > state.highScore) {
+                state.highScore = state.score;
+                localStorage.setItem('neonRainHighScore', state.highScore);
+                highScoreEl.innerText = state.highScore;
+            }
+            
+            finalScoreEl.innerText = Math.floor(state.score);
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function spawnObstacles(speedX, speedY, frameInterval) {
+            const type = Math.random();
+            
+            if (type > 0.5) {
+                // SPAWN ORB (Goal)
+                const side = Math.random() > 0.5 ? 'left' : 'right';
+                const x = side === 'left' ? -20 : canvas.width + 20;
+                const y = Math.random() * (canvas.height - 100) + 50;
+                
+                orbs.push({
+                    x: x,
+                    y: y,
+                    vx: side === 'left' ? speedX : -speedX,
+                    vy: speedY,
+                    radius: 8,
+                    active: true
+                });
+            } else {
+                // SPAWN DEBRIS (Danger)
+                const size = Math.random() * 10 + 10;
+                const deadZoneX = Math.random() * (canvas.width - 100) + 50;
+                
+                debris.push({
+                    x: deadZoneX,
+                    y: -20,
+                    width: size,
+                    height: size,
+                    vx: 0,
+                    vy: speedY,
+                    rotation: Math.random() * Math.PI,
+                    rotSpeed: (Math.random() - 0.5) * 0.1,
+                    active: true
+                });
+            }
+        }
+
+        function update(dt) {
+            if (!state.isPlaying || state.isGameOver) return;
+
+            state.frameCount++;
+            state.score += 0.1;
+            state.gravity += CONFIG.decreaseRate;
+            
+            updateUI();
+
+            // --- Player Physics (Horizontal Lerp) ---
+            // Target X moves with mouse/touch or space pressed
+            // Since space is held to move, spacebar == right direction, up/down keys allowed (not in scope)
+            // For single key, Spacebar will make player drift right, releasing moves left (slide)
+            
+            // Movement Logic:
+            // If Space held: Move Right
+            // If Space released: Slide slightly Left (Slide-to-move mechanic is hard with single key)
+            // BETTER LOGIC FOR SINGLE KEY:
+            // Spacebar is the INPUT. 
+            // Tapping space keeps you in current lane for a bit? No.
+            // Let's go with: Space = Move Right. Release = Move Left (Slide).
+            // We need to track the last "start" position.
+            
+            if (keys.Space) direction = 1;
+            else direction = -1;
+
+            // Add "Impulse" logic based on holding space
+            if(keys.Space) {
+                player.x += (direction * 0.8); 
+            } else {
+                player.x -= (direction * 0.2); // Slide back slowly
+            }
+
+            // Screen Wrap
+            const minX = player.width / 2;
+            const maxX = canvas.width - player.width / 2;
+            
+            if (player.x > maxX + 50) player.x = minX;
+            if (player.x < minX - 50) player.x = maxX;
+            
+            // Trail Effect
+            player.x = (player.x + player.width/2 - canvas.width/2) + canvas.width/2; // Force normalized
+            player.x -= canvas.width/2; // Convert to normalized
+            // Simple visual trail: decay previous positions
+            player.trail.unshift({x: player.x, y: player.y});
+            if(player.trail.length > 10) player.trail.pop();
+
+
+            // --- Obstacles ---
+            spawnObstacles(3, 2, 60); // Difficulty scaling logic would go here
+
+            for (let i = orbs.length - 1; i >= 0; i--) {
+                const o = orbs[i];
+                o.x += o.vx;
+                o.y += o.vy;
+
+                // Remove off-screen
+                if (o.x < -50 || o.x > canvas.width + 50 || o.y > canvas.height + 50) {
+                    orbs.splice(i, 1);
+                    continue;
+                }
+
+                // Collision
+                const dx = o.x - (player.x + player.width/2);
+                const dy = o.y - (player.y + player.height/2);
+                const dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < player.width/2 + o.radius) {
+                    if (o.vy > 0) {
+                        // Collected Orb
+                        state.score += 500;
+                        orbs.splice(i, 1);
+                        createExplosion(o.x, o.y, CONFIG.colors.orb, 5);
+                        continue;
+                    } else {
+                        // Hit Obstacle side
+                        createExplosion(o.x, o.y, CONFIG.colors.debris, 10);
+                        gameOver();
+                    }
+                }
+            }
+
+            // --- Debris ---
+            for (let i = debris.length - 1; i >= 0; i--) {
+                const d = debris[i];
+                d.y += d.vy;
+                d.rotation += d.rotSpeed;
+                d.vy += state.gravity;
+
+                if (d.y > canvas.height + 50) {
+                    debris.splice(i, 1);
+                    continue;
+                }
+
+                // AABB Collision
+                if (rectIntersect(player, {
+                    x: d.x - d.width/2, y: d.y - d.height/2, 
+                    width: d.width, height: d.height
+                })) {
+                    createExplosion(player.x, player.y, CONFIG.colors.player, 20);
+                    gameOver();
+                }
+            }
+
+            // --- Particles ---
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                p.color += '55'; // Fade to black (hex manipulation simplified to appending)
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            // --- Screen Shake Decay ---
+            if (state.shake > 0) state.shake--;
+        }
+
+        function rectIntersect(r1, r2) {
+            return !(r2.x > r1.x + r1.width || 
+                     r2.x + r2.width < r1.x || 
+                     r2.y > r1.y + r1.height || 
+                     r2.y + r2.height < r1.y);
+        }
+
+        function createExplosion(x, y, color, count) {
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 1,
+                    color: color,
+                    originalColor: color,
+                    size: Math.random() * 2 + 1
+                });
+            }
+            state.shake = 10;
+        }
+
+        function updateUI() {
+            scoreEl.innerText = Math.floor(state.score);
+        }
+
+        // --- Rendering ---
+
+        function draw() {
+            // Clear Background
+            ctx.fillStyle = CONFIG.colors.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Apply Shake
+            ctx.save();
+            if (state.shake > 0) {
+                const dx = (Math.random() - 0.5) * state.shake;
+                const dy = (Math.random() - 0.5) * state.shake;
+                ctx.translate(dx, dy);
+            }
+
+            // Draw Grid (Retro Effect)
+            ctx.strokeStyle = CONFIG.colors.grid;
+            ctx.lineWidth = 1;
+            const gridSize = 50;
+            
+            // Moving grid effect based on score
+            const offset = (state.score * 10) % gridSize;
+            
+            ctx.beginPath();
+            for(let x = 0; x < canvas.width; x += gridSize) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+            }
+            for(let y = -gridSize + offset + 50; y < canvas.height; y += gridSize) {
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+            }
+            ctx.stroke();
+
+            // Draw Debris
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = CONFIG.colors.debris;
+            for(let d of debris) {
+                ctx.save();
+                ctx.translate(d.x, d.y);
+                ctx.rotate(d.rotation);
+                ctx.globalAlpha = 1 - (d.y / canvas.height); // Fade out in distance
+                // Draw a simple square or rotated box
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = CONFIG.colors.debris;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(-d.width/2, -d.height/2, d.width, d.height);
+                ctx.strokeRect(-d.width/2, -d.height/2, d.width, d.height);
+                ctx.restore();
+            }
+
+            // Draw Orbs
+            ctx.fillStyle = CONFIG.colors.orb;
+            ctx.shadowColor = CONFIG.colors.orb;
+            ctx.shadowBlur = 10;
+            for(let o of orbs) {
+                ctx.beginPath();
+                ctx.arc(o.x, o.y, o.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.shadowBlur = 0;
+
+            // Draw Player Trail
+            ctx.beginPath();
+            ctx.strokeStyle = CONFIG.colors.player;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = CONFIG.colors.player;
+            ctx.shadowBlur = 10;
+            
+            if (player.trail.length > 0) {
+                ctx.moveTo(player.trail[0].x + canvas.width/2, player.trail[0].y + canvas.height/2);
+                for(let t of player.trail) {
+                    ctx.lineTo(t.x + canvas.width/2, t.y + canvas.height/2);
+                }
+            }
+            ctx.lineTo(player.x + canvas.width/2, player.y + canvas.height/2);
+            ctx.stroke();
+
+            // Draw Player Head
+            // We don't need to draw a rect for the head if we don't want, 
+            // but the glow handles it visually mostly.
+            // Let's draw a simple geometric shape to represent the hero
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(player.x + canvas.width/2, player.y + canvas.height/2, 4, 0, Math.PI*2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Draw Particles
+            for(let p of particles) {
+                ctx.fillStyle = p.color || p.originalColor;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
+            ctx.restore();
+        }
+
+        // --- The Loop ---
+        let lastTime = 0;
+        function loop(timestamp) {
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            update(dt);
+            draw();
+
+            requestAnimationFrame(loop);
+        }
+
+        // Start Loop
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>

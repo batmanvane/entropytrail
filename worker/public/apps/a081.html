@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula Stacker</title>
+    <style>
+        :root {
+            --bg-color: #0f0f1a;
+            --box-color: #2d2d44;
+            --accent-color: #4facfe;
+            --text-color: #ffffff;
+            --danger-color: #ff4b4b;
+            --success-color: #00d2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: 60vh; /* Dynamic height based on screen */
+            max-height: 800px;
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            z-index: 10;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 26, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            transition: opacity 0.3s ease;
+        }
+
+        #menu-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, var(--success-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 10px rgba(79, 172, 254, 0.3);
+        }
+
+        p.subtitle {
+            color: #aaa;
+            margin-bottom: 40px;
+            font-size: 1rem;
+        }
+
+        button {
+            background: linear-gradient(45deg, var(--accent-color), #00c6ff);
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+            box-shadow: 0 4px 15px rgba(0, 200, 255, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 255, 0.6);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        /* The Stack Container */
+        #stack-container {
+            position: relative;
+            width: 80%;
+            height: 90%;
+            margin: 20px auto;
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+            border-top: 2px solid rgba(255, 255, 255, 0.1);
+            max-width: 250px;
+        }
+
+        /* Individual Box */
+        .block {
+            position: absolute;
+            width: 100%;
+            height: 0; /* Height expands when active */
+            background: linear-gradient(to right, #2b2b40, #3a3a55);
+            border-radius: 4px 4px 0 0;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.3);
+            transition: height 0.1s linear;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .block::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(to top, rgba(0,0,0,0.2), transparent);
+            opacity: 0.5;
+        }
+
+        .block.active {
+            height: 15%; /* Base height when active */
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            box-shadow: 0 0 15px rgba(79, 172, 254, 0.6);
+            transform: translateY(5px);
+            border-width: 2px;
+            border-bottom: 0; /* Remove seam */
+        }
+
+        .block.active::after {
+            display: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            #game-container {
+                height: 80vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui-layer">
+            <div class="stat-box">Score: <span id="score">0</span></div>
+        </div>
+
+        <div id="menu-overlay">
+            <h1 id="menu-title">Nebula Stacker</h1>
+            <p class="subtitle" id="menu-subtitle">Tap to grow the stack!</p>
+            <button id="start-btn">Play</button>
+        </div>
+
+        <div id="stack-container">
+            <!-- Blocks will be injected here via JS -->
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Game Logic for Nebula Stacker
+         * ------------------------------------------------------------------
+         * Rules:
+         * 1. Tap to grow the current block (height).
+         * 2. If a block grows too tall (overflows the container), it is removed.
+         * 3. Removed blocks add to your score.
+         * 4. The goal is to keep blocks within bounds while maxing out score.
+         */
+
+        // DOM Elements
+        const container = document.getElementById('game-container');
+        const stackContainer = document.getElementById('stack-container');
+        const scoreEl = document.getElementById('score');
+        const menuOverlay = document.getElementById('menu-overlay');
+        const menuTitle = document.getElementById('menu-title');
+        const menuSubtitle = document.getElementById('menu-subtitle');
+        const startBtn = document.getElementById('start-btn');
+
+        // Game State
+        let gameState = {
+            isPlaying: false,
+            score: 0,
+            highScore: localStorage.getItem('nebulaStackHighScore') || 0,
+            blocks: [],
+            lastTick: 0,
+            growthRate: 2.5, // Pixels per frame when active
+            gravityDrift: 0, // Visual optimization (optional)
+            bounds: {
+                baseHeight: 414, // Approx height of elements
+                totalHeight: 0,
+                maxHeightPerBlock: 60 // How much a block can grow before removal
+            }
+        };
+
+        // Initialize Dimensions
+        function initDimensions() {
+            const rect = container.getBoundingClientRect();
+            gameState.bounds.parentElementHeight = rect.height - 120; // UI overhead
+            
+            // Calculate available pixel height for the stack
+            gameState.bounds.totalHeight = gameState.bounds.parentElementHeight;
+            
+            // Calculate base height per block for percentage conversions
+            gameState.bounds.baseHeightPixels = 15;
+        }
+
+        // Block Class
+        class Block {
+            constructor(id, heightPercentage, scoreValue) {
+                this.id = id;
+                this.element = document.createElement('div');
+                this.element.classList.add('block');
+                
+                // Set initial percentage
+                this.element.style.height = `${heightPercentage}%`;
+                
+                // Add to DOM immediately
+                stackContainer.appendChild(this.element);
+                
+                this.active = true;
+                this.scoreValue = scoreValue || 0; // Points added if this block overflows later
+                
+                // Transition setting
+                this.element.style.transition = 'height 0.05s linear'; 
+            }
+
+            grow(amount) {
+                if (!this.active) return;
+
+                const currentHeight = parseFloat(this.element.style.height) || 0;
+                let newHeight = currentHeight + amount;
+
+                if (newHeight > 100) {
+                    this.die();
+                } else {
+                    this.element.style.height = `${Math.min(newHeight, 100)}%`;
+                }
+            }
+
+            die() {
+                // Clean up DOM
+                if (this.element.parentNode) {
+                    this.element.parentNode.removeChild(this.element);
+                }
+                this.active = false;
+            }
+        }
+
+        // Core Game Functions
+        function startGame() {
+            if (gameState.isPlaying) return;
+
+            // Reset State
+            gameState.score = 0;
+            gameState.blocks = [];
+            scoreEl.innerText = '0';
+            stackContainer.innerHTML = '';
+            
+            // Hide Menu
+            menuOverlay.classList.add('hidden');
+            
+            // Start Loop
+            gameState.isPlaying = true;
+            gameState.lastTick = performance.now();
+            animate(performance.now());
+        }
+
+        function gameOver() {
+            gameState.isPlaying = false;
+            
+            // Update High Score
+            let finalScore = Math.floor(gameState.score);
+            if (finalScore > gameState.highScore) {
+                gameState.highScore = finalScore;
+                localStorage.setItem('nebulaStackHighScore', gameState.highScore);
+                menuSubtitle.innerText = `New High Score: ${finalScore}!`;
+            } else {
+                menuSubtitle.innerText = `Best Score: ${gameState.highScore}`;
+            }
+
+            menuTitle.innerText = "Game Over";
+            startBtn.innerText = "Try Again";
+            
+            // Show Menu
+            menuOverlay.classList.remove('hidden');
+        }
+
+        // Animation Loop
+        function animate(timestamp) {
+            if (!gameState.isPlaying) return;
+
+            const deltaTime = timestamp - gameState.lastTick;
+
+            // Game Loop Logic
+            for (let i = gameState.blocks.length - 1; i >= 0; i--) {
+                const block = gameState.blocks[i];
+                
+                // 1. If the top block exists, it grows
+                if (block.active) {
+                    block.grow(gameState.growthRate);
+                    
+                    // Force immediate redraw check for overflow (CSS might lag slightly)
+                    if (parseFloat(block.element.style.height) >= 100) {
+                        block.die();
+                        updateScore(block.scoreValue);
+                    }
+                }
+                
+                // 2. If a block is dead (overflown previously), it falls down
+                if (!block.active) {
+                    // Fall animation could be added here, 
+                    // but for simplicity in a "short break" game, we just remove them
+                    // unless we want a "fall" effect before disappearing.
+                }
+            }
+
+            // Update Counter-Ticks
+            gameState.lastTick = timestamp;
+            requestAnimationFrame(animate);
+        }
+
+        function updateScore(points) {
+            gameState.score += points;
+            scoreEl.innerText = Math.floor(gameState.score);
+        }
+
+        // Input Handling
+        function handleInput(e) {
+            // Prevent default behavior for touch (scrolling/zooming)
+            if (e.type === 'touchstart') {
+                // We preventDefault only if target isn't a button, otherwise it breaks the button
+                if (e.target.tagName !== 'BUTTON') {
+                    e.preventDefault();
+                }
+            }
+
+            if (!gameState.isPlaying) return;
+
+            // Find the top-most active block
+            const blocks = stackContainer.querySelectorAll('.block.active');
+            if (blocks.length > 0) {
+                const topBlock = blocks[0];
+                topBlock.grow(gameState.growthRate * 2); // Double growth on tap? Or just normal
+            }
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', () => {
+            initDimensions();
+            updateBlockDisplay(); // Ensure blocks don't break on resize
+        });
+
+        startBtn.addEventListener('click', startGame);
+        
+        // Global input for game container
+        container.addEventListener('mousedown', handleInput);
+        container.addEventListener('touchstart', (e) => {
+            // If multitouch
+            if (e.touches.length > 1) return;
+            handleInput(e.changedTouches[0]);
+        });
+
+        // Helper to ensure blocks align correctly with container resizing
+        function updateBlockDisplay() {
+            const blocks = stackContainer.querySelectorAll('.block');
+            const parentHeight = container.offsetHeight - 120; // UI overhead
+            blocks.forEach(block => {
+                const currentPercent = block.offsetHeight / parentHeight;
+                if (currentPercent > 0) {
+                    block.style.height = `${currentPercent * 100}%`;
+                }
+            });
+        }
+
+        // Initial Setup
+        initDimensions();
+        updateBlockDisplay();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tip Calculator</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #ddd;
+            --accent-green: #2ecc71;
+            --accent-red: #e74c3c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text-color);
+            padding: 20px;
+        }
+
+        .calculator-card {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .input-wrapper span {
+            position: absolute;
+            left: 15px;
+            color: #999;
+        }
+
+        /* Position currency on left, percentage on right */
+        .currency-input span {
+            left: 15px;
+        }
+        .currency-input input {
+            padding-left: 30px;
+        }
+
+        .percentage-input span {
+            right: 15px;
+        }
+        .percentage-input input {
+            padding-right: 30px;
+            width: 65%;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 12px 12px 35px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            outline: none;
+        }
+
+        .percentage-input input {
+            padding-left: 12px;
+            width: 80%;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary-color);
+        }
+
+        .shortcuts {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .shortcut-btn {
+            background-color: #f0f0f0;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #555;
+            flex: 1;
+            transition: all 0.2s;
+        }
+
+        .shortcut-btn:hover, .shortcut-btn.selected {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .input-group.full-width {
+            width: 100%;
+        }
+
+        .results {
+            background-color: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            border: 1px solid #eee;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-label {
+            color: #666;
+        }
+
+        .result-value {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+        }
+
+        .grand-total {
+            margin-top: 1rem;
+            border-top: 1px dashed #ccc;
+            padding-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .error {
+            color: var(--accent-red);
+            font-size: 0.85rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .error.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator-card">
+    <h1>Tip Calculator</h1>
+
+    <div class="input-group">
+        <label for="billAmount">Bill Amount</label>
+        <div class="input-wrapper currency-input">
+            <span>$</span>
+            <input type="number" id="billAmount" placeholder="0.00" min="0" step="0.01">
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="tipPercentage">Tip Percentage</label>
+        <div class="input-wrapper percentage-input">
+            <input type="number" id="tipPercentage" placeholder="0" min="0" max="100">
+            <span>%</span>
+        </div>
+        <div class="shortcuts">
+            <button class="shortcut-btn" data-value="10">10%</button>
+            <button class="shortcut-btn selected" data-value="15">15%</button>
+            <button class="shortcut-btn" data-value="20">20%</button>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="peopleCount">Number of People</label>
+        <div class="input-wrapper">
+            <input type="number" id="peopleCount" placeholder="1" min="1" value="1">
+        </div>
+        <div class="error" id="peopleError">Please enter a valid number of people (1 or more).</div>
+    </div>
+
+    <div class="results">
+        <div class="result-item">
+            <span class="result-label">Total Tip</span>
+            <span class="result-value" id="totalTip">$0.00</span>
+        </div>
+        <div class="result-item">
+            <span class="result-label">Total per Person</span>
+            <span class="result-value" id="perPersonTotal">$0.00</span>
+        </div>
+        <div class="grand-total">
+            <span class="result-label">Bill per Person</span>
+            <span class="result-value" id="perPersonBill">$0.00</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // DOM Elements
+    const billAmountInput = document.getElementById('billAmount');
+    const tipPercentageInput = document.getElementById('tipPercentage');
+    const peopleCountInput = document.getElementById('peopleCount');
+    const peopleError = document.getElementById('peopleError');
+
+    const totalTipEl = document.getElementById('totalTip');
+    const perPersonTotalEl = document.getElementById('perPersonTotal');
+    const perPersonBillEl = document.getElementById('perPersonBill');
+
+    // Buttons
+    const shortcutButtons = document.querySelectorAll('.shortcut-btn');
+
+    // Formatting currency
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(amount);
+    };
+
+    // Calculate function
+    const calculate = () => {
+        // Get values
+        const bill = parseFloat(billAmountInput.value);
+        
+        let tipPercent = parseFloat(tipPercentageInput.value);
+        
+        // Handle people count
+        const people = parseFloat(peopleCountInput.value);
+
+        // Error handling for integers
+        if (isNaN(people) || people < 1) {
+            peopleError.classList.add('visible');
+            return;
+        } else {
+            peopleError.classList.remove('visible');
+        }
+
+        // Determine Tip Percentage
+        let selectedPercentage = tipPercent;
+        let selectedButton = null;
+
+        if (isNaN(tipPercent) || tipPercent < 0) {
+            selectedPercentage = 15; // Default to 15 if blank/invalid
+        } else {
+            selectedPercentage = tipPercent;
+        }
+
+        // Check if a button is actively selected via class
+        shortcutButtons.forEach(btn => {
+            if (btn.classList.contains('selected')) {
+                selectedPercentage = parseFloat(btn.dataset.value);
+                selectedButton = btn;
+            }
+        });
+
+        // Monetize
+        const calculatedTipTotal = bill * (selectedPercentage / 100);
+        const calculatedPerPerson = bill + calculatedTipTotal;
+        const perPersonBillOnly = bill / people;
+
+        // Update UI
+        totalTipEl.textContent = formatCurrency(calculatedTipTotal);
+        perPersonTotalEl.textContent = formatCurrency(calculatedPerPerson);
+        perPersonBillEl.textContent = formatCurrency(perPersonBillOnly);
+    };
+
+    // Event Listeners
+    billAmountInput.addEventListener('input', calculate);
+    tipPercentageInput.addEventListener('input', calculate);
+    
+    // "Blur" event helps capture button clicks and close error states properly
+    peopleCountInput.addEventListener('blur', () => {
+        if (!peopleCountInput.value) {
+           if(isNaN(parseFloat(peopleCountInput.value)) || parseFloat(peopleCountInput.value) < 1) {
+               peopleError.classList.add('visible');
+           } else {
+               peopleError.classList.remove('visible');
+           }
+        }
+        calculate();
+    });
+
+    // Shortcut Buttons Logic
+    shortcutButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove selected class from all
+            shortcutButtons.forEach(b => b.classList.remove('selected'));
+            // Add to clicked
+            btn.classList.add('selected');
+            
+            // Set input value
+            tipPercentageInput.value = btn.dataset.value;
+            
+            // Trigger calculation
+            calculate();
+        });
+    });
+
+    // Initial setup to add 'selected' to 15% button
+    shortcutButtons[1].classList.add('selected'); // Index 1 corresponds to 15%
+    shortcutButtons[1].click();
+
+</script>
+
+</body>
+</html>

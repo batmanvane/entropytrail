@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Explorer</title>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --text-color: #e0e0e0;
+            --accent-color: #4facfe;
+            --quote-bg: rgba(255, 255, 255, 0.1);
+            --btn-hover: #00f260;
+            --btn-hover-text: #050510;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background Stars */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--duration) ease-in-out infinite;
+            opacity: var(--opacity);
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: var(--opacity); transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.8); }
+        }
+
+        /* Header */
+        header {
+            padding: 2rem;
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(to right, #4facfe, #00f260);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Main Container */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            width: 90%;
+            max-width: 600px;
+            gap: 1.5rem;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Card Styling */
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        /* Quiz Section */
+        .quiz-section {
+            text-align: center;
+        }
+
+        .question {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .options {
+            display: grid;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .option-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: left;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .option-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .correct {
+            background-color: var(--btn-hover) !important;
+            color: var(--btn-hover-text) !important;
+            border-color: var(--btn-hover) !important;
+        }
+
+        .incorrect {
+            background-color: #ff416c !important;
+            color: white !important;
+            border-color: #ff416c !important;
+        }
+
+        .controls {
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .next-btn, .result-btn {
+            background: var(--accent-color);
+            color: white;
+            font-weight: bold;
+        }
+
+        .next-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        /* Score Display */
+        .score-display {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin: 1rem 0;
+            text-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
+        }
+
+        /* Quote Section */
+        .quote-section {
+            text-align: center;
+            padding: 2rem;
+            background: var(--quote-bg);
+            border-radius: 15px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        blockquote {
+            font-style: italic;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+        }
+
+        cite {
+            font-style: normal;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        /* Utility */
+        .hidden {
+            display: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Effects -->
+    <div class="stars" id="starContainer"></div>
+
+    <header>
+        <h1>Solar System Explorer</h1>
+        <p>Test your knowledge & discover space facts</p>
+    </header>
+
+    <main class="app-container">
+        
+        <!-- Quiz Section -->
+        <section class="card quiz-section" id="quizSection">
+            <div id="questionContainer">
+                <p class="question" id="questionText">Loading question...</p>
+                <div class="options" id="optionsContainer">
+                    <!-- Buttons generated by JS -->
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="next-btn" id="nextBtn" style="display: none;">Next Question</button>
+            </div>
+        </section>
+
+        <!-- Result Section -->
+        <section class="card quiz-section hidden" id="resultSection">
+            <h2>Quiz Complete!</h2>
+            <p>Your Score</p>
+            <div class="score-display" id="finalScore">0</div>
+            <p id="messageText">Good effort!</p>
+            <div class="controls">
+                <button class="result-btn" id="restartBtn">Play Again</button>
+            </div>
+        </section>
+
+        <!-- Quote of the Day -->
+        <section class="quote-section">
+            <blockquote id="quoteText">
+                "Look up at the stars and not down at your feet."
+            </blockquote>
+            <cite id="quoteSource">- Neil Armstrong</cite>
+            <button class="option-btn option-btn" style="margin-top: 10px; width: 100%; justify-content: center;" onclick="newQuote()">New Quote</button>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Data ---
+
+        const questions = [
+            {
+                question: "Which planet is known as the Red Planet?",
+                options: ["Venus", "Mars", "Jupiter", "Saturn"],
+                answer: 1, // Index of correct answer
+                quote: "Mars is the most likely destination for human spaceflight among all the planets."
+            },
+            {
+                question: "Which planet has the most moons in our solar system?",
+                options: ["Jupiter", "Saturn", "Uranus", "Neptune"],
+                answer: 1,
+                quote: "Saturn has 146 confirmed moons, making it the planet with the most in our solar system."
+            },
+            {
+                question: "Which planet is closest to the Sun?",
+                options: ["Venus", "Mercury", "Earth", "Mars"],
+                answer: 1,
+                quote: "Mercury is the smallest planet in the solar system and the closest to the Sun."
+            },
+            {
+                question: "What is the largest planet in our solar system?",
+                options: ["Earth", "Saturn", "Uranus", "Jupiter"],
+                answer: 3,
+                quote: "Jupiter is the largest planet in our solar system with a mass more than two and a half times that of all the other planets combined."
+            },
+            {
+                question: "Which planet has the Great Red Spot?",
+                options: ["Mars", "Venus", "Saturn", "Jupiter"],
+                answer: 3,
+                quote: "The Great Red Spot is a giant, persistent, high-pressure region in the atmosphere of Jupiter."
+            },
+            {
+                question: "Which planet is the hottest in the solar system?",
+                options: ["Mars", "Mercury", "Venus", "Neptune"],
+                answer: 2,
+                quote: "Venus is the hottest planet due to its thick atmosphere that creates a runaway greenhouse effect."
+            },
+            {
+                question: "Which planet is known as the Ice Giant?",
+                options: ["Saturn", "Neptune", "Uranus", "Pluto"],
+                answer: 1,
+                quote: "Uranus and Neptune are Ice Giants, distinct from the Gas Giants, containing more ice than rock or metal."
+            }
+        ];
+
+        const quotes = [
+            { text: "Look up at the stars and not down at your feet.", author: "- Neil Armstrong" },
+            { text: "The universe is under no obligation to make sense to you.", author: "- Neil deGrasse Tyson" },
+            { text: "Our place in the cosmos is not that we are the chiefs. We are merely the stewards.", author: "- Neil deGrasse Tyson" },
+            { text: "Somewhere, something incredible is waiting to be known.", author: "- Carl Sagan" },
+            { text: "Time is what you stop when you say the race is over.", author: "- Stephen Hawking" }
+        ];
+
+        // --- State ---
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let isAnswered = false;
+
+        // --- DOM Elements ---
+        const questionText = document.getElementById('questionText');
+        const optionsContainer = document.getElementById('optionsContainer');
+        const nextBtn = document.getElementById('nextBtn');
+        const quizSection = document.getElementById('quizSection');
+        const resultSection = document.getElementById('resultSection');
+        const finalScore = document.getElementById('finalScore');
+        const messageText = document.getElementById('messageText');
+        const restartBtn = document.getElementById('restartBtn');
+        const quoteText = document.getElementById('quoteText');
+        const quoteSource = document.getElementById('quoteSource');
+
+        // --- Backend Logic ---
+
+        function initStars() {
+            const container = document.getElementById('starContainer');
+            for (let i = 0; i < 150; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                
+                // Random positioning
+                const x = Math.random() * 100;
+                const y = Math.random() * 100;
+                const size = Math.random() * 3;
+                const duration = Math.random() * 3 + 2; // 2s to 5s
+                const opacity = Math.random();
+
+                star.style.left = `${x}%`;
+                star.style.top = `${y}%`;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.setProperty('--duration', `${duration}s`);
+                star.style.setProperty('--opacity', opacity);
+
+                container.appendChild(star);
+            }
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function loadQuestion() {
+            isAnswered = false;
+            const currentQ = questions[currentQuestionIndex];
+            
+            // Reset UI
+            questionText.innerText = currentQ.question;
+            optionsContainer.innerHTML = '';
+            nextBtn.style.display = 'none';
+
+            // Create option buttons
+            const shuffledOptions = shuffleArray([...currentQ.options]);
+            
+            shuffledOptions.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt;
+                btn.onclick = () => selectAnswer(index, currentQ.answer);
+                optionsContainer.appendChild(btn);
+            });
+        }
+
+        function selectAnswer(selectedIndex, correctIndex) {
+            if (isAnswered) return;
+            isAnswered = true;
+
+            const buttons = optionsContainer.children;
+            
+            // Disable all buttons
+            buttons.forEach(btn => btn.disabled = true);
+
+            if (selectedIndex === correctIndex) {
+                buttons[selectedIndex].classList.add('correct');
+                score++;
+            } else {
+                buttons[selectedIndex].classList.add('incorrect');
+                buttons[correctIndex].classList.add('correct'); // Show correct answer
+            }
+
+            // Update Quote after answer
+            if(document.querySelector('.fade-in')) document.querySelector('.fade-in').classList.remove('fade-in');
+
+            // Show Next Button
+            nextBtn.innerText = currentQuestionIndex === questions.length - 1 ? "See Results" : "Next Question";
+            nextBtn.style.display = 'block';
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            quizSection.classList.add('hidden');
+            // Trigger reflow to restart animation
+            void quizSection.offsetWidth; 
+            
+            quizSection.classList.remove('hidden');
+            quizSection.classList.add('fade-in');
+
+            finalScore.innerText = `${score} / ${questions.length}`;
+
+            if (score === questions.length) {
+                messageText.innerText = "Amazing! You're a Space Expert!";
+            } else if (score > questions.length / 2) {
+                messageText.innerText = "Great job! You know your planets well.";
+            } else {
+                messageText.innerText = "Keep learning, the universe is vast!";
+            }
+        }
+
+        function newQuote() {
+            const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+            quoteText.innerHTML = `"${randomQuote.text}"`;
+            quoteSource.innerText = randomQuote.author;
+        }
+
+        // --- Event Listeners ---
+        nextBtn.addEventListener('click', nextQuestion);
+        restartBtn.addEventListener('click', () => {
+            currentQuestionIndex = 0;
+            score = 0;
+            resultSection.classList.add('hidden');
+            quizSection.classList.remove('hidden');
+            quizSection.classList.add('fade-in');
+            loadQuestion();
+        });
+
+        // --- Initialization ---
+        initStars();
+        newQuote();
+        loadQuestion();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlanDash - Local Planning Tool</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --text: #1f2937;
+            --text-light: #6b7280;
+            --border: #e5e7eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            flex: 1;
+            height: 100%;
+        }
+
+        aside {
+            width: 280px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            flex-shrink: 0;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            background: var(--surface);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .date-display {
+            font-weight: 500;
+            color: var(--text-light);
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            padding-bottom: 5px;
+        }
+
+        .filter-btn {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .filter-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Calendar Grid */
+        .calendar-wrapper {
+            padding: 1rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .calendar-header {
+            background: #fff;
+            padding: 0.75rem;
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 0.875rem;
+        }
+
+        .day-cell {
+            background: var(--surface);
+            min-height: 120px;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+
+        .day-cell:hover {
+            background: #fafbfc;
+        }
+
+        .day-cell.includes-today {
+            border: 2px solid var(--primary);
+            position: relative;
+        }
+
+        .day-cell.weekend {
+            background: #f9fafb;
+        }
+
+        .day-number {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            align-self: flex-start;
+        }
+
+        .day-cell.empty::before {
+            content: attr(data-label);
+            display: block;
+            font-weight: 600;
+            padding: 2rem 0.5rem;
+            color: var(--text-light);
+        }
+
+        .task-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: auto;
+        }
+
+        .task-item {
+            font-size: 0.75rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            line-height: 1.4;
+            color: #4b5563;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: var(--surface);
+            width: 100%;
+            max-width: 500px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            transform: scale(0.95);
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+        }
+
+        .modal-overlay.open .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .task-checkbox {
+            width: 100%;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, bottom 0.3s;
+            z-index: 101;
+        }
+
+        .toast.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                overflow-y: auto;
+            }
+            aside {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .calendar-wrapper {
+                max-height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>PlanDash</h1>
+        <div class="date-display" id="currentDate"></div>
+    </header>
+
+    <div class="container">
+        <aside>
+            <div class="filters" id="categoryFilters">
+                <button class="filter-btn active" data-category="all">All</button>
+                <button class="filter-btn" data-category="work">💼 Work</button>
+                <button class="filter-btn" data-category="home">🏠 Home</button>
+                <button class="filter-btn" data-category="health">❤️ Health</button>
+                <button class="filter-btn" data-category="personal">✨ Personal</button>
+            </div>
+            <div style="margin-top: auto; padding: 1rem; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--text-light);">
+                <p>Tasks saved locally on your device.</p>
+            </div>
+        </aside>
+
+        <main>
+            <div class="calendar-wrapper">
+                <div class="calendar-grid" id="calendarGrid">
+                    <!-- Grid generated by JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div class="modal-overlay" id="taskModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Task</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <input type="hidden" id="currentDateInput">
+                <div class="form-group">
+                    <label>Task Details</label>
+                    <textarea id="newTaskInput" class="form-control" rows="3" placeholder="What needs to be done?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="newCategorySelect" class="form-control">
+                        <option value="work">Work</option>
+                        <option value="home">Home</option>
+                        <option value="health">Health</option>
+                        <option value="personal">Personal</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button id="saveTaskBtn" style="flex: 1; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Task</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">Task added successfully!</div>
+
+    <script>
+        // --- State Management ---
+        const STORAGE_KEY = 'plandash_v1_data';
+        
+        let appData = {
+            currentDate: new Date(),
+            tasks: []
+        };
+
+        // Load data from localStorage
+        function loadData() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    appData = { ...appData, ...parsed };
+                } catch (e) {
+                    console.error("Failed to parse data", e);
+                }
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        // --- DOM Elements ---
+        const calendarGrid = document.getElementById('calendarGrid');
+        const currentDateDisplay = document.getElementById('currentDate');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const taskModal = document.getElementById('taskModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const currentDateInput = document.getElementById('currentDateInput');
+        const newTaskInput = document.getElementById('newTaskInput');
+        const newCategorySelect = document.getElementById('newCategorySelect');
+        const saveTaskBtn = document.getElementById('saveTaskBtn');
+        const closeModal = document.getElementById('closeModal');
+        const toast = document.getElementById('toast');
+
+        // --- Core Logic ---
+
+        function init() {
+            loadData();
+            appData.currentDate = new Date(); // Reset to today if data is empty
+            renderCalendar();
+        }
+
+        function formatDateEnglish(date = appData.currentDate) {
+            return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function getLocalStorageTasksForDate(date) {
+            // Create a unique key based on date YYYY-MM-DD
+            const key = date.toISOString().split('T')[0];
+            
+            // Filter tasks for this date, preserving original task IDs
+            return appData.tasks.filter(t => t.date === key);
+        }
+
+        function addTask(title, category, date) {
+            if (!title.trim()) return;
+            const key = date.toISOString().split('T')[0];
+            
+            appData.tasks.push({
+                id: Date.now(),
+                title: title,
+                category: category,
+                date: key,
+                created: new Date().toISOString()
+            });
+            saveData();
+            renderTaskList(date);
+            
+            // Open modal for this date if closed
+            if (!taskModal.matches(':hover') && !taskModal.matches(':active')) {
+               // Optional: Auto open modal after adding
+            }
+            showToast("Task Added");
+        }
+
+        function removeTask(taskId) {
+            appData.tasks = appData.tasks.filter(t => t.id !== taskId);
+            saveData();
+            const current = new Date();
+            const key = current.toISOString().split('T')[0];
+            renderCalendar();
+            showToast("Task Removed");
+        }
+
+        // --- Rendering ---
+
+        function renderCalendar() {
+            const date = new Date(appData.currentDate);
+            currentDateDisplay.textContent = formatDateEnglish(date);
+            const firstDay = date.getDate();
+            const currentDate = date.toISOString().split('T')[0];
+            
+            // Clear Grid
+            calendarGrid.innerHTML = '';
+
+            // Create Week Headers
+            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(day => {
+                const el = document.createElement('div');
+                el.className = 'calendar-header';
+                el.textContent = day;
+                calendarGrid.appendChild(el);
+            });
+
+            // Calculate padding days to start on Monday
+            const day = date.getDay() || 7; // 0 is Sun, 1 is Mon...
+            const dateDay = date.getDate();
+            date.setFullYear(date.getFullYear());
+            date.setMonth(date.getMonth());
+            
+            // If Sun(0), shift back to Mon(6) for array logic, or use logic:
+            // If it's Monday (day 1), we start with it (0 padding).
+            // If it's Tuesday (day 2), we start with 0 days (1)
+            // If it's Sunday (day 0), we start with 6 days (6)
+            let startPadding = day === 0 ? 6 : day - 1;
+
+            // Render Padding Days
+            for (let i = 0; i < startPadding; i++) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'day-cell empty';
+                emptyDiv.setAttribute('data-label', 'Previous Week');
+                calendarGrid.appendChild(emptyDiv);
+            }
+
+            // Render Days
+            for (let i = 0; i < 35; i++) { // Render 35 days (5 weeks)
+                // Create date object for the specific day
+                let d = new Date(date.getFullYear(), date.getMonth(), date.getDate() + i);
+                
+                // Skip if it's the padding period calculated above? 
+                // No, the loop is strictly for the next 5 slots based on our adjusted "i"
+                // We need to re-calculate "Date" based on the actual day of month
+                
+                // Correct logic:
+                // We already shifted the start. Now we just loop days.
+                // If we are in the padding phase (i < startPadding), it was handled above.
+                // Actually, simpler logic:
+                // Loop 35 times. if index < startPadding, it's empty. Else calculate date.
+                
+                if (i < startPadding) continue;
+                
+                const dayNum = i - startPadding + 1;
+                const cellDate = new Date(date.getFullYear(), date.getMonth(), dayNum);
+                const key = cellDate.toISOString().split('T')[0];
+                
+                const dayEl = document.createElement('div');
+                dayEl.className = `day-cell ${cellDate.getDay() === 0 || cellDate.getDay() === 6 ? 'weekend' : ''} ${key === currentDate ? 'includes-today' : ''}`;
+                
+                const numberEl = document.createElement('div');
+                numberEl.className = 'day-number';
+                numberEl.textContent = dayNum;
+                dayEl.appendChild(numberEl);
+
+                const listEl = document.createElement('div');
+                listEl.className = 'task-list';
+                const tasks = getLocalStorageTasksForDate(cellDate);
+                
+                tasks.forEach(task => {
+                    const taskItem = document.createElement('div');
+                    taskItem.className = 'task-item';
+                    taskItem.textContent = task.title;
+                    
+                    // Add category icon/subtext
+                    const icon = getCategoryIcon(task.category);
+                    const subtext = `${icon} ${capitalize(task.category)}`;
+                    
+                    // Only show category if it's not "all" or if user wants it visible. 
+                    // For simplicity, let's just show title. 
+                    // Or better: Title only.
+                    
+                    taskItem.title = `${subtext} (Click to view details)`;
+                    
+                    // Add click listener to view/delete
+                    taskItem.addEventListener('dblclick', () => {
+                        openModal(cellDate, task);
+                    });
+                    
+                    dayEl.addEventListener('click', () => openModal(cellDate)); // Double click to see, click to add
+                    // To differentiate, we rely on the sidebar modal opening on single click for empty cells.
+                    // Wait, the modal is a global overlay.
+                    
+                    // Actually, let's make double click edit/view, single click just open for new.
+                });
+                
+                listEl.appendChild(dayEl); // Fixed DOM structure
+                // Re-adding double click event for generated items
+                dayEl.querySelectorAll('.task-item').forEach(item => {
+                    item.addEventListener('dblclick', (e) => {
+                        e.stopPropagation(); // Stop opening the modal for the whole cell
+                        openModal(cellDate, { id: item.dataset.id }); // We need to attach ID, let's fix this.
+                    });
+                });
+                
+                // Store ID in item to delete
+                tasks.forEach(t => {
+                    const item = document.createElement('div');
+                    item.className = 'task-item';
+                    item.textContent = t.title;
+                    item.style.cursor = "pointer";
+                    item.addEventListener('dblclick', (e) => {
+                        e.stopPropagation();
+                        openModal(cellDate, t);
+                    });
+                    // Simple delete action - maybe right click or long press? 
+                    // Let's stick to Modal Edit.
+                    
+                    // Wait, simple rendering:
+                    dayEl.appendChild(item);
+                });
+                // Re-dentalizing (sanity check)
+                dayEl.innerHTML = '<div class="day-number">' + dayNum + '</div><div class="task-list" id="taskList-' + dayNum + '"></div>';
+                
+                const container = dayEl.querySelector('.task-list');
+                tasks.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'task-item';
+                    div.textContent = t.title;
+                    div.addEventListener('dblclick', () => openModal(cellDate, t));
+                    container.appendChild(div);
+                });
+
+                dayEl.addEventListener('click', () => openModal(cellDate));
+                
+                calendarGrid.appendChild(dayEl);
+            }
+        }
+
+        function renderTaskList(date) {
+            // This is handled inside renderCalendar
+        }
+
+        // --- Modal Logic ---
+
+        function getLocalStorageTasks(date) {
+            return getLocalStorageTasksForDate(date).map(t => ({...t, type: 'group'}));
+        }
+
+        function openModal(date, task = null) {
+            const key = date.toISOString().split('T')[0];
+            modalTitle.textContent = task ? 'Edit Task' : 'New Task';
+            currentDateInput.value = key;
+
+            if (task) {
+                newTaskInput.value = task.title;
+                newCategorySelect.value = task.category;
+            } else {
+                newTaskInput.value = '';
+                newCategorySelect.value = 'work';
+            }
+
+            taskModal.classList.add('open');
+            newTaskInput.focus();
+        }
+
+        function closeModalHandler() {
+            taskModal.classList.remove('open');
+            newTaskInput.value = '';
+        }
+
+        function handleSave() {
+            const title = newTaskInput.value.trim();
+            const cat = newCategorySelect.value;
+            const date = currentDateInput.value;
+
+            if (!title || !date) return;
+
+            if (taskModal.querySelector('#deleteTaskBtn')) {
+                // Edit Mode
+                const id = taskModal.dataset.id;
+                const index = appData.tasks.findIndex(t => t.id == id);
+                if (index > -1) {
+                    appData.tasks[index].title = title;
+                    appData.tasks[index].category = cat;
+                }
+            } else {
+                // Add Mode
+                addTask(title, cat, new Date(date));
+            }
+
+            saveData();
+            renderCalendar();
+            closeModalHandler();
+            newTaskInput.value = '';
+        }
+
+        // --- UI Interaction ---
+
+        function filterTasks(category) {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                if (b.dataset.category === category || (category === 'all' && b.dataset.category === category)) {
+                    b.classList.add('active');
+                } else {
+                    b.classList.remove('active');
+                }
+            });
+            renderCalendar(); // Desktop implementation usually re-renders entire grid
+        }
+
+        function getCategoryIcon(cat) {
+            const icons = {
+                work: '💼',
+                home: '🏠',
+                health: '❤️',
+                personal: '✨'
+            };
+            return icons[cat] || '';
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        document.getElementById('saveTaskBtn').addEventListener('click', handleSave);
+
+        closeModal.addEventListener('click', closeModalHandler);
+        
+        taskModal.addEventListener('click', () => {
+            if(!document.activeElement.matches('input, select, textarea')) {
+                closeModalHandler();
+            }
+        });
+
+        document.getElementById('closeModal').addEventListener('click', closeModalHandler);
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => filterTasks(btn.dataset.category));
+        });
+
+        // Initialize
+        init();
+
+    </script>
+</body>
+</html>

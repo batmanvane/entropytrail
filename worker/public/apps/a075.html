@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    <style>
+        :root {
+            --primary-color: #ba4949;
+            --bg-color: #302b2b;
+            --text-color: #ffffff;
+            --secondary-text: #8e8e8e;
+            --pane-bg: #302b2b;
+            --secondary-pane-bg: #725f5f;
+        }
+
+        body {
+            font-family: "Montserrat", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+            background-color: var(--pane-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .status-text {
+            font-size: 1.5rem;
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .clock {
+            font-size: 7rem;
+            font-weight: 700;
+            font-family: "Courier New", monospace;
+            margin: 20px 0;
+            line-height: 1;
+        }
+
+        .divider {
+            border-bottom: 1px solid var(--secondary-text);
+            width: 100%;
+            max-width: 200px;
+            margin: 20px auto;
+            opacity: 0.3;
+        }
+
+        button {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 5px;
+            min-width: 60px;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        button.primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        button.secondary {
+            background-color: transparent;
+            border: 2px solid var(--secondary-text);
+            color: var(--secondary-text);
+        }
+
+        button.restart {
+            background-color: transparent;
+            color: var(--text-color);
+            font-size: 1.2rem;
+            padding: 0 10px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .phase-count {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="status-text" id="statusText">Time for Tomatoes</div>
+    
+    <div class="clock" id="timeDisplay">25:00</div>
+
+    <div class="divider"></div>
+
+    <div class="controls">
+        <button class="primary" id="toggleButton">Start</button>
+        <button class="secondary" id="resetButton" title="Restart">↺</button>
+    </div>
+
+    <div class="phase-count">
+        You've completed <span id="completedPhases">0</span> work sessions.
+    </div>
+</div>
+
+<script>
+    const MODE_WORK = 'work';
+    const MODE_BREAK = 'break';
+    
+    // DOM Elements
+    const timeDisplay = document.getElementById('timeDisplay');
+    const statusText = document.getElementById('statusText');
+    const toggleButton = document.getElementById('toggleButton');
+    const resetButton = document.getElementById('resetButton');
+    const completedPhasesDisplay = document.getElementById('completedPhases');
+
+    // Configuration
+    const DEFAULT_WORK minutes = 25;
+    const DEFAULT_BREAK_MINUTES = 5;
+
+    // State
+    let currentMode = MODE_WORK;
+    let timeLeft = DEFAULT_WORK_MINUTES * 60;
+    let totalTime = DEFAULT_WORK_MINUTES * 60;
+    let timerInterval = null;
+    let completedWorkPhases = 0;
+
+    // Audio Context for Beep (No external assets)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playNotification() {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        // Simple beep sequence
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 880; // A5
+        gainNode.gain.value = 0.1;
+        
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+    }
+
+    function updateDisplay() {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timeDisplay.textContent = `${pad(minutes)}:${pad(seconds)}`;
+        
+        if (currentMode === MODE_WORK) {
+            statusText.textContent = 'Time for Tomatoes';
+            statusText.style.color = 'var(--primary-color)';
+            toggleButton.textContent = 'Start';
+        } else {
+            statusText.textContent = 'Time for a Break';
+            statusText.style.color = 'var(--secondary-pane-bg)'; // Or a different color
+            toggleButton.textContent = 'End Break';
+        }
+    }
+
+    function pad(n) {
+        return n < 10 ? '0' + n : n;
+    }
+
+    function startTimer() {
+        if (timerInterval) return;
+        
+        timerInterval = setInterval(() => {
+            if (timeLeft > 0) {
+                timeLeft--;
+            } else {
+                // Timer finished
+                switchMode();
+            }
+            updateDisplay();
+        }, 1000);
+    }
+
+    function stopTimer() {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+
+    function toggleTimer() {
+        if (timerInterval) {
+            stopTimer();
+            toggleButton.textContent = 'Start';
+        } else {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            playNotification();
+            startTimer();
+            toggleButton.textContent = 'Pause';
+        }
+    }
+
+    function switchMode() {
+        playNotification();
+        
+        if (currentMode === MODE_WORK) {
+            // Finished Work
+            currentMode = MODE_BREAK;
+            timeLeft = DEFAULT_BREAK_MINUTES * 60;
+            completedWorkPhases++;
+            completedPhasesDisplay.textContent = completedWorkPhases;
+        } else {
+            // Finished Break
+            currentMode = MODE_WORK;
+            timeLeft = DEFAULT_WORK_MINUTES * 60;
+        }
+        
+        toggleButton.textContent = 'Start';
+        stopTimer();
+        updateDisplay();
+    }
+
+    function resetTimer() {
+        stopTimer();
+        currentMode = MODE_WORK;
+        timeLeft = DEFAULT_WORK_MINUTES * 60;
+        toggleButton.textContent = 'Start';
+        updateDisplay();
+    }
+
+    // Event Listeners
+    toggleButton.addEventListener('click', toggleTimer);
+    resetButton.addEventListener('click', resetTimer);
+
+    // Initialization
+    updateDisplay();
+
+</script>
+
+</body>
+</html>

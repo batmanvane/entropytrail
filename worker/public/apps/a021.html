@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Practice Master</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --border: #e5e7eb;
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 500px;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        h2 { font-size: 1.25rem; margin-bottom: 15px; color: var(--text-main); }
+        p { line-height: 1.5; color: var(--text-muted); margin-bottom: 20px; }
+
+        /* Views */
+        .view {
+            display: none;
+            padding: 20px;
+            flex-grow: 1;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .view.active { display: flex; flex-direction: column; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Dashboard */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover { background: #f9fafb; }
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+            background: #f0fdfa;
+        }
+
+        .topic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .topic-card {
+            background: #f9fafb;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .topic-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+
+        .topic-card h3 { font-size: 1rem; margin-bottom: 5px; }
+        .topic-card span { font-size: 0.85rem; color: var(--text-muted); }
+
+        /* Game Area */
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .question-box {
+            background: #f8fafc;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 25px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .question-box h3 {
+            font-size: 1.3rem;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .options-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .option-btn {
+            padding: 15px;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+
+        .option-btn.correct {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
+        .option-btn.incorrect {
+            background: var(--danger);
+            color: white;
+            border-color: var(--danger);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: #f9fafb; }
+
+        .disabled { opacity: 0.5; pointer-events: none; }
+
+        /* Results */
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 8px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px auto;
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .feedback-text { text-align: center; font-size: 1.1rem; margin-bottom: 20px; }
+
+        /* Settings */
+        .setting-group {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .setting-group h4 { margin-bottom: 10px; }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        @media (max-width: 480px) {
+            .app-container { border-radius: 0; min-height: 100vh; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1 id="header-title">Practice Master</h1>
+        <p id="header-subtitle">Master any topic in minutes</p>
+    </header>
+
+    <!-- VIEW: Dashboard -->
+    <div id="view-dashboard" class="view active">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="app.switchTab('practice-mode')">Start Practice</button>
+            <button class="tab-btn" onclick="app.switchTab('settings')">Settings</button>
+        </div>
+
+        <div id="content-practice-mode">
+            <h2>Select a Topic</h2>
+            <div class="topic-grid" id="topic-list">
+                <!-- Topics injected by JS -->
+            </div>
+        </div>
+
+        <div id="content-settings" style="display: none; flex-direction: column;">
+            <h2>Study Settings</h2>
+            
+            <div class="setting-group">
+                <label for="time-limit">Time Limit Per Question</label>
+                <select id="time-limit">
+                    <option value="3000">3 Seconds (Quiz Mode)</option>
+                    <option value="10000">10 Seconds (Standard)</option>
+                    <option value="30000">30 Seconds (Reading)</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="points-mode">Scoring Mode</label>
+                <select id="points-mode">
+                    <option value="standard">Standard (+1 Correct, -1 Incorrect)</option>
+                    <option value="positive">Knowledge (+1 Correct, 0 Incorrect)</option>
+                </select>
+            </div>
+            
+            <button class="btn btn-primary" style="margin-top: 20px;" onclick="app.goHome()">Return to Dashboard</button>
+        </div>
+    </div>
+
+    <!-- VIEW: Game -->
+    <div id="view-game" class="view">
+        <div class="stats-bar">
+            <span id="timer-display">3s</span>
+            <span id="score-display">Score: 0</span>
+        </div>
+        
+        <div class="question-box">
+            <h3 id="question-text">Loading...</h3>
+        </div>
+
+        <div class="options-grid" id="options-container">
+            <!-- Options injected by JS -->
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-outline" id="next-btn" onclick="game.nextQuestion()" disabled>Next Question</button>
+            <button class="btn btn-primary" id="end-btn" onclick="game.endGame()">Finish</button>
+        </div>
+    </div>
+
+    <!-- VIEW: Results -->
+    <div id="view-results" class="view" style="justify-content: center; align-items: center; text-align: center;">
+        <h2>Session Complete!</h2>
+        <div class="score-circle">
+            <span id="final-score">0</span>
+        </div>
+        <div class="feedback-text" id="final-feedback">Great job!</div>
+        <button class="btn btn-primary" onclick="app.goHome()">Back to Topics</button>
+    </div>
+</div>
+
+<script>
+    // --- DATA STORE ---
+    const topicsData = [
+        {
+            id: 'bases',
+            title: 'Math Basics',
+            desc: 'Addition, subtraction, multiplication, and division.',
+            questions: [
+                { q: 'What is 7 x 8?', options: ['54', '56', '64', '49'], a: 1 },
+                { q: 'What is 15 - 6?', options: ['9', '6', '11', '8'], a: 0 },
+                { q: 'What is 50 / 5?', options: ['5', '10', '15', '20'], a: 1 },
+                { q: 'What is 8 + 7?', options: ['14', '15', '16', '12'], a: 1 },
+                { q: 'What is 100 - 45?', options: ['55', '60', '45', '50'], a: 0 }
+            ]
+        },
+        {
+            id: 'history',
+            title: 'World History',
+            desc: 'Key dates and figures from world history.',
+            questions: [
+                { q: 'Who painted the Mona Lisa?', options: ['Van Gogh', 'Rembrandt', 'Leonardo da Vinci', 'Picasso'], a: 2 },
+                { q: 'Which war ended in 1945?', options: ['WWI', 'WWII', 'Korean War', 'Vietnam War'], a: 1 },
+                { q: 'In which century did the Renaissance begin?', options: ['14th', '15th', '16th', '12th'], a: 1 },
+                { q: 'Who was the first President of the US?', options: ['George Washington', 'Thomas Jefferson', 'Abraham Lincoln', 'Ben Franklin'], a: 0 },
+                { q: 'Which empire built the Colosseum?', options: ['Greek', 'Roman', 'Egyptian', 'Ottoman'], a: 1 }
+            ]
+        },
+        {
+            id: 'science',
+            title: 'Science Fundamentals',
+            desc: 'Basic biology, chemistry, and physics.',
+            questions: [
+                { q: 'What is the chemical symbol for Water?', options: ['CO2', 'H2O', 'O2', 'NaCl'], a: 1 },
+                { q: 'Which planet is known as the Red Planet?', options: ['Venus', 'Jupiter', 'Mars', 'Saturn'], a: 2 },
+                { q: 'What is the powerhouse of the cell?', options: ['Nucleus', 'Ribosome', 'Mitochondria', 'Cytoplasm'], a: 2 },
+                { q: 'What is the speed of light approx?', options: ['300,000 km/s', '150,000 km/s', '1,000 km/s', 'Sound speed'], a: 0 },
+                { q: 'H2O2 is known as?', options: ['Water', 'Hydrochloric Acid', 'Hydrogen Peroxide', 'Ozone'], a: 2 }
+            ]
+        },
+        {
+            id: 'vocab',
+            title: 'English Vocabulary',
+            desc: 'Common words and their meanings.',
+            questions: [
+                { q: 'What is an antonym of "Happy"?', options: ['Excited', 'Joyful', 'Sad', 'Glad'], a: 2 },
+                { q: 'Which word is a noun?', options: ['Run', 'Beautiful', 'Tree', 'Quickly'], a: 2 },
+                { q: 'What is a synonym for "Big"?', options: ['Small', 'Tiny', 'Large', 'Less'], a: 2 },
+                { q: 'Identify the adjective: "The red car".', options: ['The', 'Car', 'Red', 'None'], a: 2 },
+                { q: 'What does "Ephemeral" mean?', options: ['Permanent', 'Lasting for a short time', 'Ancient', 'Heavy'], a: 1 }
+            ]
+        }
+    ];
+
+    // --- APP LOGIC ---
+
+    const app = {
+        currentTopic: null,
+        settings: {
+            timeLimit: 10000,
+            scoring: 'positive'
+        },
+
+        init() {
+            this.renderTopics();
+            this.loadSettings();
+        },
+
+        switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#content-practice-mode, #content-settings').forEach(c => c.style.display = 'none');
+            
+            // Update Tab Button
+            const tabs = document.querySelectorAll('.tab-btn');
+            if(tab === 'practice-mode') tabs[0].classList.add('active');
+            else tabs[1].classList.add('active');
+
+            // Update Content
+            if(tab === 'practice-mode') {
+                document.getElementById('content-practice-mode').style.display = 'grid';
+            } else {
+                document.getElementById('content-settings').style.display = 'flex';
+            }
+        },
+
+        renderTopics() {
+            const grid = document.getElementById('topic-list');
+            grid.innerHTML = topicsData.map(t => `
+                <div class="topic-card" onclick="game.start(${JSON.stringify(t)})">
+                    <h3>${t.title}</h3>
+                    <span>${t.desc}</span>
+                </div>
+            `).join('');
+        },
+
+        loadSettings() {
+            document.getElementById('time-limit').value = this.settings.timeLimit;
+            document.getElementById('points-mode').value = this.settings.scoring;
+        },
+
+        saveSettings() {
+            this.settings.timeLimit = parseInt(document.getElementById('time-limit').value);
+            this.settings.scoring = document.getElementById('points-mode').value;
+            localStorage.setItem('pm_settings', JSON.stringify(this.settings));
+        },
+
+        goHome() {
+            game.stop();
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-dashboard').classList.add('active');
+            this.switchTab('practice-mode');
+        },
+
+        startGame(topic) {
+            this.currentTopic = topic;
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-game').classList.add('active');
+            game.start(Math.floor(Math.random() * topic.questions.length));
+        }
+    };
+
+    // --- GAME ENGINE ---
+
+    const game = {
+        questions: [],
+        currentIndex: 0,
+        score: 0,
+        timer: null,
+        timeLeft: 0,
+        isClockOn: false,
+        isPaused: false,
+
+        start(startIndex) {
+            this.questions = [...app.currentTopic.questions];
+            // Shuffle questions
+            this.questions.sort(() => Math.random() - 0.5);
+            this.currentIndex = startIndex || 0;
+            this.score = 0;
+            this.isPaused = false;
+            
+            game.updateUI('Start');
+            game.nextQuestion();
+        },
+
+        nextQuestion() {
+            game.isPaused = false;
+            document.getElementById('next-btn').classList.add('disabled');
+            document.getElementById('end-btn').classList.add('disabled');
+
+            if (game.currentIndex >= game.questions.length) {
+                game.endGame();
+                return;
+            }
+
+            game.loadQuestion();
+            game.startTimer(game.settings.timeLimit);
+        },
+
+        loadQuestion() {
+            const qData = game.questions[game.currentIndex];
+            document.getElementById('question-text').textContent = qData.q;
+            
+            const container = document.getElementById('options-container');
+            container.innerHTML = qData.options.map((opt, idx) => `
+                <div class="option-btn" onclick="game.checkAnswer(${idx}, this)">
+                    ${opt}
+                </div>
+            `).join('');
+            
+            game.updateScoreUI();
+            game.resetTimerUI();
+        },
+
+        checkAnswer(selectedIndex, btnElement) {
+            if (game.isPaused) return;
+            game.isPaused = true;
+            clearInterval(game.timer);
+            document.getElementById('time-display').textContent = "Paused";
+
+            const correctIndex = game.questions[game.currentIndex].a;
+            const buttons = document.querySelectorAll('.option-btn');
+
+            // Disable all buttons
+            buttons.forEach(b => b.style.pointerEvents = 'none');
+
+            // Visual Feedback
+            if (selectedIndex === correctIndex) {
+                btnElement.classList.add('correct');
+                const isPositive = app.settings.scoring === 'positive';
+                // Logic: Correct always gives points, or point * 2 if positive mode
+            
+            } else {
+                btnElement.classList.add('incorrect');
+                buttons[correctIndex].classList.add('correct'); // Show correct one
+            }
+
+            // Scoring Logic
+            if (selectedIndex === correctIndex) {
+                if (app.settings.scoring === 'positive') {
+                    game.score++;
+                } else {
+                    game.score++;
+                }
+            } else {
+                if (app.settings.scoring === 'positive') {
+                    // No penalty
+                } else {
+                    game.score--;
+                }
+            }
+            
+            // Clamp score for positive mode (optional, but good for UX)
+            if(app.settings.scoring === 'positive' && game.score < 0) game.score = 0;
+
+            game.updateScoreUI();
+
+            document.getElementById('next-btn').classList.remove('disabled');
+            document.getElementById('end-btn').classList.remove('disabled');
+        },
+
+        startTimer(duration) {
+            clearInterval(game.timer);
+            game.timeLeft = parseInt(duration);
+            document.getElementById('timer-display').textContent = game.timeLeft / 1000 + 's';
+            game.isClockOn = true;
+
+            game.timer = setInterval(() => {
+                if (game.isPaused) return;
+                
+                game.timeLeft -= 1000;
+                
+                if (game.timeLeft < 0) game.timeLeft = 0;
+                
+                document.getElementById('timer-display').textContent = (game.timeLeft / 1000) + 's';
+                
+                if (game.timeLeft === 0) {
+                    clearInterval(game.timer);
+                    game.timeUp();
+                }
+            }, 1000);
+        },
+
+        timeUp() {
+            game.isPaused = true;
+            document.getElementById('time-display').textContent = "Out";
+            document.getElementById('question-text').textContent = "Time's Up!";
+            
+            const qData = game.questions[game.currentIndex];
+            document.getElementById('options-container').innerHTML = `
+                <div style="padding:20px; color:var(--danger);">Correct answer: ${qData.options[qData.a]}</div>
+            `;
+            
+            if(app.settings.scoring !== 'positive') game.score--;
+
+            game.updateScoreUI();
+            document.getElementById('next-btn').classList.remove('disabled');
+            document.getElementById('end-btn').classList.remove('disabled');
+        },
+
+        stop() {
+            clearInterval(game.timer);
+            game.isClockOn = false;
+        },
+
+        updateScoreUI() {
+            document.getElementById('score-display').textContent = `Score: ${game.score}`;
+        },
+
+        resetTimerUI() {
+            document.getElementById('timer-display').textContent = "";
+            document.getElementById('time-display').style.color = "var(--text-muted)";
+        },
+
+        endGame() {
+            clearInterval(game.timer);
+            game.stop();
+            
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-results').classList.add('active');
+            
+            // Calculate percentage for max possible
+            const maxScore = game.questions.length;
+            const percentage = Math.min(Math.round((game.score / maxScore) * 100), 100);
+            
+            document.getElementById('final-score').textContent = game.score;
+            
+            let feedback = "";
+            if (percentage < 50) feedback = "Keep practicing!";
+            else if (percentage < 80) feedback = "Good effort!";
+            else feedback = "You are a master!";
+            
+            document.getElementById('final-feedback').textContent = feedback;
+        }
+    };
+
+    // Initialize App
+    app.init();
+
+</script>
+</body>
+</html>

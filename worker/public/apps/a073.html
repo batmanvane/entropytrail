@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Dodge - Focus Breaker</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #0f0f0f;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            touch-action: none; /* Prevent mobile scrolling */
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        #score-board {
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+        }
+
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none !important;
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff00de, #00eaff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        p {
+            font-size: 18px;
+            color: #ccc;
+            margin-bottom: 40px;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+
+        button {
+            background: linear-gradient(90deg, #ff00de, #00eaff);
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            color: white;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 0, 222, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0, 234, 255, 0.6);
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        .controls-hint {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div id="score-board">SCORE: <span id="score">0</span></div>
+    </div>
+
+    <div id="start-screen">
+        <h1>Neon Dodge</h1>
+        <p>Avoid the falling blocks. Survive as long as you can to relieve stress!</p>
+        <button id="start-btn">Start Game</button>
+        <div class="controls-hint">Mouse or Touch to Move</div>
+    </div>
+
+    <div id="game-over-screen" class="hidden">
+        <h1>Game Over</h1>
+        <p>Final Score: <span id="final-score">0</span></p>
+        <button id="restart-btn">Try Again</button>
+    </div>
+
+<script>
+    /**
+     * NEON DODGE
+     * A stress-relieving arcade game built with vanilla JS and Canvas.
+     */
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const finalScoreEl = document.getElementById('final-score');
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    // Game State
+    let isPlaying = false;
+    let score = 0;
+    let frameCount = 0;
+    let speedMultiplier = 1;
+    let animationId;
+
+    // Configuration
+    const CONFIG = {
+        playerSize: 20,
+        baseSpawnRate: 60, // Frames between spawns
+        baseSpeed: 3,
+        colors: {
+            player: '#00eaff',
+            enemy: '#ff00de',
+            trail: '#ffffff'
+        }
+    };
+
+    // Entities
+    let player = { x: 0, y: 0, width: CONFIG.playerSize, height: CONFIG.playerSize, trailing: [] };
+    let enemies = [];
+    let particles = [];
+    let mouse = { x: window.innerWidth / 2, y: window.innerHeight - 100 };
+
+    // Resize handling
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        player.y = canvas.height - 100;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Input handling
+    function updateInput(clientX) {
+        mouse.x = clientX;
+        // Clamp player to screen
+        player.x = Math.max(CONFIG.playerSize, Math.min(canvas.width - CONFIG.playerSize, clientX));
+    }
+
+    window.addEventListener('mousemove', (e) => updateInput(e.clientX));
+    window.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // Stop scrolling
+        updateInput(e.touches[0].clientX);
+    }, { passive: false });
+
+    // Game Logic
+    function initGame() {
+        score = 0;
+        frameCount = 0;
+        speedMultiplier = 1;
+        enemies = [];
+        particles = [];
+        player.trailing = [];
+        scoreEl.innerText = '0';
+        updateInput(window.innerWidth / 2); // Center player initially
+        isPlaying = true;
+        
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        loop();
+    }
+
+    function gameOver() {
+        isPlaying = false;
+        cancelAnimationFrame(animationId);
+        finalScoreEl.innerText = score;
+        gameOverScreen.classList.remove('hidden');
+    }
+
+    class Enemy {
+        constructor() {
+            this.size = CONFIG.playerSize + Math.random() * 20; // Variable size
+            this.x = Math.random() * (canvas.width - this.size);
+            this.y = -this.size;
+            this.speed = (CONFIG.baseSpeed + (score / 500)) + Math.random(); // Speed increases slightly with score
+            this.angle = 0;
+            this.spin = (Math.random() - 0.5) * 0.2; // Rotation speed
+        }
+
+        update() {
+            this.y += this.speed * speedMultiplier;
+            this.angle += this.spin;
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x + this.size/2, this.y + this.size/2);
+            ctx.rotate(this.angle);
+            
+            // Neon Glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = CONFIG.colors.enemy;
+            ctx.strokeStyle = CONFIG.colors.enemy;
+            ctx.lineWidth = 3;
+            
+            ctx.strokeRect(-this.size/2, -this.size/2, this.size, this.size);
+            ctx.fillStyle = `rgba(255, 0, 222, ${0.1 + Math.abs(Math.sin(this.angle * 5)) * 0.2})`;
+            ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+            
+            ctx.restore();
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.vx = (Math.random() - 0.5) * 10;
+            this.vy = (Math.random() - 0.5) * 10;
+            this.life = 1.0;
+            this.color = color;
+        }
+
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.life -= 0.02;
+        }
+
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = this.life;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    function spawnParticles(obj) {
+        const color = CONFIG.colors.enemy;
+        for (let i = 0; i < 15; i++) {
+            particles.push(new Particle(obj.x + obj.size/2, obj.y + obj.size/2, color));
+        }
+    }
+
+    function checkCollision(rect1, rect2) {
+        return (
+            rect1.x < rect2.x + rect2.size &&
+            rect1.x + rect1.width > rect2.x &&
+            rect1.y < rect2.y + rect2.size &&
+            rect1.y + rect1.height > rect2.y
+        );
+    }
+
+    function loop() {
+        if (!isPlaying) return;
+
+        // Clear Canvas
+        ctx.fillStyle = 'rgba(15, 15, 15, 0.3)'; // Trail effect
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        frameCount++;
+        if (frameCount % 10 === 0) {
+            score++;
+            scoreEl.innerText = score;
+        }
+        
+        // Increase difficulty every 500 points
+        if (score % 500 === 0 && speedMultiplier < 3) {
+            speedMultiplier += 0.2;
+        }
+
+        // Update Player (Trailing effect)
+        player.x = mouse.x;
+        player.y = canvas.height - 100;
+        player.trailing.push({ x: player.x, y: player.y });
+        if (player.trailing.length > 20) player.trailing.shift();
+
+        // Draw Player Trail
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = CONFIG.colors.player;
+        ctx.strokeStyle = CONFIG.colors.player;
+        ctx.lineWidth = 2;
+        
+        player.trailing.forEach((pos, index) => {
+            const alpha = index / player.trailing.length;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.arc(pos.x + player.width/2, pos.y + player.height/2, player.width/2, 0, Math.PI*2);
+            ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
+        // Spawn Enemies
+        const currentSpawnRate = Math.max(20, CONFIG.baseSpawnRate - (score / 100));
+        if (Math.random() < 1 / currentSpawnRate) {
+            enemies.push(new Enemy());
+        }
+
+        // Update & Draw Enemies
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let enemy = enemies[i];
+            enemy.update();
+            enemy.draw();
+
+            // Collision Check
+            if (checkCollision(player, enemy)) {
+                spawnParticles(enemy);
+                gameOver();
+                return; // Stop loop
+            }
+
+            // Remove off-screen
+            if (enemy.y > canvas.height) {
+                enemies.splice(i, 1);
+                score += 10; // Bonus for clearing
+            }
+        }
+
+        // Update & Draw Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.update();
+            p.draw();
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        animationId = requestAnimationFrame(loop);
+    }
+
+    // Event Listeners for Buttons
+    startBtn.addEventListener('click', initGame);
+    restartBtn.addEventListener('click', initGame);
+
+</script>
+</body>
+</html>

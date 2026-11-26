@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Pythagorean Theorem</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 90%;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #2c3e50;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            margin: 20px 0;
+            background-color: #fff;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            touch-action: none; /* Prevent scrolling while dragging sliders on mobile */
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            text-align: left;
+        }
+
+        label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .equation {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e8f4fc;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2980b9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .equation span {
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Pythagorean Theorem Visualizer</h1>
+    
+    <div class="canvas-wrapper">
+        <canvas id="pythCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="input-a">
+                Side a (Base) <span id="val-a">3</span>
+            </label>
+            <input type="range" id="input-a" min="1" max="15" value="3" step="0.1">
+        </div>
+
+        <div class="control-group">
+            <label for="input-b">
+                Side b (Height) <span id="val-b">4</span>
+            </label>
+            <input type="range" id="input-b" min="1" max="15" value="4" step="0.1">
+        </div>
+    </div>
+
+    <div class="equation">
+        a&sup2; + b&sup2; = c&sup2;
+        <span id="equation-text">3² + 4² = 5²</span>
+    </div>
+</div>
+
+<script>
+    // Canvas Setup
+    const canvas = document.getElementById('pythCanvas');
+    const ctx = canvas.getContext('2d');
+    const padding = 40;
+    const maxSpace = 300; // Max width/height available for drawing
+
+    // Inputs
+    const sliderA = document.getElementById('input-a');
+    const sliderB = document.getElementById('input-b');
+    const valA = document.getElementById('val-a');
+    const valB = document.getElementById('val-b');
+    const eqText = document.getElementById('equation-text');
+
+    // State
+    let a = 3;
+    let b = 4;
+
+    // Resize canvas to fit container
+    function resizeCanvas() {
+        const wrapper = canvas.parentElement;
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
+        draw();
+    }
+    
+    window.addEventListener('resize', resizeCanvas);
+
+    // Calculate Hypotenuse
+    function getC(sideA, sideB) {
+        return Math.sqrt((sideA * sideA) + (sideB * sideB));
+    }
+
+    // Initialize Slider Values
+    function initSliders() {
+        a = parseFloat(sliderA.value);
+        b = parseFloat(sliderB.value);
+        valA.textContent = a;
+        valB.textContent = b;
+        draw();
+    }
+
+    // Main Draw Function
+    function draw() {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Calculate dimensions based on the larger side to fit screen
+        const c = getC(a, b);
+        let scale = 1;
+        let offset = 0;
+
+        // Determine scale so the largest side isn't cut off
+        if (c > maxSpace) {
+            scale = (maxSpace - 20) / c;
+            offset = (c - maxSpace) / 2;
+        } else {
+            scale = 1;
+            offset = 0;
+        }
+
+        // Coordinate System
+        // Origin (0,0) is bottom-left of the geometric triangle
+        const originX = padding + offset;
+        const originY = canvas.height - padding - (a * scale); 
+        // Note: Canvas Y is 0 at top. So we draw height from bottom up.
+
+        // Colors
+        const colorA = '#e67e22'; // Orange for base
+        const colorB = '#3498db'; // Blue for height
+        const colorC = '#2ecc71'; // Green for hypotenuse
+        const colorBorder = '#333';
+        const colorText = '#333';
+        const fontSize = 14;
+
+        // Helper to draw a filled square with border
+        function drawSquare(x, y, size, color, border) {
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = border || '#000';
+            ctx.fillStyle = color;
+            ctx.rect(x, y, size, size);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw text inside square
+            ctx.fillStyle = colorText;
+            ctx.font = `bold ${fontSize * scale}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText((size * scale).toFixed(1), x + size/2, y + size/2);
+        }
+
+        // 1. Draw Square for side 'a' (Base)
+        // Area represents a^2. Area should be proportional to visual size.
+        // Visual width will be (a * scale). Height should be (a * scale) too for it to be a square.
+        const visualA = (a * scale);
+        
+        // Position: Bottom left corner of the triangle
+        // x: originX
+        // y: originY - visualA
+        if (visualA > 0) {
+            drawSquare(originX, originY - visualA, visualA, colorA);
+        }
+
+        // 2. Draw Square for side 'b' (Height)
+        const visualB = (b * scale);
+        // Position: Bottom left of this square is (originX, originY)
+        // But visually it's to the left of the hypotenuse and top of base a?
+        // No, standard placement:
+        // Right angle vertex is at (originX, originY)
+        
+        drawSquare(originX - visualB, originY, visualB, colorB);
+
+        // 3. Draw Square for side 'c' (Hypotenuse)
+        // This one is rotated. We project the square along the hypotenuse vector.
+        const visualC = (c * scale);
+        
+        // Vector direction (normalized)
+        const dx = visualC; // Magnitude of x leg
+        const dy = -(visualB); // Negative because canvas Y goes down, but vector goes up relative to originY + visualA
+        // Wait, let's use standard math coords first, then map.
+        
+        // Triangle points in Canvas Logic:
+        // P0 (Right Angle): originX, originY
+        // P1 (Base Right): originX + visualA, originY
+        // P2 (Top): originX, originY + visualB
+        
+        // Hypotenuse connects P1 and P2.
+        // Vector P1 -> P2:
+        // x: -visualA (going left is negative in our local setup relative to P1? No, canvas is absolute)
+        // Let's calculate vectors from P1 (originX + visualA, originY) to P2 (originX, originY + visualB)
+        // deltaX = originX - (originX + visualA) = -visualA
+        // deltaY = (originY + visualB) - originY = visualB
+        
+        // Length is visualC.
+        // We need to draw a square starting at P1, going along the hypotenuse to P2.
+        
+        // Calculate rotation angle of hypotenuse
+        const angle = Math.atan2(visualB, -visualA);
+        
+        // To draw a square rotated by angle starting at P1 with width visualC:
+        // We need to add the "height" of the square in the normal direction to P1.
+        // Normal vector perpendicular to hypotenuse (-visualA, visualB) is (-visualB, -visualA) or (visualB, visualA)?
+        // (dx, dy) = (-A, B). Perpendicular is (-B, -A). (Dot product: (-A)(-B) + (B)(-A) = AB - AB = 0).
+        // We want "outward" from the triangle. The triangle is "below" the hypotenuse line (if A>0, B>0).
+        // Vector from P1 to P0 is (-visualA, 0).
+        
+        // Let's use simple affine transformation logic
+        // 1. Start at P1: x1 = originX + visualA, y1 = originY
+        // 2. Top Left of Square: Rotate Point P2 by +90deg around P1?
+        // P1 is (visualA, 0) in local coords. P2 is (0, visualB).
+        // Rotation Matrix for +90 deg: x' = -y, y' = x
+        // Local P2 rotated: x' = -visualB, y' = visualA
+        // Global P2_rotated = P1 + (-visualB, visualA)
+        
+        const x1 = originX + visualA;
+        const y1 = originY;
+        const x2 = originX;
+        const y2 = originY + visualB;
+
+        // Calculate center of the canvas for rotated text
+        const centerX = originX + (visualA - visualB)/2; 
+        const centerY = originY + (visualA + visualB)/2; // Approximate center of hypotenuse
+
+        // Draw the Rotated Square
+        ctx.save();
+        ctx.translate(x1, y1);
+        // Rotate
+        ctx.rotate(angle);
+        // Move down by visualC (along the hypotenuse) to the other side
+        ctx.translate(0, -visualC); 
+        
+        // Dimensions of the square along the hypotenuse
+        const sqSideLen = visualC;
+        
+        ctx.beginPath();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = colorBorder;
+        ctx.fillStyle = colorC;
+        ctx.rect(0, 0, sqSideLen, sqSideLen);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+
+        // --- Draw Triangle Lines (thin) ---
+        
+        // P0: Right Angle
+        const p0 = { x: originX, y: originY };
+        
+        // P1: Base
+        const p1 = { x: originX + visualA, y: originY };
+        
+        // P2: Top
+        const p2 = { x: originX, y: originY + visualB };
+
+        // Line 1 (Hypotenuse)
+        ctx.beginPath();
+        ctx.strokeStyle = colorBorder;
+        ctx.lineWidth = Math.max(2, visualC * 0.05); // Dynamic width
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+
+        // Line 2 (Base)
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.stroke();
+
+        // Line 3 (Height)
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        // Update Equation Text
+        const aSq = Math.round(a * a);
+        const bSq = Math.round(b * b);
+        const cVal = Math.round(c);
+        const cSq = cVal * cVal;
+        
+        // Verify theoretical equality vs rounded visual values
+        // If a=3.1, aSq = 9.61. Round to 10.
+        // Visual squares should show actual sizes
+        
+        // Formatting for display
+        eqText.innerHTML = `${a.toFixed(1)}<sup>2</sup> + ${b.toFixed(1)}<sup>2</sup> = ${Math.round(c)}<sup>2</sup>`;
+    }
+
+    // Event Listeners
+    sliderA.addEventListener('input', (e) => {
+        a = parseFloat(e.target.value);
+        valA.textContent = a;
+        if(sliderA.value != sliderB.value) draw();
+    });
+
+    sliderB.addEventListener('input', (e) => {
+        b = parseFloat(e.target.value);
+        valB.textContent = b;
+        if(sliderB.value != sliderA.value) draw();
+    });
+
+    // Initial draw
+    resizeCanvas();
+    initSliders();
+
+</script>
+
+</body>
+</html>
