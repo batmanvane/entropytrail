@@ -132,3 +132,7 @@ README brought up to date: temperature sweep and six fork re-samples in the meth
 ## 2026-11-26 (D-043: human rating session instead of Reddit)
 
 Robert chose option C: human ratings from one blind session with students, plus a frozen human–Claude agreement analysis (METHODS.md). Rating sample drawn before any human rating: `results/rating-sample.csv`, 105 apps (seed 43, 5 per prompt), representative (72 % render vs 69 %, Claude functionality 2.11 vs 2.14). Open: session date and size, rating page and backend; the public app gallery waits until after the session.
+
+## 2026-11-26 (D-043: rating site live)
+
+Rating page live at https://batmanvane.github.io/entropytrail/ (branch `gh-pages`, built from `site/` with `git subtree split --prefix site`). Backend: Cloudflare Worker `entropytrail-ratings` + D1 `entropytrail-ratings` (`worker/`); the 105 sample apps are served by the Worker (other origin than the page, so apps keep normal browser storage as in the Claude ratings). Visitors rate as many apps as they like; the next app is the least-rated one they have not rated (random among ties); one rating per app per browser; no IP or personal data. German/English interface, prompts in English. Tested locally and live in Chrome; test ratings deleted. Export: `scripts/export_ratings.py` (key in ~/.config/entropytrail/export_key). Ratings are not shown to raters; entropy information is withheld until after the session.
