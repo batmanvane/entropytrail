@@ -79,6 +79,24 @@ Thresholds (2 bits, 4 bits, last third) are fixed here so they cannot be tuned a
 - Changes after freezing get a dated entry in DECISIONS.md with the reason, and the original stays visible in git.
 - Ratings: apps shown in random order, blind (spec §9); the rating sample is stratified by prompt (≈ 5 apps per prompt → ≈ 100 apps, D4). If fewer than 3 ratings per app are reached, the sample is reduced stratified by prompt rather than relaxing the ≥ 3 rule; the reduction is logged in DECISIONS.md.
 
+## Human ratings and agreement with Claude (frozen 2026-11-26, D-043)
+
+Added before any human rating exists. Raters: one blind session with students instead of a public phase; everything else in H4/H5 and the rules above is unchanged. Sample: `results/rating-sample.csv` (105 apps, seed 43, 5 per prompt, T = 1.0).
+
+**Primary (unchanged):** H4 and H5 exactly as above, on the sample apps with ≥ 3 human ratings.
+
+**Secondary – agreement (not in the Holm family):** per sample app, the human mean is compared with the Claude rating of the same app (`results/ratings-claude.csv`):
+
+| human (mean per app) | Claude | statistic |
+|---|---|---|
+| usefulness | functionality | Spearman ρ, 95 % CI by bootstrap over prompts (resample prompts, 2,000 draws, seed 43) |
+| novelty | novelty_calibrated | same |
+| works (yes = 1, partly = 0.5, no = 0) | functionality | same |
+
+Human inter-rater reliability per question: ICC(1,k) with k = mean number of ratings per app (one-way random effects; apps with ≥ 3 ratings). **Reading:** the Claude rating counts as an adequate stand-in for a question if ρ ≥ 0.5; it is reported together with the human ICC as the ceiling. If adequate, the exploratory Claude-based H4/H5 analyses on all 420 apps (and the temperature sweep's Claude outcomes) are reported as backed by this agreement; they stay exploratory.
+
+**Also reported:** H4/H5 models fitted with the Claude ratings restricted to the sample apps, side by side with the human result (exploratory).
+
 ## Implementation notes (WP6, 2026-11-22)
 
 Code: `src/entropytrail/analysis/measures.py`; table: `results/app-measures.csv` (one row per app).

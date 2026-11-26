@@ -128,3 +128,7 @@ Discussed with Robert how the attainable region of dynamic systems carries over:
 ## 2026-11-26 (README updated)
 
 README brought up to date: temperature sweep and six fork re-samples in the method, Claude ratings named as exploratory, new sections "Results so far (interim)" (H1–H3, H4/H5 status, T = 0.7 sweep) and "How to read it" (short version of docs/THEORY.md). Two new figures from the committed results via `scripts/make_readme_figures.py`: `temperature-sweep-v1.svg` (renders, functionality, per-prompt spread, novelty at T = 1.0 vs 0.7) and `entropy-vs-spread-v1.svg` (per prompt, mean ΣH of an app vs ensemble spread at T = 1.0: 300–4,600 bits per app, Spearman ρ 0.51 with spread, driven mostly by length, ρ 0.88).
+
+## 2026-11-26 (D-043: human rating session instead of Reddit)
+
+Robert chose option C: human ratings from one blind session with students, plus a frozen human–Claude agreement analysis (METHODS.md). Rating sample drawn before any human rating: `results/rating-sample.csv`, 105 apps (seed 43, 5 per prompt), representative (72 % render vs 69 %, Claude functionality 2.11 vs 2.14). Open: session date and size, rating page and backend; the public app gallery waits until after the session.

@@ -368,3 +368,15 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** the notes ask whether entropy falls because of lock-in or because of boilerplate, when the model considers an app finished, and whether token entropy reflects differences in meaning; both additions answer this from existing data without new sampling.
 
 **Billing:** the cluster agents run inside Claude Code on Robert's subscription, not the API.
+
+## D-043 · 2026-11-26 · Human ratings from one rating session; human–Claude agreement
+
+**Decision (Robert, 2026-11-26, option "C"):** the human ratings for H4/H5 come from one blind rating session with students instead of a public Reddit rating phase (replaces D-014 for the rater source). Unchanged from the frozen plan (METHODS.md): the rating sample of 5 apps per prompt (≈ 100 apps, D4), the questions (usefulness 1–5, novelty "seen something like this before" → "new to me" 1–5, works yes / partly / no; spec §5.6), the ≥ 3 ratings per app rule with stratified reduction, the H4/H5 models and the Holm family. Added before any human rating exists: a frozen human–Claude agreement analysis (METHODS.md, "Human ratings and agreement with Claude").
+
+**Sample:** drawn now with `scripts/draw_rating_sample.py` (seed 43, uniform within each prompt of the T = 1.0 grid, rendering or not): `results/rating-sample.csv`, 105 apps. Check: 72 % render (all 420: 69 %), Claude functionality mean 2.11 (all: 2.14).
+
+**Session conditions:** voluntary and anonymous (no names, e-mail or IP stored; a random rater id per browser), not graded; apps in a sandboxed iframe, order randomised per rater, no model or entropy information; each rater rates a share of the sample so that every app reaches ≥ 3 ratings. The public app gallery and any findings that could bias raters stay offline until the session has taken place.
+
+**Reason:** the Claude ratings (D-030) cover all apps but their agreement with human judgment is unknown, and they cannot become the primary outcome after their results were seen. A public Reddit phase is costly (website, backend, recruitment) with an uncertain number of raters; one supervised session reaches the planned sample with known effort and additionally measures how far the Claude ratings can stand in for human ones.
+
+**Alternatives:** keep the Reddit phase (A); drop human ratings and report H4/H5 as not tested as planned (B).
