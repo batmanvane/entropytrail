@@ -138,5 +138,6 @@ uv run pytest -m slow      # tests that need the Qwen3.5-9B weights
 
 - [docs/DECISIONS.md](docs/DECISIONS.md): decision log
 - [docs/METHODS.md](docs/METHODS.md): definitions of the recorded quantities
+- [docs/THEORY.md](docs/THEORY.md): reading frame — generation as a process on a tree, apps as its projection
 - [docs/DATA.md](docs/DATA.md): data formats
 - [docs/JOURNAL.md](docs/JOURNAL.md): dated project journal

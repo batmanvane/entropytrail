@@ -120,3 +120,7 @@ Robert agreed to a blind cross-temperature novelty pass after the T = 0.5 rating
 ## 2026-11-26 (D-042 prepared: rescoring and semantic entropy)
 
 Robert's theory notes reviewed. Already covered: per-token H/S (§1), fork position (H2 secondary, §2), fork importance (H3, §4), max_tokens and finish reason (§6; T = 1.0: 439 of 440 apps ended with the end token, one hit 16,000). Output structure checked at T = 1.0: 401 of 440 outputs are a fenced ```html block, the rest start directly with the document; text outside the app is at most 884 characters before and 4 after — the token chain is practically the code. Implemented D-042: `et rescore` + queue job kind `rescore`, stopping/position analysis, semantic-entropy analysis and cluster brief, tests (214 pass). Rescore jobs are appended when the current queue completes.
+
+## 2026-11-26 (theory note)
+
+Discussed with Robert how the attainable region of dynamic systems carries over: the reachable set is everything at T > 0, so the informative object is the distribution over final sequences and its pushforward onto app classes; on the token tree the forward equation is trivial (probability only splits), and the non-trivial dynamics live in the projection (Mori–Zwanzig). Written down as `docs/THEORY.md`, a reading frame for the existing measurements only. Agreed focus: no new experiments from it until H3 and the T = 0.5 sweep are reported; the deferred items are listed in its §7.
