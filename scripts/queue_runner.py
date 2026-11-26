@@ -8,6 +8,7 @@ Started by the user LaunchAgent de.entropytrail.queue (KeepAlive). One line per 
     forks <condition.yaml> <plan.json>           et run-window --fork-plan (no deadline)
     eval <condition dir> [prompt ids…]           et eval
     eval-forks <condition dir> [prompt ids…]     et eval --forks
+    rescore <condition.yaml>                     et rescore (teacher-forced stop probabilities, D-042)
 
 A job is repeated until it reports nothing left (run-window: done 0, aborted 0, no error;
 eval: exit 0), then the next job starts; finished units are never recomputed, so a restart
@@ -36,7 +37,7 @@ PROMPTS = "prompts/prompts.yaml"
 STALL_S = 2 * 3600
 POLL_S = 300
 BACKOFF_S = 600
-KINDS = {"grid": 2, "forks": 2, "eval": 1, "eval-forks": 1}
+KINDS = {"grid": 2, "forks": 2, "eval": 1, "eval-forks": 1, "rescore": 1}
 
 
 @dataclass
@@ -55,7 +56,8 @@ def parse_queue(text: str) -> list[Job]:
         if not line:
             continue
         kind, *args = line.split()
-        if kind not in KINDS or len(args) < KINDS[kind] or (kind in ("grid", "forks") and len(args) != 2):
+        if kind not in KINDS or len(args) < KINDS[kind] or (kind in ("grid", "forks") and len(args) != 2) \
+                or (kind == "rescore" and len(args) != 1):
             raise ValueError(f"bad queue line: {raw!r}")
         jobs.append(Job(kind, args))
     return jobs
@@ -69,6 +71,8 @@ def command(job: Job, python: str) -> list[str]:
         cond, what = job.args
         flag = ["--samples", what] if job.kind == "grid" else ["--fork-plan", what]
         return base + ["run-window", "--condition", cond, "--prompts", PROMPTS, *flag]
+    if job.kind == "rescore":
+        return base + ["rescore", "--condition", job.args[0], "--prompts", PROMPTS]
     cmd = base + ["eval", "--root", job.args[0]]
     if job.kind == "eval-forks":
         cmd.append("--forks")
@@ -89,7 +93,7 @@ def _last_json(out: str) -> dict | None:
 def is_complete(job: Job, rc: int, out: str) -> bool:
     if rc != 0:
         return False
-    if job.kind in ("eval", "eval-forks"):
+    if job.kind in ("eval", "eval-forks", "rescore"):
         return True
     r = _last_json(out)
     return bool(r) and r.get("done") == 0 and r.get("aborted") == 0 and r.get("error") is None
@@ -128,13 +132,14 @@ def run_job(cmd: list[str], *, progress, stall_s: float, poll_s: float, cwd: Pat
 
 def progress_for(job: Job):
     """Number of finished units of the job (meta.json or eval.json files)."""
-    if job.kind in ("grid", "forks"):
+    if job.kind in ("grid", "forks", "rescore"):
         import yaml
 
         from entropytrail.condition import Condition
 
         cid = Condition(**yaml.safe_load((ROOT / job.args[0]).read_text())).condition_id
-        pattern = "*/[0-9][0-9][0-9]/meta.json" if job.kind == "grid" else "*/[0-9][0-9][0-9]/forks/*/*/meta.json"
+        pattern = {"grid": "*/[0-9][0-9][0-9]/meta.json", "forks": "*/[0-9][0-9][0-9]/forks/*/*/meta.json",
+                   "rescore": "*/[0-9][0-9][0-9]/rescore.json"}[job.kind]
         base = DATA / cid
     else:
         base = Path(job.args[0])

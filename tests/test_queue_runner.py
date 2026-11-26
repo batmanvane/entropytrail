@@ -16,15 +16,18 @@ grid configs/conditions/t0p7.yaml 20
 eval /data/t0p7
 forks configs/conditions/t10.yaml results/forks/plan-main.json
 eval-forks /data/t10 game-tight-01
+rescore configs/conditions/t10.yaml
 """
 
 
 def test_parse_queue():
     jobs = qr.parse_queue(QUEUE)
-    assert [j.kind for j in jobs] == ["grid", "eval", "forks", "eval-forks"]
+    assert [j.kind for j in jobs] == ["grid", "eval", "forks", "eval-forks", "rescore"]
     assert jobs[0].args == ["configs/conditions/t0p7.yaml", "20"]
     with pytest.raises(ValueError):
         qr.parse_queue("bake bread now")
+    with pytest.raises(ValueError):
+        qr.parse_queue("rescore a.yaml b.yaml")
 
 
 def test_commands():
@@ -37,6 +40,9 @@ def test_commands():
     assert qr.command(jobs[1], py) == [et, "eval", "--root", "/data/t0p7"]
     assert "--fork-plan" in qr.command(jobs[2], py) and "--until" not in qr.command(jobs[2], py)
     assert qr.command(jobs[3], py)[-4:] == ["/data/t10", "--forks", "--prompt-ids", "game-tight-01"]
+    assert qr.command(jobs[4], py) == [et, "rescore", "--condition", "configs/conditions/t10.yaml",
+                                       "--prompts", "prompts/prompts.yaml"]
+    assert qr.is_complete(jobs[4], 0, json.dumps({"done": 3, "skipped": 0, "failed": 0}))
 
 
 def test_complete_detection():

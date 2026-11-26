@@ -357,3 +357,14 @@ Format: `## D-NNN · YYYY-MM-DD · title` with Decision / Reason / Alternatives.
 **Reason:** the within-temperature calibration makes C3 compare two relative scales; a common scale shows whether lower temperatures produce fewer distinct ideas. Running once after T = 0.5 keeps one scale for all three temperatures.
 
 **Cost and billing:** ≈ 21 agents × 5–10 min; runs inside Claude Code on Robert's Claude subscription (the shell's `ANTHROPIC_API_KEY` is rejected in Claude Code), not the API.
+
+## D-042 · 2026-11-26 · Stopping probabilities and semantic entropy (exploratory)
+
+**Decision (Robert, 2026-11-26, after the theory notes "Entropie-Trail – Notizen zur Theorie"):** two exploratory additions, not part of any Holm family; the frozen analyses (H1–H5, C1–C3) are unchanged.
+
+1. **Teacher-forced rescoring** (`et rescore`, `src/entropytrail/rescore.py`): every grid unit of the three temperatures is fed back through the model once; per output position it stores log2 P(stop) (all end ids) under the model and under the sampling distribution at the condition temperature, and the entropy of the sampling distribution `H_T` (the recorder keeps only the untempered H and top-20). Forced H is checked against the recorded H. Queue jobs `rescore <condition.yaml>` for T = 1.0, 0.7, 0.5, appended once the current queue is complete (the running queue process predates the new job kind) — ≈ 1,260 units, several hours of prefill. Analysis `scripts/stopping_analysis.py` (`src/entropytrail/analysis/stopping.py`): length distribution and finish reasons per temperature, probability of stopping while the HTML document is still open (premature stop), stop probability after `</html>`, and entropy over relative position **per section** (html, css, js, text; JS also on its own position axis; JS slope with and without the last 10 %) — the control for closing boilerplate when reading falling entropy as lock-in.
+2. **Semantic entropy** (`src/entropytrail/analysis/semantic.py`, `scripts/semantic_entropy.py`): after D-041, one sonnet agent per prompt clusters the 60 pooled idea lines (blind ids, no temperatures, no app access; `docs/semantic-cluster-brief.md`) into "same core idea" classes; semantic entropy per prompt and temperature = entropy of the class distribution of its 20 apps (plug-in and Miller–Madow), compared with T = 1.0 by a paired one-sided Wilcoxon test over prompts.
+
+**Reason:** the notes ask whether entropy falls because of lock-in or because of boilerplate, when the model considers an app finished, and whether token entropy reflects differences in meaning; both additions answer this from existing data without new sampling.
+
+**Billing:** the cluster agents run inside Claude Code on Robert's subscription, not the API.

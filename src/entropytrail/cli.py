@@ -66,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
     f.add_argument("--extend", type=Path, default=None,
                    help="keep the sites of this plan and set n_same (D-038)")
 
+    rs = sub.add_parser("rescore", help="teacher-forced stop probability and tempered entropy (D-042)")
+    common(rs)
+    rs.add_argument("--prompt-ids", nargs="+", default=None)
+    rs.add_argument("--chunk", type=int, default=256, help="forcing chunk (memory: chunk x vocab float32)")
+    rs.add_argument("--allow-dirty", action="store_true",
+                    help="run even if the git working tree has uncommitted changes")
+
     b = sub.add_parser("bench", help="single-sequence throughput")
     common(b, prompts=False)
     b.add_argument("--tokens", type=int, default=1000)
@@ -256,6 +263,45 @@ def cmd_forks_plan(args) -> int:
     return 0
 
 
+def cmd_rescore(args) -> int:
+    import hashlib
+
+    from entropytrail.model import build_prompt_ids, provenance, tokenizer_io
+    from entropytrail.rescore import grid_units, is_rescored, rescore_unit
+    from entropytrail.storage import data_root
+
+    prov = provenance()
+    if prov["git_dirty"] and not args.allow_dirty:
+        print("refusing to run: the git working tree has uncommitted changes; commit first or pass "
+              "--allow-dirty", file=sys.stderr)
+        return 2
+    cond, ps, model, tok, fp = _load(args)
+    system = ps.system_prompts[cond.system_prompt_version]
+    by_id = {p.id: p for p in ps.prompts}
+    eos_ids, _ = tokenizer_io(tok)
+    done = skipped = failed = 0
+    for unit in grid_units(data_root() / cond.condition_id, args.prompt_ids):
+        if is_rescored(unit):
+            skipped += 1
+            continue
+        try:
+            meta = json.loads((unit / "meta.json").read_text())
+            prompt = by_id[unit.parent.name]
+            if meta.get("prompt_text_sha256") != hashlib.sha256(prompt.text.encode("utf-8")).hexdigest():
+                raise ValueError("prompt text differs from the one the unit was generated with")
+            ids = build_prompt_ids(tok, system, prompt.text, cond.thinking)
+            res = rescore_unit(unit, model, ids, eos_ids, cond.temperature,
+                               dict(prov, condition_id=cond.condition_id, weights_fingerprint=fp),
+                               chunk=args.chunk)
+            done += 1
+            print(f"{unit.parent.name}/{unit.name} n={res['n_tokens']} max|dH|={res['max_abs_dH']:.4f}", flush=True)
+        except Exception as e:  # noqa: BLE001 - keep going, report at the end
+            failed += 1
+            print(f"FAILED {unit}: {e!r}", flush=True)
+    print(json.dumps({"done": done, "skipped": skipped, "failed": failed}))
+    return 0 if failed == 0 else 1
+
+
 class _BenchArgs:
     def __init__(self, a):
         self.condition = a.condition
@@ -266,7 +312,7 @@ def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     fn = {"generate": cmd_generate, "run-window": cmd_run_window,
           "validate": cmd_validate, "bench": cmd_bench, "eval": cmd_eval,
-          "forks-plan": cmd_forks_plan}[args.cmd]
+          "forks-plan": cmd_forks_plan, "rescore": cmd_rescore}[args.cmd]
     sys.exit(fn(args))
 
 

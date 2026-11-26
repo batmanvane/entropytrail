@@ -116,3 +116,7 @@ Robert decided to run T = 0.5 as well (D-040). Condition `qwen35-9b-bf16-mlx-t0p
 ## 2026-11-25 (D-041: cross-temperature novelty pass prepared)
 
 Robert agreed to a blind cross-temperature novelty pass after the T = 0.5 ratings (D-041, exploratory): key builder, blind server mode (`serve_apps.py --blind-key`), collector and analysis (`src/entropytrail/novelty_cross.py`, `scripts/novelty_cross.py`, tests), agent brief `docs/novelty-cross-brief.md`. Checked billing: Claude Code uses the subscription login (the shell's API key is on Claude Code's rejected list).
+
+## 2026-11-26 (D-042 prepared: rescoring and semantic entropy)
+
+Robert's theory notes reviewed. Already covered: per-token H/S (§1), fork position (H2 secondary, §2), fork importance (H3, §4), max_tokens and finish reason (§6; T = 1.0: 439 of 440 apps ended with the end token, one hit 16,000). Output structure checked at T = 1.0: 401 of 440 outputs are a fenced ```html block, the rest start directly with the document; text outside the app is at most 884 characters before and 4 after — the token chain is practically the code. Implemented D-042: `et rescore` + queue job kind `rescore`, stopping/position analysis, semantic-entropy analysis and cluster brief, tests (214 pass). Rescore jobs are appended when the current queue completes.

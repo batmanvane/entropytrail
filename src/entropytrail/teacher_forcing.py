@@ -15,13 +15,9 @@ def _logprobs(logits: mx.array) -> mx.array:
     return logits - mx.logsumexp(logits, axis=-1, keepdims=True)
 
 
-def score_tokens(model, prompt_ids: list[int], output_ids: list[int],
-                 chunk: int = 512) -> dict[str, np.ndarray]:
-    """Stats of the distribution that produced each output token, in one forced pass."""
+def forced_logprobs(model, prompt_ids: list[int], output_ids: list[int], chunk: int = 512):
+    """Yield (ids, logprobs) per chunk: the log-softmax that produced each output token."""
     cache = make_prompt_cache(model)
-    n = len(output_ids)
-    if n == 0:
-        return token_stats_batch(mx.zeros((0, 1)), mx.zeros((0,), dtype=mx.int32))
     prompt = mx.array(prompt_ids, dtype=mx.int32)
     # Prefill all but the last prompt token in steps, then include it with the first chunk.
     while prompt.size > 1:
@@ -30,17 +26,23 @@ def score_tokens(model, prompt_ids: list[int], output_ids: list[int],
         mx.eval([c.state for c in cache])
         prompt = prompt[k:]
     out = mx.array(output_ids, dtype=mx.int32)
-    pieces: list[dict[str, np.ndarray]] = []
     carry = prompt  # last prompt token, predicts output[0]
-    for s in range(0, n, chunk):
+    for s in range(0, len(output_ids), chunk):
         ids = out[s:s + chunk]
         # Inputs: carry + ids[:-1]; the last id of this chunk is fed with the next chunk.
         x = mx.concatenate([carry, ids[:-1]]) if ids.size > 1 else carry
         carry = ids[-1:]
         logits = model(x[None], cache=cache)[0, -ids.size:, :]
-        lp = _logprobs(logits)
-        pieces.append(token_stats_batch(lp, ids))
+        yield ids, _logprobs(logits)
         mx.eval([c.state for c in cache])
+
+
+def score_tokens(model, prompt_ids: list[int], output_ids: list[int],
+                 chunk: int = 512) -> dict[str, np.ndarray]:
+    """Stats of the distribution that produced each output token, in one forced pass."""
+    if len(output_ids) == 0:
+        return token_stats_batch(mx.zeros((0, 1)), mx.zeros((0,), dtype=mx.int32))
+    pieces = [token_stats_batch(lp, ids) for ids, lp in forced_logprobs(model, prompt_ids, output_ids, chunk)]
     return {k: np.concatenate([p[k] for p in pieces]) for k in pieces[0]}
 
 
