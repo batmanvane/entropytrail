@@ -124,3 +124,7 @@ Robert's theory notes reviewed. Already covered: per-token H/S (§1), fork posit
 ## 2026-11-26 (theory note)
 
 Discussed with Robert how the attainable region of dynamic systems carries over: the reachable set is everything at T > 0, so the informative object is the distribution over final sequences and its pushforward onto app classes; on the token tree the forward equation is trivial (probability only splits), and the non-trivial dynamics live in the projection (Mori–Zwanzig). Written down as `docs/THEORY.md`, a reading frame for the existing measurements only. Agreed focus: no new experiments from it until H3 and the T = 0.5 sweep are reported; the deferred items are listed in its §7.
+
+## 2026-11-26 (README updated)
+
+README brought up to date: temperature sweep and six fork re-samples in the method, Claude ratings named as exploratory, new sections "Results so far (interim)" (H1–H3, H4/H5 status, T = 0.7 sweep) and "How to read it" (short version of docs/THEORY.md). Two new figures from the committed results via `scripts/make_readme_figures.py`: `temperature-sweep-v1.svg` (renders, functionality, per-prompt spread, novelty at T = 1.0 vs 0.7) and `entropy-vs-spread-v1.svg` (per prompt, mean ΣH of an app vs ensemble spread at T = 1.0: 300–4,600 bits per app, Spearman ρ 0.51 with spread, driven mostly by length, ρ 0.88).

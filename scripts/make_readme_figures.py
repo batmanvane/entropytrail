@@ -7,12 +7,16 @@ Data sources (both committed):
   recorder (condition qwen35-9b-bf16-mlx-1195d88b, seed 7), with H, S and the top-5
   alternatives per token.
 - docs/figures/data/smoke-summary.json: aggregate of the 20 smoke apps (exploratory).
+- docs/figures/data/sweep-t07.json and entropy-spread.json: small extracts of the committed
+  results (results/*.csv, results/temperature-sweep/summary.json), refreshed by
+  `--refresh-data` (needs pandas: add `--group analysis`).
 """
 
 import json
 from pathlib import Path
 
 import matplotlib
+import matplotlib.ticker
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -213,9 +217,128 @@ def forks_by_section():
     plt.close(fig)
 
 
+RES = ROOT / "results"
+T07 = RES / "qwen35-9b-bf16-mlx-t0p7-a31fc218"
+LIGHT, MID = "#7fa58e", "#3d7356"  # ordinal green ramp with ACCENT: tight < loose < open
+
+
+def refresh_data():
+    import pandas as pd
+
+    sw = json.loads((RES / "temperature-sweep" / "summary.json").read_text())["comparisons"]["0.7"]
+    e10, e07 = pd.read_csv(RES / "ensemble.csv"), pd.read_csv(T07 / "ensemble.csv")
+    sp = e10[["prompt_id", "ensemble_spread"]].merge(e07[["prompt_id", "ensemble_spread"]], on="prompt_id",
+                                                     suffixes=("_10", "_07"))
+    r10, r07 = pd.read_csv(RES / "ratings-claude.csv"), pd.read_csv(T07 / "ratings-claude.csv")
+    out = {
+        "renders": sw["C1"]["share"],
+        "functionality": {"1.0": float(r10["functionality"].mean()), "0.7": float(r07["functionality"].mean())},
+        "novelty_calibrated": sw["C3"]["mean"],
+        "spread": {"1.0": sp["ensemble_spread_10"].round(4).tolist(), "0.7": sp["ensemble_spread_07"].round(4).tolist(),
+                   "prompt_id": sp["prompt_id"].tolist()},
+        "p_holm": sw["holm"],
+    }
+    (DATA / "sweep-t07.json").write_text(json.dumps(out, indent=1))
+    m = pd.read_csv(RES / "app-measures.csv")
+    m["sumH"] = m["mean_H"] * m["n_app_tokens"]
+    g = m.groupby(["prompt_id", "openness"])["sumH"].mean().reset_index().merge(
+        e10[["prompt_id", "ensemble_spread"]], on="prompt_id")
+    rows = [{"prompt_id": r.prompt_id, "openness": r.openness, "sumH_bits": round(float(r.sumH), 1),
+             "spread": round(float(r.ensemble_spread), 4)} for r in g.itertuples()]
+    (DATA / "entropy-spread.json").write_text(json.dumps(rows, indent=1))
+
+
+def _axes_style(ax):
+    ax.grid(axis="y", color=GRID, zorder=0)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+
+
+def temperature_sweep():
+    d = json.loads((DATA / "sweep-t07.json").read_text())
+    fig, axs = plt.subplots(1, 4, figsize=(9.6, 3.1), gridspec_kw={"wspace": 0.55})
+    labels, cols = ["T = 1.0", "T = 0.7"], [GRAY, ACCENT]
+
+    def bars(ax, vals, fmt, title, ylim):
+        for i, v in enumerate(vals):
+            ax.bar(i, v, width=0.6, color=cols[i], zorder=2)
+            ax.text(i, v + ylim * 0.02, fmt(v), ha="center", fontsize=8.5)
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(labels, fontsize=8.5)
+        ax.set_ylim(0, ylim)
+        ax.set_title(title, fontsize=9.5, loc="left")
+        _axes_style(ax)
+
+    bars(axs[0], [100 * d["renders"]["1.0"], 100 * d["renders"]["0.7"]], lambda v: f"{v:.0f} %",
+         "apps that run", 105)
+    axs[0].set_ylabel("%")
+    bars(axs[1], [d["functionality"]["1.0"], d["functionality"]["0.7"]], lambda v: f"{v:.2f}",
+         "functionality (1–5)", 5)
+    ax = axs[2]
+    a, b = d["spread"]["1.0"], d["spread"]["0.7"]
+    for y0, y1 in zip(a, b):
+        ax.plot([0, 1], [y0, y1], color=GRAY, linewidth=1, alpha=0.7, zorder=2)
+    ma, mb = sum(a) / len(a), sum(b) / len(b)
+    ax.plot([0, 1], [ma, mb], color=ACCENT, linewidth=2.2, marker="o", markersize=7, zorder=3)
+    ax.text(1.06, mb, f"mean\n{mb:.3f}", fontsize=8, va="center", color=INK)
+    ax.text(-0.12, ma, f"{ma:.3f}", fontsize=8, va="center", ha="right", color=INK)
+    ax.set_xlim(-0.6, 1.45)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(labels, fontsize=8.5)
+    ax.set_title("spread of the 20 apps\n(one line per prompt)", fontsize=9.5, loc="left")
+    _axes_style(ax)
+    bars(axs[3], [d["novelty_calibrated"]["1.0"], d["novelty_calibrated"]["0.7"]], lambda v: f"{v:.2f}",
+         "novelty (1–5)", 5)
+    fig.suptitle("Lowering the temperature: more apps run and they look more alike, novelty unchanged",
+                 x=0.06, ha="left", fontsize=10, y=1.06)
+    fig.savefig(OUT / "temperature-sweep-v1.svg", bbox_inches="tight")
+    fig.savefig(PREVIEW / "temperature-sweep-v1.png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+
+
+def entropy_vs_spread():
+    rows = json.loads((DATA / "entropy-spread.json").read_text())
+    style = {"tight": (LIGHT, "o", "tight brief"), "loose": (MID, "s", "loose brief"),
+             "open": (ACCENT, "^", "free brief")}
+    fig, ax = plt.subplots(figsize=(7.2, 3.6))
+    for k, (c, mk, lab) in style.items():
+        rs = [r for r in rows if r["openness"] == k]
+        ax.scatter([r["sumH_bits"] for r in rs], [r["spread"] for r in rs], s=80 if mk == "^" else 58, color=c, marker=mk,
+                   edgecolors=SURFACE, linewidths=1.5, label=lab, zorder=3)
+    note = {"edu-tight-03": ("Pythagoras with sliders", (6, -30), "center"),
+            "free-01": ("app of the model's choice", (8, 6), "left"),
+            "game-tight-02": ("memory game", (8, -12), "left")}
+    for r in rows:
+        if r["prompt_id"] in note:
+            txt, off, ha = note[r["prompt_id"]]
+            ax.annotate(f"{txt}\n{r['sumH_bits']:,.0f} bits", (r["sumH_bits"], r["spread"]), xytext=off,
+                        textcoords="offset points", fontsize=8, ha=ha, color=INK2)
+    ax.set_xscale("log")
+    ax.set_xlim(250, 7000)
+    ax.set_xticks([300, 1000, 3000])
+    ax.set_xticklabels(["300", "1,000", "3,000"])
+    ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax.set_xlabel("token entropy of one app, ΣH (bits, mean over the 20 samples)")
+    ax.set_ylabel("spread of the 20 apps")
+    ax.set_ylim(0, 0.33)
+    _axes_style(ax)
+    ax.legend(frameon=False, fontsize=8.5, loc="upper left")
+    ax.set_title("Thousands of bits per app, yet how different the apps are depends on the brief (T = 1.0)",
+                 fontsize=10, loc="left")
+    fig.savefig(OUT / "entropy-vs-spread-v1.svg", bbox_inches="tight")
+    fig.savefig(PREVIEW / "entropy-vs-spread-v1.png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
+    import sys
+
+    if "--refresh-data" in sys.argv:
+        refresh_data()
+    temperature_sweep()
+    entropy_vs_spread()
     token_strips()
     fork_distribution()
     entropy_histogram()
     forks_by_section()
-    print("written:", sorted(p.name for p in OUT.glob("*-v2.svg")))
+    print("written:", sorted(p.name for p in OUT.glob("*-v[12].svg")))

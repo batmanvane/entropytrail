@@ -1,0 +1,128 @@
+[
+ {
+  "prompt_id": "edu-loose-01",
+  "openness": "loose",
+  "sumH_bits": 3923.6,
+  "spread": 0.1335
+ },
+ {
+  "prompt_id": "edu-loose-02",
+  "openness": "loose",
+  "sumH_bits": 2002.2,
+  "spread": 0.155
+ },
+ {
+  "prompt_id": "edu-loose-03",
+  "openness": "loose",
+  "sumH_bits": 1517.4,
+  "spread": 0.1838
+ },
+ {
+  "prompt_id": "edu-tight-01",
+  "openness": "tight",
+  "sumH_bits": 1895.3,
+  "spread": 0.0835
+ },
+ {
+  "prompt_id": "edu-tight-02",
+  "openness": "tight",
+  "sumH_bits": 634.1,
+  "spread": 0.0724
+ },
+ {
+  "prompt_id": "edu-tight-03",
+  "openness": "tight",
+  "sumH_bits": 4648.7,
+  "spread": 0.1198
+ },
+ {
+  "prompt_id": "free-01",
+  "openness": "open",
+  "sumH_bits": 1186.7,
+  "spread": 0.2489
+ },
+ {
+  "prompt_id": "free-02",
+  "openness": "open",
+  "sumH_bits": 3532.3,
+  "spread": 0.2741
+ },
+ {
+  "prompt_id": "free-03",
+  "openness": "open",
+  "sumH_bits": 2376.4,
+  "spread": 0.2914
+ },
+ {
+  "prompt_id": "game-loose-01",
+  "openness": "loose",
+  "sumH_bits": 1371.1,
+  "spread": 0.1667
+ },
+ {
+  "prompt_id": "game-loose-02",
+  "openness": "loose",
+  "sumH_bits": 1725.7,
+  "spread": 0.2224
+ },
+ {
+  "prompt_id": "game-loose-03",
+  "openness": "loose",
+  "sumH_bits": 2858.7,
+  "spread": 0.242
+ },
+ {
+  "prompt_id": "game-tight-01",
+  "openness": "tight",
+  "sumH_bits": 391.5,
+  "spread": 0.1165
+ },
+ {
+  "prompt_id": "game-tight-02",
+  "openness": "tight",
+  "sumH_bits": 315.7,
+  "spread": 0.0821
+ },
+ {
+  "prompt_id": "game-tight-03",
+  "openness": "tight",
+  "sumH_bits": 373.8,
+  "spread": 0.155
+ },
+ {
+  "prompt_id": "tool-loose-01",
+  "openness": "loose",
+  "sumH_bits": 1005.4,
+  "spread": 0.1789
+ },
+ {
+  "prompt_id": "tool-loose-02",
+  "openness": "loose",
+  "sumH_bits": 1845.6,
+  "spread": 0.1703
+ },
+ {
+  "prompt_id": "tool-loose-03",
+  "openness": "loose",
+  "sumH_bits": 2596.0,
+  "spread": 0.2571
+ },
+ {
+  "prompt_id": "tool-tight-01",
+  "openness": "tight",
+  "sumH_bits": 406.9,
+  "spread": 0.0348
+ },
+ {
+  "prompt_id": "tool-tight-02",
+  "openness": "tight",
+  "sumH_bits": 1098.4,
+  "spread": 0.127
+ },
+ {
+  "prompt_id": "tool-tight-03",
+  "openness": "tight",
+  "sumH_bits": 464.5,
+  "spread": 0.0328
+ }
+]
